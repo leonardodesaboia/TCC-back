@@ -1,0 +1,44 @@
+package com.allset.api.user.dto;
+
+import com.allset.api.shared.validation.ValidCPF;
+import com.allset.api.user.domain.UserRole;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.*;
+
+@Schema(description = "Dados para criação de um novo usuário")
+public record CreateUserRequest(
+
+    @Schema(description = "Nome completo", example = "João da Silva")
+    @NotBlank(message = "Nome é obrigatório")
+    @Size(max = 150, message = "Nome deve ter no máximo 150 caracteres")
+    String name,
+
+    @Schema(description = "CPF do usuário (com ou sem máscara)", example = "529.982.247-25")
+    @NotBlank(message = "CPF é obrigatório")
+    @ValidCPF
+    String cpf,
+
+    @Schema(description = "Endereço de e-mail", example = "joao@email.com")
+    @NotBlank(message = "Email é obrigatório")
+    @Email(message = "Email inválido")
+    @Size(max = 150, message = "Email deve ter no máximo 150 caracteres")
+    String email,
+
+    @Schema(description = "Telefone no formato E.164", example = "+5511999999999")
+    @NotBlank(message = "Telefone é obrigatório")
+    @Pattern(
+        regexp = "^\\+?[1-9]\\d{1,14}$",
+        message = "Telefone inválido. Use formato E.164 (ex: +5511999999999)"
+    )
+    String phone,
+
+    @Schema(description = "Senha (mínimo 8 caracteres)", example = "Senha@2025")
+    @NotBlank(message = "Senha é obrigatória")
+    @Size(min = 8, max = 255, message = "Senha deve ter entre 8 e 255 caracteres")
+    String password,
+
+    @Schema(description = "Papel do usuário no sistema", example = "client")
+    @NotNull(message = "Role é obrigatório")
+    UserRole role
+
+) {}
