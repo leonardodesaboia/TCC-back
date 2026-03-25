@@ -50,6 +50,12 @@ public record AppProperties(
         @DefaultValue("8080")
         @Min(value = 1, message = "PORT deve ser maior que 0")
         @Max(value = 65535, message = "PORT deve ser menor que 65535")
-        Integer port
+        Integer port,
+
+        // --- Jobs ---
+
+        @NotBlank(message = "USER_PURGE_CRON é obrigatório")
+        @DefaultValue("0 0 2 * * *")
+        String userPurgeCron
 
 ) {}
