@@ -1,5 +1,12 @@
 package com.allset.api.shared.exception;
 
+import com.allset.api.user.exception.CpfAlreadyExistsException;
+import com.allset.api.user.exception.EmailAlreadyExistsException;
+import com.allset.api.user.exception.UserBannedException;
+import com.allset.api.user.exception.UserNotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -14,10 +21,16 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex,
+                                                     HttpServletRequest request) {
         Map<String, String> fields = ex.getBindingResult().getFieldErrors().stream()
             .collect(Collectors.toMap(FieldError::getField, FieldError::getDefaultMessage));
+
+        log.warn("status=400 method={} path={} fields={}",
+            request.getMethod(), request.getRequestURI(), fields);
 
         return ResponseEntity.badRequest().body(new ApiError(
             HttpStatus.BAD_REQUEST.value(),
@@ -27,8 +40,53 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ApiError> handleUserNotFound(UserNotFoundException ex,
+                                                       HttpServletRequest request) {
+        log.warn("status=404 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(
+            HttpStatus.NOT_FOUND.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler({EmailAlreadyExistsException.class, CpfAlreadyExistsException.class})
+    public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
+                                                   HttpServletRequest request) {
+        log.warn("status=409 method={} path={} exception={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getClass().getSimpleName(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(
+            HttpStatus.CONFLICT.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(UserBannedException.class)
+    public ResponseEntity<ApiError> handleBanned(UserBannedException ex,
+                                                 HttpServletRequest request) {
+        log.warn("status=403 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(
+            HttpStatus.FORBIDDEN.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiError> handleGeneric(Exception ex) {
+    public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest request) {
+        log.error("status=500 method={} path={} exception={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getClass().getName(), ex.getMessage(), ex);
+
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiError(
             HttpStatus.INTERNAL_SERVER_ERROR.value(),
             "Internal server error",
