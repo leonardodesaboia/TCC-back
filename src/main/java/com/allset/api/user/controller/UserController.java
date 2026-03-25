@@ -57,7 +57,6 @@ public class UserController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping
-    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<UserResponse> create(@Valid @RequestBody CreateUserRequest request) {
         UserResponse response = userService.create(request);
         URI location = ServletUriComponentsBuilder
@@ -138,24 +137,48 @@ public class UserController {
     }
 
     @Operation(
-        summary = "Deletar usuário (soft delete)",
-        description = "Realiza soft delete do usuário, preenchendo `deleted_at`. "
-                    + "O registro permanece no banco para conformidade com a LGPD. Exclusivo para administradores."
+        summary = "Deletar conta (soft delete)",
+        description = "Inicia o processo de exclusão da conta. "
+                    + "A conta permanece salva por **30 dias** — durante esse período o usuário pode reativá-la. "
+                    + "Após 30 dias a conta é permanentemente excluída. "
+                    + "Permitido ao próprio usuário ou a administradores."
     )
     @ApiResponses({
-        @ApiResponse(responseCode = "204", description = "Usuário removido com sucesso", content = @Content),
+        @ApiResponse(responseCode = "200", description = "Solicitação de exclusão registrada — retorna dados com `scheduledDeletionAt`",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse.class))),
         @ApiResponse(responseCode = "401", description = "Token ausente ou inválido", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Acesso negado — requer role admin", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
         @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('admin')")
-    public ResponseEntity<Void> softDelete(
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    public ResponseEntity<UserResponse> softDelete(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
-        userService.softDelete(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(userService.softDelete(id));
+    }
+
+    @Operation(
+        summary = "Reativar conta",
+        description = "Cancela a exclusão pendente e restaura a conta ao estado ativo. "
+                    + "Disponível enquanto a conta estiver dentro do período de graça de 30 dias. "
+                    + "Permitido ao próprio usuário ou a administradores."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Conta reativada com sucesso",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Token ausente ou inválido", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Conta não encontrada ou já permanentemente excluída",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PatchMapping("/{id}/reactivate")
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    public ResponseEntity<UserResponse> reactivate(
+        @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(userService.reactivate(id));
     }
 
     @Operation(
@@ -195,7 +218,6 @@ public class UserController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PatchMapping("/{id}/activate")
-    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<UserResponse> activate(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {

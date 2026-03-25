@@ -4,6 +4,7 @@ import com.allset.api.user.domain.User;
 import com.allset.api.user.dto.UserResponse;
 import org.springframework.stereotype.Component;
 
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Component
@@ -20,7 +21,8 @@ public class UserMapper {
             user.isActive(),
             user.getBanReason(),
             user.getCreatedAt(),
-            user.getUpdatedAt()
+            user.getUpdatedAt(),
+            user.getDeletedAt() != null ? user.getDeletedAt().plus(30, ChronoUnit.DAYS) : null
         );
     }
 

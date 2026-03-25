@@ -37,6 +37,9 @@ public record UserResponse(
     Instant createdAt,
 
     @Schema(description = "Data e hora da última atualização (UTC)", example = "2025-03-20T14:00:00Z")
-    Instant updatedAt
+    Instant updatedAt,
+
+    @Schema(description = "Data agendada para exclusão permanente (presente apenas quando a conta está em período de graça)", nullable = true, example = "2025-04-20T14:00:00Z")
+    Instant scheduledDeletionAt
 
 ) {}

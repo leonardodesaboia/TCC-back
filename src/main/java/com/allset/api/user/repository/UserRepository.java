@@ -5,6 +5,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,4 +27,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     // Usuários com soft delete
     Page<User> findAllByDeletedAtIsNotNull(Pageable pageable);
+
+    Optional<User> findByEmailAndDeletedAtIsNotNull(String email);
+
+    Optional<User> findByCpfHashAndDeletedAtIsNotNull(String cpfHash);
+
+    Optional<User> findByIdAndDeletedAtIsNotNull(UUID id);
+
+    // Usuários cujo período de graça já expirou
+    List<User> findAllByDeletedAtIsNotNullAndDeletedAtBefore(Instant cutoff);
 }

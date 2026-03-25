@@ -19,7 +19,9 @@ public interface UserService {
 
     UserResponse update(UUID id, UpdateUserRequest request);
 
-    void softDelete(UUID id);
+    UserResponse softDelete(UUID id);
+
+    UserResponse reactivate(UUID id);
 
     UserResponse ban(UUID id, BanUserRequest request);
 

@@ -1,9 +1,11 @@
 package com.allset.api.shared.exception;
 
+import com.allset.api.address.exception.SavedAddressNotFoundException;
 import com.allset.api.user.exception.CpfAlreadyExistsException;
 import com.allset.api.user.exception.EmailAlreadyExistsException;
 import com.allset.api.user.exception.UserBannedException;
 import com.allset.api.user.exception.UserNotFoundException;
+import com.allset.api.user.exception.UserPendingDeletionException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +56,20 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    @ExceptionHandler(SavedAddressNotFoundException.class)
+    public ResponseEntity<ApiError> handleSavedAddressNotFound(SavedAddressNotFoundException ex,
+                                                               HttpServletRequest request) {
+        log.warn("status=404 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(
+            HttpStatus.NOT_FOUND.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
     @ExceptionHandler({EmailAlreadyExistsException.class, CpfAlreadyExistsException.class})
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
                                                    HttpServletRequest request) {
@@ -64,6 +80,20 @@ public class GlobalExceptionHandler {
             HttpStatus.CONFLICT.value(),
             ex.getMessage(),
             null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(UserPendingDeletionException.class)
+    public ResponseEntity<ApiError> handlePendingDeletion(UserPendingDeletionException ex,
+                                                          HttpServletRequest request) {
+        log.warn("status=423 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.LOCKED).body(new ApiError(
+            HttpStatus.LOCKED.value(),
+            ex.getMessage(),
+            Map.of("scheduledDeletionAt", ex.getScheduledDeletionAt().toString()),
             Instant.now()
         ));
     }

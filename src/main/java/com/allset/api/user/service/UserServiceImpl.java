@@ -8,6 +8,7 @@ import com.allset.api.user.dto.UserResponse;
 import com.allset.api.user.exception.CpfAlreadyExistsException;
 import com.allset.api.user.exception.EmailAlreadyExistsException;
 import com.allset.api.user.exception.UserNotFoundException;
+import com.allset.api.user.exception.UserPendingDeletionException;
 import com.allset.api.user.mapper.UserMapper;
 import com.allset.api.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.UUID;
 
@@ -35,11 +37,18 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse create(CreateUserRequest request) {
+        userRepository.findByEmailAndDeletedAtIsNotNull(request.email())
+            .ifPresent(u -> { throw new UserPendingDeletionException(u.getDeletedAt().plus(30, ChronoUnit.DAYS)); });
+
         if (userRepository.existsByEmail(request.email())) {
             throw new EmailAlreadyExistsException(request.email());
         }
 
         String cpfHash = sha256Hex(request.cpf());
+
+        userRepository.findByCpfHashAndDeletedAtIsNotNull(cpfHash)
+            .ifPresent(u -> { throw new UserPendingDeletionException(u.getDeletedAt().plus(30, ChronoUnit.DAYS)); });
+
         if (userRepository.existsByCpfHash(cpfHash)) {
             throw new CpfAlreadyExistsException();
         }
@@ -100,16 +109,18 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void softDelete(UUID id) {
-        // TODO: decidir estratégia de anonimização no soft delete.
-        // Problema atual: campos únicos (email, cpf_hash) do registro deletado bloqueiam
-        // re-cadastro do mesmo usuário. Opções:
-        //   1. Manter dados intactos (atual) — simples, mas impede re-cadastro
-        //   2. Anonimizar dados pessoais (name, email, cpf, phone) — libera unicidade, irreversível
-        // Depende de: recuperação de conta ser um requisito ou não.
+    public UserResponse softDelete(UUID id) {
         User user = findActiveById(id);
         user.setDeletedAt(Instant.now());
-        userRepository.save(user);
+        return userMapper.toResponse(userRepository.save(user));
+    }
+
+    @Override
+    public UserResponse reactivate(UUID id) {
+        User user = userRepository.findByIdAndDeletedAtIsNotNull(id)
+            .orElseThrow(() -> new UserNotFoundException(id));
+        user.setDeletedAt(null);
+        return userMapper.toResponse(userRepository.save(user));
     }
 
     @Override
@@ -132,6 +143,11 @@ public class UserServiceImpl implements UserService {
         return userRepository.findByIdAndDeletedAtIsNull(id)
             .orElseThrow(() -> new UserNotFoundException(id));
     }
+
+    // TODO(auth): no fluxo de login, após localizar o usuário pelo e-mail, verificar se
+    // deletedAt != null antes de validar a senha. Se estiver em período de graça, lançar
+    // UserPendingDeletionException(deletedAt.plus(30, ChronoUnit.DAYS)) — o frontend
+    // recebe 423 e redireciona para a tela de reativação de conta.
 
     private static String sha256Hex(String input) {
         try {
