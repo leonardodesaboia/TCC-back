@@ -1,6 +1,14 @@
 package com.allset.api.shared.exception;
 
 import com.allset.api.address.exception.SavedAddressNotFoundException;
+import com.allset.api.calendar.exception.BlockedPeriodNotFoundException;
+import com.allset.api.catalog.exception.ServiceAreaNameAlreadyExistsException;
+import com.allset.api.catalog.exception.ServiceAreaNotFoundException;
+import com.allset.api.catalog.exception.ServiceCategoryNotFoundException;
+import com.allset.api.document.exception.ProfessionalDocumentNotFoundException;
+import com.allset.api.offering.exception.ProfessionalOfferingNotFoundException;
+import com.allset.api.professional.exception.ProfessionalAlreadyExistsException;
+import com.allset.api.professional.exception.ProfessionalNotFoundException;
 import com.allset.api.user.exception.CpfAlreadyExistsException;
 import com.allset.api.user.exception.EmailAlreadyExistsException;
 import com.allset.api.user.exception.UserBannedException;
@@ -42,9 +50,17 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ApiError> handleUserNotFound(UserNotFoundException ex,
-                                                       HttpServletRequest request) {
+    @ExceptionHandler({
+            UserNotFoundException.class,
+            SavedAddressNotFoundException.class,
+            ProfessionalNotFoundException.class,
+            ServiceAreaNotFoundException.class,
+            ServiceCategoryNotFoundException.class,
+            ProfessionalDocumentNotFoundException.class,
+            ProfessionalOfferingNotFoundException.class,
+            BlockedPeriodNotFoundException.class
+    })
+    public ResponseEntity<ApiError> handleNotFound(RuntimeException ex, HttpServletRequest request) {
         log.warn("status=404 method={} path={} message={}",
             request.getMethod(), request.getRequestURI(), ex.getMessage());
 
@@ -56,23 +72,9 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler(SavedAddressNotFoundException.class)
-    public ResponseEntity<ApiError> handleSavedAddressNotFound(SavedAddressNotFoundException ex,
-                                                               HttpServletRequest request) {
-        log.warn("status=404 method={} path={} message={}",
-            request.getMethod(), request.getRequestURI(), ex.getMessage());
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(
-            HttpStatus.NOT_FOUND.value(),
-            ex.getMessage(),
-            null,
-            Instant.now()
-        ));
-    }
-
-    @ExceptionHandler({EmailAlreadyExistsException.class, CpfAlreadyExistsException.class})
+    @ExceptionHandler({EmailAlreadyExistsException.class, CpfAlreadyExistsException.class, ProfessionalAlreadyExistsException.class, ServiceAreaNameAlreadyExistsException.class})
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
-                                                   HttpServletRequest request) {
+                                                    HttpServletRequest request) {
         log.warn("status=409 method={} path={} exception={} message={}",
             request.getMethod(), request.getRequestURI(), ex.getClass().getSimpleName(), ex.getMessage());
 
@@ -106,6 +108,19 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(
             HttpStatus.FORBIDDEN.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+            HttpStatus.BAD_REQUEST.value(),
             ex.getMessage(),
             null,
             Instant.now()
