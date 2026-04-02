@@ -50,7 +50,8 @@ public class ServiceAreaController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping
-    @PreAuthorize("hasAuthority('admin')")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceAreaResponse> create(@Valid @RequestBody CreateServiceAreaRequest request) {
         ServiceAreaResponse response = serviceAreaService.create(request);
         URI location = ServletUriComponentsBuilder
@@ -104,7 +105,8 @@ public class ServiceAreaController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('admin')")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceAreaResponse> update(
             @Parameter(description = "ID da área", required = true) @PathVariable UUID id,
             @Valid @RequestBody UpdateServiceAreaRequest request
@@ -121,7 +123,8 @@ public class ServiceAreaController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('admin')")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Void> delete(
             @Parameter(description = "ID da área", required = true) @PathVariable UUID id
     ) {

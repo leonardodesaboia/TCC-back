@@ -58,7 +58,8 @@ public class SavedAddressController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping
-    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<SavedAddressResponse> create(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId,
         @Valid @RequestBody CreateSavedAddressRequest request
@@ -93,7 +94,8 @@ public class SavedAddressController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @GetMapping
-    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<List<SavedAddressResponse>> findAll(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId
     ) {
@@ -117,7 +119,8 @@ public class SavedAddressController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<SavedAddressResponse> findById(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId,
         @Parameter(description = "ID do endereço", required = true) @PathVariable UUID id
@@ -145,7 +148,8 @@ public class SavedAddressController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<SavedAddressResponse> update(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId,
         @Parameter(description = "ID do endereço", required = true) @PathVariable UUID id,
@@ -170,7 +174,8 @@ public class SavedAddressController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<Void> delete(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId,
         @Parameter(description = "ID do endereço", required = true) @PathVariable UUID id
@@ -196,7 +201,8 @@ public class SavedAddressController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PatchMapping("/{id}/set-default")
-    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<SavedAddressResponse> setDefault(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId,
         @Parameter(description = "ID do endereço", required = true) @PathVariable UUID id
