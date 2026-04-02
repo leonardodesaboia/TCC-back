@@ -14,6 +14,15 @@ redis-host: ${REDIS_HOST:localhost}
 redis-port: ${REDIS_PORT:6379}
 port: ${PORT:8080}
 
+# Auth TTLs
+access-token-ttl-minutes: ${ACCESS_TOKEN_TTL_MINUTES:15}
+refresh-token-ttl-days: ${REFRESH_TOKEN_TTL_DAYS:7}
+reset-code-ttl-minutes: ${RESET_CODE_TTL_MINUTES:10}
+
+# Email / Resend
+resend-api-key: ${RESEND_API_KEY:}
+email-from: ${EMAIL_FROM:}
+
 ---
 
 spring:

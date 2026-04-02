@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -13,9 +14,14 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -29,7 +35,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-// TODO: reabilitar @EnableMethodSecurity quando o módulo de auth estiver implementado
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -42,10 +48,16 @@ public class SecurityConfig {
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // TODO: restaurar regras de autorização quando o módulo de auth estiver implementado
-                .anyRequest().permitAll())
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/users").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/professionals").permitAll()
+                .anyRequest().authenticated())
             .oauth2ResourceServer(oauth2 -> oauth2
-                .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+                .jwt(jwt -> jwt
+                    .decoder(buildAccessTokenDecoder())
+                    .jwtAuthenticationConverter(jwtAuthenticationConverter())));
 
         return http.build();
     }
@@ -85,6 +97,35 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * Decoder exclusivo para o resource server (filtro de autenticação).
+     * Rejeita tokens com {@code type=refresh} — refresh tokens não devem ser aceitos
+     * como Bearer tokens em endpoints protegidos.
+     * <p>
+     * Não é um @Bean para evitar conflito com {@link #jwtDecoder()}, que é injetado
+     * no {@code JwtTokenService} para decodar refresh tokens no endpoint /auth/refresh.
+     */
+    private JwtDecoder buildAccessTokenDecoder() {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(secretKey())
+            .macAlgorithm(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256)
+            .build();
+
+        OAuth2TokenValidator<Jwt> noRefreshTokens = jwt -> {
+            if ("refresh".equals(jwt.getClaimAsString("type"))) {
+                return OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error("invalid_token", "Refresh tokens não são aceitos como access tokens", null)
+                );
+            }
+            return OAuth2TokenValidatorResult.success();
+        };
+
+        decoder.setJwtValidator(
+            new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefault(), noRefreshTokens)
+        );
+
+        return decoder;
     }
 
     private SecretKey secretKey() {

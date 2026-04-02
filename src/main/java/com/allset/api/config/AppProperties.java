@@ -56,6 +56,28 @@ public record AppProperties(
 
         @NotBlank(message = "USER_PURGE_CRON é obrigatório")
         @DefaultValue("0 0 2 * * *")
-        String userPurgeCron
+        String userPurgeCron,
+
+        // --- Auth: TTLs ---
+
+        @DefaultValue("15")
+        @Min(value = 1, message = "ACCESS_TOKEN_TTL_MINUTES deve ser maior que 0")
+        Integer accessTokenTtlMinutes,
+
+        @DefaultValue("7")
+        @Min(value = 1, message = "REFRESH_TOKEN_TTL_DAYS deve ser maior que 0")
+        Integer refreshTokenTtlDays,
+
+        @DefaultValue("10")
+        @Min(value = 1, message = "RESET_CODE_TTL_MINUTES deve ser maior que 0")
+        Integer resetCodeTtlMinutes,
+
+        // --- Email / Resend ---
+
+        @NotBlank(message = "RESEND_API_KEY é obrigatório")
+        String resendApiKey,
+
+        @NotBlank(message = "EMAIL_FROM é obrigatório")
+        String emailFrom
 
 ) {}

@@ -26,4 +26,13 @@ public interface UserService {
     UserResponse ban(UUID id, BanUserRequest request);
 
     UserResponse activate(UUID id);
+
+    /**
+     * Atualiza a senha de um usuário com o hash já codificado (BCrypt).
+     * Usado exclusivamente pelo fluxo de redefinição de senha via código de e-mail.
+     *
+     * @param id              UUID do usuário
+     * @param encodedPassword senha já codificada com BCrypt
+     */
+    void updatePassword(UUID id, String encodedPassword);
 }

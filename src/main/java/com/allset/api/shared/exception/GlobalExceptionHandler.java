@@ -1,5 +1,8 @@
 package com.allset.api.shared.exception;
 
+import com.allset.api.auth.exception.InvalidCredentialsException;
+import com.allset.api.auth.exception.InvalidResetCodeException;
+import com.allset.api.auth.exception.InvalidTokenException;
 import com.allset.api.address.exception.SavedAddressNotFoundException;
 import com.allset.api.calendar.exception.BlockedPeriodNotFoundException;
 import com.allset.api.catalog.exception.ServiceAreaNameAlreadyExistsException;
@@ -15,6 +18,7 @@ import com.allset.api.user.exception.UserBannedException;
 import com.allset.api.user.exception.UserNotFoundException;
 import com.allset.api.user.exception.UserPendingDeletionException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -96,6 +100,46 @@ public class GlobalExceptionHandler {
             HttpStatus.LOCKED.value(),
             ex.getMessage(),
             Map.of("scheduledDeletionAt", ex.getScheduledDeletionAt().toString()),
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        log.warn("status=403 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(
+            HttpStatus.FORBIDDEN.value(),
+            "Acesso negado",
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler({InvalidCredentialsException.class, InvalidTokenException.class})
+    public ResponseEntity<ApiError> handleUnauthorized(RuntimeException ex, HttpServletRequest request) {
+        log.warn("status=401 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError(
+            HttpStatus.UNAUTHORIZED.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(InvalidResetCodeException.class)
+    public ResponseEntity<ApiError> handleInvalidResetCode(InvalidResetCodeException ex,
+                                                           HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+            HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            null,
             Instant.now()
         ));
     }

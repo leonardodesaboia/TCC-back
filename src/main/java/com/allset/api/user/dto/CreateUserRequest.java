@@ -1,6 +1,7 @@
 package com.allset.api.user.dto;
 
 import com.allset.api.shared.validation.ValidCPF;
+import com.allset.api.shared.validation.ValidPassword;
 import com.allset.api.user.domain.UserRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
@@ -32,9 +33,9 @@ public record CreateUserRequest(
     )
     String phone,
 
-    @Schema(description = "Senha (mínimo 8 caracteres)", example = "Senha@2025")
+    @Schema(description = "Senha (mínimo 8 caracteres, uma maiúscula, uma minúscula, um número e um caractere especial)", example = "Senha@2025!")
     @NotBlank(message = "Senha é obrigatória")
-    @Size(min = 8, max = 255, message = "Senha deve ter entre 8 e 255 caracteres")
+    @ValidPassword
     String password,
 
     @Schema(description = "Papel do usuário no sistema", example = "client")
