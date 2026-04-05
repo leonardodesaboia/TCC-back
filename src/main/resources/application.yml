@@ -1,6 +1,18 @@
 spring:
   application:
     name: allset-api
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+jwt-secret: ${JWT_SECRET:}
+cpf-encryption-key: ${CPF_ENCRYPTION_KEY:}
+user-purge-cron: ${USER_PURGE_CRON:0 0 2 * * *}
+database-url: ${DATABASE_URL:}
+db-user: ${DB_USER:}
+db-pass: ${DB_PASS:}
+redis-host: ${REDIS_HOST:localhost}
+redis-port: ${REDIS_PORT:6379}
+port: ${PORT:8080}
 
 ---
 
@@ -9,9 +21,9 @@ spring:
     activate:
       on-profile: dev
   datasource:
-    url: jdbc:postgresql://localhost:5432/allset_dev
-    username: ${DB_USER:postgres}
-    password: ${DB_PASS:postgres}
+    url: ${DATABASE_URL}
+    username: ${DB_USER}
+    password: ${DB_PASS}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -24,7 +36,15 @@ spring:
       port: ${REDIS_PORT:6379}
 
 server:
-  port: 8080
+  port: ${PORT:8080}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
 
 ---
 
@@ -49,3 +69,9 @@ spring:
 
 server:
   port: ${PORT:8080}
+
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
