@@ -12,6 +12,8 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
 
     Optional<SubscriptionPlan> findByIdAndDeletedAtIsNull(UUID id);
 
+    Optional<SubscriptionPlan> findByIdAndActiveTrueAndDeletedAtIsNull(UUID id);
+
     Page<SubscriptionPlan> findAllByDeletedAtIsNull(Pageable pageable);
 
     Page<SubscriptionPlan> findAllByActiveTrueAndDeletedAtIsNull(Pageable pageable);

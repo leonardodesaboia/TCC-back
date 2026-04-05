@@ -14,6 +14,8 @@ import com.allset.api.professional.exception.ProfessionalAlreadyExistsException;
 import com.allset.api.professional.exception.ProfessionalNotFoundException;
 import com.allset.api.subscription.exception.SubscriptionPlanNameAlreadyExistsException;
 import com.allset.api.subscription.exception.SubscriptionPlanNotFoundException;
+import com.allset.api.subscription.exception.ProfessionalSubscriptionNotFoundException;
+import com.allset.api.subscription.exception.SubscriptionPlanAlreadyActiveException;
 import com.allset.api.user.exception.CpfAlreadyExistsException;
 import com.allset.api.user.exception.EmailAlreadyExistsException;
 import com.allset.api.user.exception.UserBannedException;
@@ -63,6 +65,7 @@ public class GlobalExceptionHandler {
             ServiceAreaNotFoundException.class,
             ServiceCategoryNotFoundException.class,
             SubscriptionPlanNotFoundException.class,
+            ProfessionalSubscriptionNotFoundException.class,
             ProfessionalDocumentNotFoundException.class,
             ProfessionalOfferingNotFoundException.class,
             BlockedPeriodNotFoundException.class
@@ -84,7 +87,8 @@ public class GlobalExceptionHandler {
             CpfAlreadyExistsException.class,
             ProfessionalAlreadyExistsException.class,
             ServiceAreaNameAlreadyExistsException.class,
-            SubscriptionPlanNameAlreadyExistsException.class
+            SubscriptionPlanNameAlreadyExistsException.class,
+            SubscriptionPlanAlreadyActiveException.class
     })
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
                                                     HttpServletRequest request) {

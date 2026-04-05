@@ -7,6 +7,7 @@ spring:
 jwt-secret: ${JWT_SECRET:}
 cpf-encryption-key: ${CPF_ENCRYPTION_KEY:}
 user-purge-cron: ${USER_PURGE_CRON:0 0 2 * * *}
+subscription-expiration-cron: ${SUBSCRIPTION_EXPIRATION_CRON:0 */30 * * * *}
 database-url: ${DATABASE_URL:}
 db-user: ${DB_USER:}
 db-pass: ${DB_PASS:}
