@@ -144,6 +144,14 @@ public class UserServiceImpl implements UserService {
             .orElseThrow(() -> new UserNotFoundException(id));
     }
 
+    @Override
+    public void updatePassword(UUID id, String encodedPassword) {
+        User user = userRepository.findByIdAndDeletedAtIsNull(id)
+            .orElseThrow(() -> new UserNotFoundException(id));
+        user.setPassword(encodedPassword);
+        userRepository.save(user);
+    }
+
     // TODO(auth): no fluxo de login, após localizar o usuário pelo e-mail, verificar se
     // deletedAt != null antes de validar a senha. Se estiver em período de graça, lançar
     // UserPendingDeletionException(deletedAt.plus(30, ChronoUnit.DAYS)) — o frontend

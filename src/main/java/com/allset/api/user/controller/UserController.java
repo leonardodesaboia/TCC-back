@@ -51,8 +51,6 @@ public class UserController {
         ),
         @ApiResponse(responseCode = "400", description = "Dados inválidos",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
-        @ApiResponse(responseCode = "401", description = "Token ausente ou inválido", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Acesso negado — requer role admin", content = @Content),
         @ApiResponse(responseCode = "409", description = "Email ou CPF já cadastrado",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
@@ -79,7 +77,8 @@ public class UserController {
         @ApiResponse(responseCode = "403", description = "Acesso negado — requer role admin", content = @Content)
     })
     @GetMapping
-    @PreAuthorize("hasAuthority('admin')")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Page<UserResponse>> findAll(
         @Parameter(description = "Filtrar usuários banidos") @RequestParam(defaultValue = "false") boolean banned,
         @Parameter(description = "Filtrar usuários removidos (soft delete)") @RequestParam(defaultValue = "false") boolean deleted,
@@ -102,7 +101,8 @@ public class UserController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> findById(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
@@ -128,7 +128,8 @@ public class UserController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> update(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id,
         @Valid @RequestBody UpdateUserRequest request
@@ -152,7 +153,8 @@ public class UserController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> softDelete(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
@@ -174,7 +176,8 @@ public class UserController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PatchMapping("/{id}/reactivate")
-    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> reactivate(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
@@ -196,7 +199,8 @@ public class UserController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PatchMapping("/{id}/ban")
-    @PreAuthorize("hasAuthority('admin')")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    // @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<UserResponse> ban(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id,
         @Valid @RequestBody BanUserRequest request

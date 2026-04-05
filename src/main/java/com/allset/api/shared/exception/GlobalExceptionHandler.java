@@ -1,12 +1,28 @@
 package com.allset.api.shared.exception;
 
+import com.allset.api.auth.exception.InvalidCredentialsException;
+import com.allset.api.auth.exception.InvalidResetCodeException;
+import com.allset.api.auth.exception.InvalidTokenException;
 import com.allset.api.address.exception.SavedAddressNotFoundException;
+import com.allset.api.calendar.exception.BlockedPeriodNotFoundException;
+import com.allset.api.catalog.exception.ServiceAreaNameAlreadyExistsException;
+import com.allset.api.catalog.exception.ServiceAreaNotFoundException;
+import com.allset.api.catalog.exception.ServiceCategoryNotFoundException;
+import com.allset.api.document.exception.ProfessionalDocumentNotFoundException;
+import com.allset.api.offering.exception.ProfessionalOfferingNotFoundException;
+import com.allset.api.professional.exception.ProfessionalAlreadyExistsException;
+import com.allset.api.professional.exception.ProfessionalNotFoundException;
+import com.allset.api.subscription.exception.SubscriptionPlanNameAlreadyExistsException;
+import com.allset.api.subscription.exception.SubscriptionPlanNotFoundException;
+import com.allset.api.subscription.exception.ProfessionalSubscriptionNotFoundException;
+import com.allset.api.subscription.exception.SubscriptionPlanAlreadyActiveException;
 import com.allset.api.user.exception.CpfAlreadyExistsException;
 import com.allset.api.user.exception.EmailAlreadyExistsException;
 import com.allset.api.user.exception.UserBannedException;
 import com.allset.api.user.exception.UserNotFoundException;
 import com.allset.api.user.exception.UserPendingDeletionException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -42,9 +58,19 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ApiError> handleUserNotFound(UserNotFoundException ex,
-                                                       HttpServletRequest request) {
+    @ExceptionHandler({
+            UserNotFoundException.class,
+            SavedAddressNotFoundException.class,
+            ProfessionalNotFoundException.class,
+            ServiceAreaNotFoundException.class,
+            ServiceCategoryNotFoundException.class,
+            SubscriptionPlanNotFoundException.class,
+            ProfessionalSubscriptionNotFoundException.class,
+            ProfessionalDocumentNotFoundException.class,
+            ProfessionalOfferingNotFoundException.class,
+            BlockedPeriodNotFoundException.class
+    })
+    public ResponseEntity<ApiError> handleNotFound(RuntimeException ex, HttpServletRequest request) {
         log.warn("status=404 method={} path={} message={}",
             request.getMethod(), request.getRequestURI(), ex.getMessage());
 
@@ -56,23 +82,16 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler(SavedAddressNotFoundException.class)
-    public ResponseEntity<ApiError> handleSavedAddressNotFound(SavedAddressNotFoundException ex,
-                                                               HttpServletRequest request) {
-        log.warn("status=404 method={} path={} message={}",
-            request.getMethod(), request.getRequestURI(), ex.getMessage());
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(
-            HttpStatus.NOT_FOUND.value(),
-            ex.getMessage(),
-            null,
-            Instant.now()
-        ));
-    }
-
-    @ExceptionHandler({EmailAlreadyExistsException.class, CpfAlreadyExistsException.class})
+    @ExceptionHandler({
+            EmailAlreadyExistsException.class,
+            CpfAlreadyExistsException.class,
+            ProfessionalAlreadyExistsException.class,
+            ServiceAreaNameAlreadyExistsException.class,
+            SubscriptionPlanNameAlreadyExistsException.class,
+            SubscriptionPlanAlreadyActiveException.class
+    })
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
-                                                   HttpServletRequest request) {
+                                                    HttpServletRequest request) {
         log.warn("status=409 method={} path={} exception={} message={}",
             request.getMethod(), request.getRequestURI(), ex.getClass().getSimpleName(), ex.getMessage());
 
@@ -98,6 +117,46 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        log.warn("status=403 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(
+            HttpStatus.FORBIDDEN.value(),
+            "Acesso negado",
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler({InvalidCredentialsException.class, InvalidTokenException.class})
+    public ResponseEntity<ApiError> handleUnauthorized(RuntimeException ex, HttpServletRequest request) {
+        log.warn("status=401 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError(
+            HttpStatus.UNAUTHORIZED.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(InvalidResetCodeException.class)
+    public ResponseEntity<ApiError> handleInvalidResetCode(InvalidResetCodeException ex,
+                                                           HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+            HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
     @ExceptionHandler(UserBannedException.class)
     public ResponseEntity<ApiError> handleBanned(UserBannedException ex,
                                                  HttpServletRequest request) {
@@ -106,6 +165,19 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(
             HttpStatus.FORBIDDEN.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+            HttpStatus.BAD_REQUEST.value(),
             ex.getMessage(),
             null,
             Instant.now()
