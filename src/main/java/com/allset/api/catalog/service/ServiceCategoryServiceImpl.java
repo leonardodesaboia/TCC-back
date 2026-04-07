@@ -44,15 +44,17 @@ public class ServiceCategoryServiceImpl implements ServiceCategoryService {
     @Override
     @Transactional(readOnly = true)
     public Page<ServiceCategoryResponse> findAll(UUID areaId, boolean includeInactive, Pageable pageable) {
-        if (areaId != null) {
-            return serviceCategoryRepository
-                    .findAllByAreaIdAndActiveTrueAndDeletedAtIsNull(areaId, pageable)
-                    .map(serviceCategoryMapper::toResponse);
+        Page<ServiceCategory> page;
+        if (areaId != null && includeInactive) {
+            page = serviceCategoryRepository.findAllByAreaIdAndDeletedAtIsNull(areaId, pageable);
+        } else if (areaId != null) {
+            page = serviceCategoryRepository.findAllByAreaIdAndActiveTrueAndDeletedAtIsNull(areaId, pageable);
+        } else if (includeInactive) {
+            page = serviceCategoryRepository.findAllByDeletedAtIsNull(pageable);
+        } else {
+            page = serviceCategoryRepository.findAllByActiveTrueAndDeletedAtIsNull(pageable);
         }
-        if (includeInactive) {
-            return serviceCategoryRepository.findAllByDeletedAtIsNull(pageable).map(serviceCategoryMapper::toResponse);
-        }
-        return serviceCategoryRepository.findAllByActiveTrueAndDeletedAtIsNull(pageable).map(serviceCategoryMapper::toResponse);
+        return page.map(serviceCategoryMapper::toResponse);
     }
 
     @Override
