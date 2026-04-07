@@ -3,9 +3,13 @@ package com.allset.api.order.repository;
 import com.allset.api.order.domain.ClientResponse;
 import com.allset.api.order.domain.ExpressQueueEntry;
 import com.allset.api.order.domain.ProResponse;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.QueryHint;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
@@ -16,6 +20,12 @@ import java.util.UUID;
 public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry, UUID> {
 
     Optional<ExpressQueueEntry> findByOrderIdAndProfessionalId(UUID orderId, UUID professionalId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))
+    @Query("SELECT e FROM ExpressQueueEntry e WHERE e.orderId = :orderId AND e.professionalId = :professionalId")
+    Optional<ExpressQueueEntry> findByOrderIdAndProfessionalIdForUpdate(
+            @Param("orderId") UUID orderId, @Param("professionalId") UUID professionalId);
 
     List<ExpressQueueEntry> findAllByOrderIdOrderByQueuePositionAsc(UUID orderId);
 
@@ -36,6 +46,8 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
      * Entries com timeout do profissional: notificados antes do cutoff sem ter respondido.
      * Usados pelo scheduler de timeout.
      */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))
     @Query("""
         SELECT e FROM ExpressQueueEntry e
         WHERE e.proResponse IS NULL
@@ -54,12 +66,13 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
         SET e.clientResponse = :response,
             e.clientRespondedAt = :now
         WHERE e.orderId = :orderId
-          AND e.proResponse = com.allset.api.order.domain.ProResponse.accepted
+          AND e.proResponse = :acceptedResponse
           AND e.id <> :chosenEntryId
         """)
     void rejectOtherProposals(
             @Param("orderId") UUID orderId,
             @Param("chosenEntryId") UUID chosenEntryId,
+            @Param("acceptedResponse") ProResponse acceptedResponse,
             @Param("response") ClientResponse response,
             @Param("now") Instant now
     );
@@ -83,11 +96,11 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
           )
           AND (
               6371 * acos(
-                  LEAST(1.0,
+                  GREATEST(-1.0, LEAST(1.0,
                       cos(radians(:lat)) * cos(radians(p.geo_lat))
                       * cos(radians(p.geo_lng) - radians(:lng))
                       + sin(radians(:lat)) * sin(radians(p.geo_lat))
-                  )
+                  ))
               )
           ) <= :radiusKm
         ORDER BY
@@ -100,11 +113,11 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
           ), FALSE) DESC,
           (
               6371 * acos(
-                  LEAST(1.0,
+                  GREATEST(-1.0, LEAST(1.0,
                       cos(radians(:lat)) * cos(radians(p.geo_lat))
                       * cos(radians(p.geo_lng) - radians(:lng))
                       + sin(radians(:lat)) * sin(radians(p.geo_lat))
-                  )
+                  ))
               )
           ) ASC
         LIMIT :maxSize
@@ -136,11 +149,11 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
           )
           AND (
               6371 * acos(
-                  LEAST(1.0,
+                  GREATEST(-1.0, LEAST(1.0,
                       cos(radians(:lat)) * cos(radians(p.geo_lat))
                       * cos(radians(p.geo_lng) - radians(:lng))
                       + sin(radians(:lat)) * sin(radians(p.geo_lat))
-                  )
+                  ))
               )
           ) <= :radiusKm
         ORDER BY
@@ -153,11 +166,11 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
           ), FALSE) DESC,
           (
               6371 * acos(
-                  LEAST(1.0,
+                  GREATEST(-1.0, LEAST(1.0,
                       cos(radians(:lat)) * cos(radians(p.geo_lat))
                       * cos(radians(p.geo_lng) - radians(:lng))
                       + sin(radians(:lat)) * sin(radians(p.geo_lat))
-                  )
+                  ))
               )
           ) ASC
         LIMIT :maxSize

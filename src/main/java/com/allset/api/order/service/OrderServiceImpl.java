@@ -10,7 +10,7 @@ import com.allset.api.order.exception.*;
 import com.allset.api.order.mapper.OrderMapper;
 import com.allset.api.order.repository.*;
 import com.allset.api.professional.repository.ProfessionalRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +47,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper                orderMapper;
     private final ObjectMapper               objectMapper;
     private final AppProperties              appProperties;
+    private final ExpressWindowProcessor     expressWindowProcessor;
 
     // ─────────────────────────────────────────
     // Criação do pedido Express
@@ -83,7 +84,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         Instant now      = Instant.now();
-        String  snapshot = serializeAddress(address);
+        JsonNode snapshot = serializeAddress(address);
 
         Order order = Order.builder()
                 .clientId(clientId)
@@ -216,7 +217,8 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponse proRespond(UUID orderId, UUID professionalId, ProRespondRequest request) {
-        Order order = findActive(orderId);
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         if (order.getMode() != OrderMode.express) {
             throw new ExpressQueueViolationException("Operação exclusiva para pedidos Express");
@@ -227,7 +229,7 @@ public class OrderServiceImpl implements OrderService {
 
         // Valida que este profissional está na fila e ainda não respondeu
         ExpressQueueEntry entry = queueRepository
-                .findByOrderIdAndProfessionalId(orderId, professionalId)
+                .findByOrderIdAndProfessionalIdForUpdate(orderId, professionalId)
                 .orElseThrow(() -> new ExpressQueueViolationException(
                         "Você não foi notificado para este pedido"));
 
@@ -314,7 +316,13 @@ public class OrderServiceImpl implements OrderService {
         queueRepository.save(chosen);
 
         // Rejeita todas as outras propostas em lote
-        queueRepository.rejectOtherProposals(orderId, chosen.getId(), ClientResponse.rejected, now);
+        queueRepository.rejectOtherProposals(
+                orderId,
+                chosen.getId(),
+                ProResponse.accepted,
+                ClientResponse.rejected,
+                now
+        );
 
         // Calcula valores.
         // totalAmount = o que o cliente paga (base + urgência).
@@ -428,7 +436,7 @@ public class OrderServiceImpl implements OrderService {
 
         OrderStatus current = order.getStatus();
         if (current == OrderStatus.completed || current == OrderStatus.cancelled
-                || current == OrderStatus.disputed) {
+                || current == OrderStatus.disputed || current == OrderStatus.completed_by_pro) {
             throw new OrderStatusTransitionException(current, "cancelamento");
         }
 
@@ -462,11 +470,7 @@ public class OrderServiceImpl implements OrderService {
 
         for (ExpressQueueEntry entry : timedOutEntries) {
             try {
-                entry.setProResponse(ProResponse.timeout);
-                entry.setRespondedAt(now);
-                queueRepository.save(entry);
-                log.info("event=express_pro_timeout orderId={} professionalId={}",
-                        entry.getOrderId(), entry.getProfessionalId());
+                expressWindowProcessor.markTimeout(entry, now);
             } catch (Exception e) {
                 log.error("event=express_pro_timeout_error orderId={} error={}",
                         entry.getOrderId(), e.getMessage(), e);
@@ -476,17 +480,7 @@ public class OrderServiceImpl implements OrderService {
         // 2. Para cada pedido afetado, decide se expande raio ou aguarda
         for (UUID orderId : affectedOrderIds) {
             try {
-                Order order = orderRepository.findByIdAndDeletedAtIsNull(orderId).orElse(null);
-                if (order == null || order.getStatus() != OrderStatus.pending) continue;
-
-                boolean stillWaiting = queueRepository.existsByOrderIdAndProResponseIsNull(orderId);
-                if (stillWaiting) continue; // ainda há pros respondendo
-
-                boolean hasProposals = queueRepository.existsByOrderIdAndProResponse(orderId, ProResponse.accepted);
-                if (!hasProposals) {
-                    expandSearchOrCancel(order, now);
-                }
-                // Se tem propostas: aguarda o cliente escolher (expires_at gerencia esse prazo)
+                expressWindowProcessor.processAffectedOrder(orderId, now);
             } catch (Exception e) {
                 log.error("event=express_expand_error orderId={} error={}", orderId, e.getMessage(), e);
             }
@@ -497,21 +491,11 @@ public class OrderServiceImpl implements OrderService {
                 OrderStatus.pending, OrderMode.express, now);
 
         for (Order order : expired) {
+            if (affectedOrderIds.contains(order.getId())) {
+                continue; // já processado no loop de timeouts acima
+            }
             try {
-                boolean hasProposals = queueRepository.existsByOrderIdAndProResponse(
-                        order.getId(), ProResponse.accepted);
-
-                if (hasProposals) {
-                    // Janela do cliente expirou sem escolha
-                    cancelOrder(order, "Prazo para escolha de proposta expirado", now);
-                    log.info("event=express_client_window_expired orderId={}", order.getId());
-                } else {
-                    // Janela de propostas expirou sem propostas — tenta expandir
-                    boolean stillWaiting = queueRepository.existsByOrderIdAndProResponseIsNull(order.getId());
-                    if (!stillWaiting) {
-                        expandSearchOrCancel(order, now);
-                    }
-                }
+                expressWindowProcessor.processExpiredOrder(order, now);
             } catch (Exception e) {
                 log.error("event=express_expired_order_error orderId={} error={}",
                         order.getId(), e.getMessage(), e);
@@ -522,93 +506,6 @@ public class OrderServiceImpl implements OrderService {
     // ─────────────────────────────────────────
     // Privados
     // ─────────────────────────────────────────
-
-    /**
-     * Expande o raio de busca e notifica novos profissionais.
-     * Se atingir o máximo de tentativas, cancela o pedido.
-     */
-    private void expandSearchOrCancel(Order order, Instant now) {
-        if (order.getSearchAttempts() >= appProperties.expressMaxSearchAttempts()) {
-            cancelOrder(order, "Nenhum profissional disponível na região após " +
-                    order.getSearchAttempts() + " tentativas", now);
-            log.info("event=express_max_attempts_reached orderId={}", order.getId());
-            return;
-        }
-
-        // Calcula novo raio: interpola entre raio inicial e raio máximo
-        double baseRadius = appProperties.expressSearchRadiusKm();
-        double maxRadius  = appProperties.expressMaxRadiusKm();
-        int    nextAttempt = order.getSearchAttempts() + 1;
-        int    maxAttempts = appProperties.expressMaxSearchAttempts();
-        double newRadius   = baseRadius + (maxRadius - baseRadius)
-                * (double)(nextAttempt - 1) / (maxAttempts - 1);
-        newRadius = Math.min(newRadius, maxRadius);
-
-        // Busca profissionais no novo raio excluindo os já notificados
-        List<UUID> existingProIds = queueRepository.findProfessionalIdsByOrderId(order.getId());
-
-        // Precisamos das coordenadas do endereço do pedido
-        SavedAddress address = addressRepository.findById(order.getAddressId()).orElse(null);
-        if (address == null || address.getLat() == null || address.getLng() == null) {
-            cancelOrder(order, "Endereço sem coordenadas para expansão de busca", now);
-            return;
-        }
-
-        double lat = address.getLat().doubleValue();
-        double lng = address.getLng().doubleValue();
-
-        List<UUID> newProIds = queueRepository.findNearbyProfessionalIdsExcluding(
-                order.getCategoryId(), lat, lng, newRadius,
-                appProperties.expressMaxQueueSize(), existingProIds);
-
-        if (newProIds.isEmpty()) {
-            // Sem novos profissionais no raio expandido — tenta na próxima rodada ou cancela
-            if (nextAttempt >= maxAttempts) {
-                cancelOrder(order, "Nenhum profissional disponível na região após " +
-                        nextAttempt + " tentativas", now);
-            } else {
-                // Avança o contador mas aguarda próxima execução do scheduler
-                order.setSearchAttempts((short) nextAttempt);
-                order.setSearchRadiusKm(BigDecimal.valueOf(newRadius).setScale(2, RoundingMode.HALF_UP));
-                order.setExpiresAt(now.plus(appProperties.expressProTimeoutMinutes(), ChronoUnit.MINUTES));
-                orderRepository.save(order);
-                log.info("event=express_expand_no_pros_yet orderId={} radius={}", order.getId(), newRadius);
-            }
-            return;
-        }
-
-        // Cria novos entries para os profissionais encontrados
-        int nextPosition = existingProIds.size() + 1;
-        List<ExpressQueueEntry> entries = new ArrayList<>();
-        for (int i = 0; i < newProIds.size(); i++) {
-            entries.add(ExpressQueueEntry.builder()
-                    .orderId(order.getId())
-                    .professionalId(newProIds.get(i))
-                    .queuePosition((short) (nextPosition + i))
-                    .notifiedAt(now)
-                    .build());
-        }
-        queueRepository.saveAll(entries);
-
-        order.setSearchAttempts((short) nextAttempt);
-        order.setSearchRadiusKm(BigDecimal.valueOf(newRadius).setScale(2, RoundingMode.HALF_UP));
-        order.setExpiresAt(now.plus(appProperties.expressProTimeoutMinutes(), ChronoUnit.MINUTES));
-        orderRepository.save(order);
-
-        // TODO: push notification para os novos profissionais
-
-        log.info("event=express_radius_expanded orderId={} newRadius={} newPros={} attempt={}",
-                order.getId(), newRadius, newProIds.size(), nextAttempt);
-    }
-
-    private void cancelOrder(Order order, String reason, Instant now) {
-        OrderStatus previous = order.getStatus();
-        order.setStatus(OrderStatus.cancelled);
-        order.setCancelledAt(now);
-        order.setCancelReason(reason);
-        orderRepository.save(order);
-        recordTransition(order.getId(), previous, OrderStatus.cancelled, reason, null);
-    }
 
     private Order findActive(UUID id) {
         return orderRepository.findByIdAndDeletedAtIsNull(id)
@@ -626,16 +523,12 @@ public class OrderServiceImpl implements OrderService {
                 .build());
     }
 
-    private String serializeAddress(SavedAddress address) {
-        try {
-            return objectMapper.writeValueAsString(new AddressSnapshot(
-                    address.getLabel(), address.getStreet(), address.getNumber(),
-                    address.getComplement(), address.getDistrict(), address.getCity(),
-                    address.getState(), address.getZipCode(), address.getLat(), address.getLng()
-            ));
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Erro ao serializar endereço", e);
-        }
+    private JsonNode serializeAddress(SavedAddress address) {
+        return objectMapper.valueToTree(new AddressSnapshot(
+                address.getLabel(), address.getStreet(), address.getNumber(),
+                address.getComplement(), address.getDistrict(), address.getCity(),
+                address.getState(), address.getZipCode(), address.getLat(), address.getLng()
+        ));
     }
 
     private record AddressSnapshot(
