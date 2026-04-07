@@ -21,7 +21,7 @@ public class OrderMapper {
                 order.getStatus(),
                 order.getDescription(),
                 order.getAddressId(),
-                order.getAddressSnapshot(),
+                order.getAddressSnapshot() == null ? null : order.getAddressSnapshot().toString(),
                 order.getScheduledAt(),
                 order.getExpiresAt(),
                 order.getUrgencyFee(),

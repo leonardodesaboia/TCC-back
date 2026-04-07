@@ -1,10 +1,13 @@
 package com.allset.api.order.domain;
 
 import com.allset.api.boilerplate.domain.PostgresEntity;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcType;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -63,8 +66,9 @@ public class Order extends PostgresEntity {
      * Snapshot imutável do endereço no momento do pedido.
      * Preserva histórico mesmo se o endereço for editado/deletado posteriormente.
      */
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "address_snapshot", columnDefinition = "jsonb", nullable = false, updatable = false)
-    private String addressSnapshot;
+    private JsonNode addressSnapshot;
 
     @Column(name = "scheduled_at", updatable = false)
     private Instant scheduledAt;
