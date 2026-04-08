@@ -78,6 +78,32 @@ public record AppProperties(
         String resendApiKey,
 
         @NotBlank(message = "EMAIL_FROM é obrigatório")
-        String emailFrom
+        String emailFrom,
+
+        // --- Express ---
+
+        @DefaultValue("10")
+        @Min(value = 1, message = "EXPRESS_PRO_TIMEOUT_MINUTES deve ser maior que 0")
+        Integer expressProTimeoutMinutes,
+
+        @DefaultValue("30")
+        @Min(value = 1, message = "EXPRESS_CLIENT_WINDOW_MINUTES deve ser maior que 0")
+        Integer expressClientWindowMinutes,
+
+        @DefaultValue("15")
+        @Min(value = 1, message = "EXPRESS_SEARCH_RADIUS_KM deve ser maior que 0")
+        Double expressSearchRadiusKm,
+
+        @DefaultValue("10")
+        @Min(value = 1, message = "EXPRESS_MAX_QUEUE_SIZE deve ser maior que 0")
+        Integer expressMaxQueueSize,
+
+        @DefaultValue("3")
+        @Min(value = 1, message = "EXPRESS_MAX_SEARCH_ATTEMPTS deve ser maior que 0")
+        Integer expressMaxSearchAttempts,
+
+        @DefaultValue("50")
+        @Min(value = 1, message = "EXPRESS_MAX_RADIUS_KM deve ser maior que 0")
+        Double expressMaxRadiusKm
 
 ) {}

@@ -11,5 +11,6 @@ public record CancelSubscriptionResponse(
         @Schema(description = "ID do plano que permanece ate o fim do ciclo") UUID subscriptionPlanId,
         @Schema(description = "Nome do plano") String planName,
         @Schema(description = "Data final dos beneficios atuais") Instant benefitsUntil,
+        @Schema(description = "Data em que o cancelamento foi registrado") Instant cancelledAt,
         @Schema(description = "Mensagem de retorno") String message
 ) {}

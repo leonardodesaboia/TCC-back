@@ -18,7 +18,9 @@ public class ProfessionalSubscriptionMapper {
                 plan.isHighlightInSearch(),
                 plan.isExpressPriority(),
                 plan.getBadgeLabel(),
-                professional.getSubscriptionExpiresAt()
+                professional.getSubscriptionExpiresAt(),
+                professional.getSubscriptionCancelledAt() == null,
+                professional.getSubscriptionCancelledAt()
         );
     }
 
@@ -28,6 +30,7 @@ public class ProfessionalSubscriptionMapper {
                 plan.getId(),
                 plan.getName(),
                 professional.getSubscriptionExpiresAt(),
+                professional.getSubscriptionCancelledAt(),
                 "Assinatura cancelada. Os beneficios permanecem ate o fim do periodo vigente."
         );
     }

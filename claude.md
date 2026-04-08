@@ -1,7 +1,7 @@
 # AllSet API — Backend
 
 Marketplace de serviços autônomos que conecta clientes a profissionais verificados em Fortaleza/CE.
-Dois modos de contratação: **Agendado** (data/hora escolhida pelo cliente) e **Express** (match instantâneo com o primeiro profissional disponível próximo).
+Dois modos de contratação: **Agendado** (data/hora escolhida pelo cliente, futuro) e **Express** (broadcast para profissionais próximos, cada um propõe preço, cliente escolhe).
 
 Modelo de negócio: taxa de 20% descontada no momento da liberação do escrow. Pagamento retido via Asaas e liberado somente após conclusão confirmada por ambas as partes.
 
@@ -57,7 +57,19 @@ Copiar `.env.example` → `.env` e preencher antes de subir. A aplicação falha
 | `REDIS_HOST` / `REDIS_PORT` | Não | Padrão: `localhost:6379` |
 | `PORT` | Não | Padrão: `8080` |
 | `USER_PURGE_CRON` | Não | Cron do job de purga (padrão: `0 0 2 * * *`) |
+| `RESEND_API_KEY` | Sim | API key do Resend para envio de e-mails |
+| `EMAIL_FROM` | Sim | Endereço de origem dos e-mails (ex: `noreply@allset.com.br`) |
 | `SPRING_PROFILES_ACTIVE` | Não | `dev` ou `prod` (padrão: `dev`) |
+| `ACCESS_TOKEN_TTL_MINUTES` | Não | TTL do access token (padrão: `15`) |
+| `REFRESH_TOKEN_TTL_DAYS` | Não | TTL do refresh token (padrão: `7`) |
+| `RESET_CODE_TTL_MINUTES` | Não | TTL do código de recuperação de senha (padrão: `10`) |
+| `SUBSCRIPTION_EXPIRATION_CRON` | Não | Cron do job de expiração de assinaturas (padrão: `0 */30 * * * *`) |
+| `EXPRESS_PRO_TIMEOUT_MINUTES` | Não | Prazo para profissional responder no Express (padrão: `10`) |
+| `EXPRESS_CLIENT_WINDOW_MINUTES` | Não | Janela para cliente escolher proposta após a primeira recebida (padrão: `30`) |
+| `EXPRESS_SEARCH_RADIUS_KM` | Não | Raio inicial de busca de profissionais no Express (padrão: `15`) |
+| `EXPRESS_MAX_QUEUE_SIZE` | Não | Máximo de profissionais notificados por rodada (padrão: `10`) |
+| `EXPRESS_MAX_SEARCH_ATTEMPTS` | Não | Máximo de expansões de raio antes de cancelar (padrão: `3`) |
+| `EXPRESS_MAX_RADIUS_KM` | Não | Raio máximo de busca após expansões (padrão: `50`) |
 
 ---
 
@@ -79,35 +91,48 @@ src/main/java/com/allset/api/
 │   └── exception/
 │       ├── ApiError.java                    # Contrato de resposta de erro
 │       └── GlobalExceptionHandler.java      # @RestControllerAdvice centralizado
+├── auth/                                    # Login, JWT, refresh token, recuperação de senha
 ├── user/                                    # Módulo de usuários (clientes, profissionais, admins)
-│   ├── controller/UserController.java
-│   ├── service/UserServiceImpl.java
-│   ├── repository/UserRepository.java
-│   ├── domain/User.java + UserRole.java
-│   ├── mapper/UserMapper.java               # MapStruct
-│   ├── dto/                                 # CreateUserRequest, UpdateUserRequest, UserResponse, BanUserRequest
-│   ├── exception/                           # EmailAlreadyExistsException, CpfAlreadyExistsException,
-│   │                                        # UserNotFoundException, UserPendingDeletionException, UserBannedException
 │   └── scheduler/UserPurgeScheduler.java
 ├── address/                                 # Endereços salvos por usuário
-│   ├── controller/SavedAddressController.java
-│   ├── service/SavedAddressServiceImpl.java
-│   ├── repository/SavedAddressRepository.java
-│   ├── domain/SavedAddress.java
-│   ├── mapper/SavedAddressMapper.java
-│   ├── dto/                                 # CreateSavedAddressRequest, UpdateSavedAddressRequest, SavedAddressResponse
-│   └── exception/SavedAddressNotFoundException.java
-└── [módulos futuros: auth, professional, order, payment, chat, review, dispute, subscription, notification, admin]
+├── professional/                            # Perfil profissional, KYC, geolocalização
+├── document/                                # Documentos do profissional (S3 + IDwall)
+├── offering/                                # Serviços oferecidos pelo profissional
+├── catalog/                                 # Áreas e categorias de serviço (admin)
+├── subscription/                            # Planos de assinatura para profissionais
+│   └── scheduler/SubscriptionExpirationScheduler.java
+├── calendar/                                # Calendário de disponibilidade do profissional
+└── order/                                   # Pedidos Express — ciclo completo
+    ├── controller/OrderController.java
+    ├── service/OrderServiceImpl.java
+    ├── repository/
+    │   ├── OrderRepository.java
+    │   ├── ExpressQueueRepository.java      # Haversine, bulk-reject, timeout queries
+    │   ├── OrderStatusHistoryRepository.java
+    │   └── OrderPhotoRepository.java
+    ├── domain/                              # Order, ExpressQueueEntry, OrderStatusHistory, OrderPhoto + enums
+    ├── mapper/OrderMapper.java
+    ├── dto/                                 # CreateExpressOrderRequest, ProRespondRequest,
+    │                                        # ClientRespondRequest, OrderResponse, ExpressProposalResponse, ...
+    ├── exception/                           # OrderNotFoundException, OrderStatusTransitionException,
+    │                                        # ExpressQueueViolationException, NoProfessionalsAvailableException
+    └── scheduler/ExpressTimeoutScheduler.java
 
 src/main/resources/
 ├── application.yml
-├── application-dev.yml
-├── application-prod.yml
 └── db/migration/
     ├── V1__init.sql
     ├── V2__create_users.sql
     ├── V3__create_saved_addresses.sql
-    └── V4__alter_saved_addresses_state_to_varchar.sql
+    ├── V4__alter_saved_addresses_state_to_varchar.sql
+    ├── V5__create_subscription_plans.sql
+    ├── V6__create_service_areas.sql
+    ├── V7__create_service_categories.sql
+    ├── V8__create_professionals.sql
+    ├── V9__create_professional_documents.sql
+    ├── V10__create_professional_services.sql
+    ├── V11__create_blocked_periods.sql
+    └── V12__create_orders.sql
 ```
 
 Cada módulo futuro **deve** seguir essa estrutura: `controller / service / repository / domain / mapper / dto / exception`.
@@ -211,14 +236,10 @@ Deleção é **física** — não usa soft delete, diferente das entidades princ
 
 | Módulo | Responsabilidade |
 |---|---|
-| `auth` | Login, geração de JWT (access + refresh), logout, blacklist Redis, recuperação de senha |
-| `professional` | Perfil, especialidades, KYC via IDwall, calendário de disponibilidade, geolocalização |
-| `order` | Ciclo completo de pedido agendado e Express, `order_status_history` (audit log imutável) |
 | `payment` | Asaas — criação de cobrança, escrow, liberação com fee 20%, reembolso, webhook Asaas |
 | `chat` | WebSocket em tempo real, persistência de mensagens, histórico acessível pós-conclusão |
 | `review` | Avaliação bilateral double-blind — publica quando ambos submetem ou 7 dias expiram |
 | `dispute` | Abertura em até 24h pós-conclusão, evidências (S3), resolução exclusiva por admin |
-| `subscription` | Planos de assinatura para profissionais |
 | `notification` | Push via FCM, persistência, preferências do usuário |
 | `admin` | Moderação, métricas, resolução de disputas |
 
@@ -259,7 +280,7 @@ Clients para Asaas, IDwall, S3 e FCM ficam em `integration/`. Services nunca cha
 
 1. **Escrow obrigatório** — cliente paga ao criar o pedido; valor nunca vai direto ao profissional
 2. **Conclusão dupla** — pedido só fecha quando AMBOS confirmam; profissional obriga envio de foto comprobatória
-3. **Express — um por vez** — profissionais oferecidos um a um (mais próximo primeiro); próximo só recebe se o atual recusar ou timeout
+3. **Express — broadcast** — todos os profissionais aprovados no raio são notificados simultaneamente (Haversine); cada um propõe seu preço independentemente; cliente vê todas as propostas e escolhe uma — as demais são recusadas automaticamente. Se ninguém responde no prazo, o raio é expandido (15km → até 50km, máx. 3 tentativas por interpolação linear). Prioridade na fila: assinantes Pro primeiro, depois proximidade
 4. **Localização nunca exposta** — exibir apenas quantidade de profissionais no raio; nunca coordenadas exatas ao cliente
 5. **Double-blind** — avaliações só ficam visíveis após ambas as partes submeterem ou 7 dias expirarem
 6. **Janela de disputa** — 24h após conclusão; resolvida exclusivamente por admin

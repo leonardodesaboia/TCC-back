@@ -63,15 +63,17 @@ public class ProfessionalServiceImpl implements ProfessionalService {
     @Override
     @Transactional(readOnly = true)
     public Page<ProfessionalResponse> findAll(VerificationStatus status, boolean geoActive, Pageable pageable) {
-        if (geoActive) {
-            return professionalRepository.findAllByGeoActiveTrueAndDeletedAtIsNull(pageable)
-                    .map(professionalMapper::toResponse);
+        Page<Professional> page;
+        if (geoActive && status != null) {
+            page = professionalRepository.findAllByGeoActiveTrueAndVerificationStatusAndDeletedAtIsNull(status, pageable);
+        } else if (geoActive) {
+            page = professionalRepository.findAllByGeoActiveTrueAndDeletedAtIsNull(pageable);
+        } else if (status != null) {
+            page = professionalRepository.findAllByVerificationStatusAndDeletedAtIsNull(status, pageable);
+        } else {
+            page = professionalRepository.findAllByDeletedAtIsNull(pageable);
         }
-        if (status != null) {
-            return professionalRepository.findAllByVerificationStatusAndDeletedAtIsNull(status, pageable)
-                    .map(professionalMapper::toResponse);
-        }
-        return professionalRepository.findAllByDeletedAtIsNull(pageable).map(professionalMapper::toResponse);
+        return page.map(professionalMapper::toResponse);
     }
 
     @Override
@@ -88,6 +90,15 @@ public class ProfessionalServiceImpl implements ProfessionalService {
     @Override
     public ProfessionalResponse updateGeo(UUID id, UpdateGeoRequest request) {
         Professional professional = findActiveById(id);
+
+        if (Boolean.TRUE.equals(request.geoActive())) {
+            boolean hasLat = request.geoLat() != null || professional.getGeoLat() != null;
+            boolean hasLng = request.geoLng() != null || professional.getGeoLng() != null;
+            if (!hasLat || !hasLng) {
+                throw new IllegalArgumentException(
+                        "Coordenadas geográficas (geoLat e geoLng) são obrigatórias para ativar o modo Express");
+            }
+        }
 
         professional.setGeoActive(request.geoActive());
         if (request.geoLat() != null) professional.setGeoLat(request.geoLat());

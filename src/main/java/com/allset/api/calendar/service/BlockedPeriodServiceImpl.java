@@ -79,5 +79,13 @@ public class BlockedPeriodServiceImpl implements BlockedPeriodService {
                 throw new IllegalArgumentException("orderId, orderStartsAt e orderEndsAt são obrigatórios para bloqueios por pedido");
             }
         }
+        if (request.startsAt() != null && request.endsAt() != null
+                && !request.startsAt().isBefore(request.endsAt())) {
+            throw new IllegalArgumentException("startsAt deve ser anterior a endsAt");
+        }
+        if (request.orderStartsAt() != null && request.orderEndsAt() != null
+                && !request.orderStartsAt().isBefore(request.orderEndsAt())) {
+            throw new IllegalArgumentException("orderStartsAt deve ser anterior a orderEndsAt");
+        }
     }
 }

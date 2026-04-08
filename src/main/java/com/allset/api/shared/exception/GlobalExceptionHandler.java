@@ -4,6 +4,10 @@ import com.allset.api.auth.exception.InvalidCredentialsException;
 import com.allset.api.auth.exception.InvalidResetCodeException;
 import com.allset.api.auth.exception.InvalidTokenException;
 import com.allset.api.address.exception.SavedAddressNotFoundException;
+import com.allset.api.order.exception.ExpressQueueViolationException;
+import com.allset.api.order.exception.NoProfessionalsAvailableException;
+import com.allset.api.order.exception.OrderNotFoundException;
+import com.allset.api.order.exception.OrderStatusTransitionException;
 import com.allset.api.calendar.exception.BlockedPeriodNotFoundException;
 import com.allset.api.catalog.exception.ServiceAreaNameAlreadyExistsException;
 import com.allset.api.catalog.exception.ServiceAreaNotFoundException;
@@ -61,6 +65,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             UserNotFoundException.class,
             SavedAddressNotFoundException.class,
+            OrderNotFoundException.class,
             ProfessionalNotFoundException.class,
             ServiceAreaNotFoundException.class,
             ServiceCategoryNotFoundException.class,
@@ -165,6 +170,33 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(
             HttpStatus.FORBIDDEN.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler({OrderStatusTransitionException.class, ExpressQueueViolationException.class})
+    public ResponseEntity<ApiError> handleOrderBusiness(RuntimeException ex, HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+            HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(NoProfessionalsAvailableException.class)
+    public ResponseEntity<ApiError> handleNoProfessionals(NoProfessionalsAvailableException ex,
+                                                          HttpServletRequest request) {
+        log.warn("status=422 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.unprocessableEntity().body(new ApiError(
+            HttpStatus.UNPROCESSABLE_ENTITY.value(),
             ex.getMessage(),
             null,
             Instant.now()
