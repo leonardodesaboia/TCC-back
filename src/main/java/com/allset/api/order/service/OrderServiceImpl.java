@@ -3,6 +3,9 @@ package com.allset.api.order.service;
 import com.allset.api.address.domain.SavedAddress;
 import com.allset.api.address.repository.SavedAddressRepository;
 import com.allset.api.catalog.repository.ServiceCategoryRepository;
+import com.allset.api.chat.domain.Conversation;
+import com.allset.api.chat.service.ConversationService;
+import com.allset.api.chat.service.MessageService;
 import com.allset.api.config.AppProperties;
 import com.allset.api.order.domain.*;
 import com.allset.api.order.dto.*;
@@ -48,6 +51,8 @@ public class OrderServiceImpl implements OrderService {
     private final ObjectMapper               objectMapper;
     private final AppProperties              appProperties;
     private final ExpressWindowProcessor     expressWindowProcessor;
+    private final ConversationService        conversationService;
+    private final MessageService             messageService;
 
     // ─────────────────────────────────────────
     // Criação do pedido Express
@@ -344,7 +349,9 @@ public class OrderServiceImpl implements OrderService {
                 "Cliente escolheu proposta", clientId);
 
         // TODO: iniciar cobrança via módulo payment
-        // TODO: criar conversa via módulo chat
+        // Criar conversa de chat entre cliente e profissional escolhido
+        Conversation conv = conversationService.createForOrder(saved);
+        messageService.sendSystemMessage(conv.getId(), "Pedido aceito. Vocês podem conversar por aqui.");
 
         log.info("event=express_client_chose orderId={} professionalId={} total={}",
                 orderId, chosen.getProfessionalId(), total);
