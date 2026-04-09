@@ -104,6 +104,28 @@ public record AppProperties(
 
         @DefaultValue("50")
         @Min(value = 1, message = "EXPRESS_MAX_RADIUS_KM deve ser maior que 0")
-        Double expressMaxRadiusKm
+        Double expressMaxRadiusKm,
+
+        // --- CORS / Frontend ---
+
+        /**
+         * URL do frontend permitida para conexões WebSocket e CORS.
+         * Em produção deve ser o domínio exato (ex: https://app.allset.com.br).
+         * Em desenvolvimento aceita qualquer origem por padrão.
+         */
+        @DefaultValue("*")
+        String frontendUrl,
+
+        // --- Chat ---
+
+        @DefaultValue("4000")
+        @Min(value = 1, message = "CHAT_MESSAGE_MAX_LENGTH deve ser maior que 0")
+        @Max(value = 10000, message = "CHAT_MESSAGE_MAX_LENGTH não pode exceder 10000")
+        Integer chatMessageMaxLength,
+
+        @DefaultValue("50")
+        @Min(value = 1, message = "CHAT_MESSAGE_PAGE_SIZE deve ser maior que 0")
+        @Max(value = 200, message = "CHAT_MESSAGE_PAGE_SIZE não pode exceder 200")
+        Integer chatMessagePageSize
 
 ) {}
