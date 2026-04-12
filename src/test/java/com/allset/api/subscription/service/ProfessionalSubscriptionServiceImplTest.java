@@ -253,6 +253,7 @@ class ProfessionalSubscriptionServiceImplTest {
 
         when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId)).thenReturn(Optional.of(professional));
         when(subscriptionPlanRepository.findByIdAndActiveTrueAndDeletedAtIsNull(planId)).thenReturn(Optional.of(plan));
+        when(professionalRepository.save(professional)).thenReturn(professional);
         when(professionalSubscriptionMapper.toCancelResponse(professional, plan)).thenReturn(response);
 
         CancelSubscriptionResponse result = professionalSubscriptionService.cancel(professionalId);
