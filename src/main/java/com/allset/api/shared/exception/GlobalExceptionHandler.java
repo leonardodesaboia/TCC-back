@@ -6,6 +6,8 @@ import com.allset.api.chat.exception.MessageContentInvalidException;
 import com.allset.api.auth.exception.InvalidResetCodeException;
 import com.allset.api.auth.exception.InvalidTokenException;
 import com.allset.api.address.exception.SavedAddressNotFoundException;
+import com.allset.api.notification.exception.NotificationNotFoundException;
+import com.allset.api.notification.exception.PushTokenNotFoundException;
 import com.allset.api.order.exception.ExpressQueueViolationException;
 import com.allset.api.order.exception.NoProfessionalsAvailableException;
 import com.allset.api.order.exception.OrderNotFoundException;
@@ -76,7 +78,9 @@ public class GlobalExceptionHandler {
             ProfessionalDocumentNotFoundException.class,
             ProfessionalOfferingNotFoundException.class,
             BlockedPeriodNotFoundException.class,
-            ConversationNotFoundException.class
+            ConversationNotFoundException.class,
+            NotificationNotFoundException.class,
+            PushTokenNotFoundException.class
     })
     public ResponseEntity<ApiError> handleNotFound(RuntimeException ex, HttpServletRequest request) {
         log.warn("status=404 method={} path={} message={}",

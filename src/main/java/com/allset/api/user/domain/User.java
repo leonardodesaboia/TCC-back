@@ -47,6 +47,10 @@ public class User extends PostgresEntity {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    @Builder.Default
+    @Column(name = "notifications_enabled", nullable = false)
+    private boolean notificationsEnabled = true;
+
     @Column(name = "ban_reason")
     private String banReason;
 }

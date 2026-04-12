@@ -58,6 +58,10 @@ public record AppProperties(
         @DefaultValue("0 0 2 * * *")
         String userPurgeCron,
 
+        @NotBlank(message = "PUSH_TOKEN_PRUNE_CRON Ã© obrigatÃ³rio")
+        @DefaultValue("0 0 3 * * *")
+        String pushTokenPruneCron,
+
         // --- Auth: TTLs ---
 
         @DefaultValue("15")
