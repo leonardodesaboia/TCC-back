@@ -1,5 +1,6 @@
 package com.allset.api.chat.service;
 
+import com.allset.api.chat.domain.Conversation;
 import com.allset.api.chat.domain.Message;
 import com.allset.api.chat.domain.MessageType;
 import com.allset.api.chat.dto.MessageResponse;
@@ -8,6 +9,9 @@ import com.allset.api.chat.dto.SendMessageRequest;
 import com.allset.api.chat.event.MessageSentEvent;
 import com.allset.api.chat.mapper.MessageMapper;
 import com.allset.api.chat.repository.MessageRepository;
+import com.allset.api.notification.domain.NotificationType;
+import com.allset.api.notification.service.NotificationService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -30,10 +34,12 @@ public class MessageServiceImpl implements MessageService {
     private final ConversationService conversationService;
     private final ApplicationEventPublisher eventPublisher;
     private final ChatBroadcaster chatBroadcaster;
+    private final NotificationService notificationService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public MessageResponse sendText(UUID conversationId, UUID senderId, SendMessageRequest request) {
-        conversationService.requireParticipant(conversationId, senderId);
+        Conversation conversation = conversationService.requireParticipant(conversationId, senderId);
 
         Message message = Message.builder()
                 .conversationId(conversationId)
@@ -45,6 +51,7 @@ public class MessageServiceImpl implements MessageService {
 
         Message saved = messageRepository.save(message);
         eventPublisher.publishEvent(new MessageSentEvent(saved.getId()));
+        notifyMessageRecipient(conversation, senderId, saved.getId());
 
         log.info("event=message_sent conversationId={} messageId={} senderId={}",
                 conversationId, saved.getId(), senderId);
@@ -93,5 +100,23 @@ public class MessageServiceImpl implements MessageService {
         }
 
         return event;
+    }
+
+    private void notifyMessageRecipient(Conversation conversation, UUID senderId, UUID messageId) {
+        UUID recipientId = conversation.getClientId().equals(senderId)
+                ? conversation.getProfessionalUserId()
+                : conversation.getClientId();
+
+        var data = objectMapper.createObjectNode();
+        data.put("conversationId", conversation.getId().toString());
+        data.put("messageId", messageId.toString());
+
+        notificationService.notifyUser(
+                recipientId,
+                NotificationType.new_message,
+                "Nova mensagem",
+                "Voce recebeu uma nova mensagem no chat.",
+                data
+        );
     }
 }

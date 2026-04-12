@@ -3,10 +3,15 @@ package com.allset.api.order.service;
 import com.allset.api.address.domain.SavedAddress;
 import com.allset.api.address.repository.SavedAddressRepository;
 import com.allset.api.config.AppProperties;
+import com.allset.api.notification.domain.NotificationType;
+import com.allset.api.notification.service.NotificationService;
 import com.allset.api.order.domain.*;
 import com.allset.api.order.repository.ExpressQueueRepository;
 import com.allset.api.order.repository.OrderRepository;
 import com.allset.api.order.repository.OrderStatusHistoryRepository;
+import com.allset.api.professional.repository.ProfessionalRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -35,6 +40,9 @@ public class ExpressWindowProcessor {
     private final OrderStatusHistoryRepository historyRepository;
     private final SavedAddressRepository addressRepository;
     private final AppProperties appProperties;
+    private final ProfessionalRepository professionalRepository;
+    private final NotificationService notificationService;
+    private final ObjectMapper objectMapper;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markTimeout(ExpressQueueEntry entry, Instant now) {
@@ -136,6 +144,12 @@ public class ExpressWindowProcessor {
         }
         queueRepository.saveAll(entries);
 
+        notifyProfessionalsOfNewRequest(
+                newProIds,
+                order.getId(),
+                "A busca foi expandida e ha um novo pedido Express disponivel para voce."
+        );
+
         order.setSearchAttempts((short) nextAttempt);
         order.setSearchRadiusKm(BigDecimal.valueOf(newRadius).setScale(2, RoundingMode.HALF_UP));
         order.setExpiresAt(now.plus(appProperties.expressProTimeoutMinutes(), ChronoUnit.MINUTES));
@@ -152,6 +166,32 @@ public class ExpressWindowProcessor {
         order.setCancelReason(reason);
         orderRepository.save(order);
         recordTransition(order.getId(), previous, OrderStatus.cancelled, reason, null);
+
+        notificationService.notifyUser(
+                order.getClientId(),
+                NotificationType.request_status_update,
+                "Pedido cancelado",
+                reason,
+                orderData(order.getId())
+        );
+    }
+
+    private void notifyProfessionalsOfNewRequest(List<UUID> professionalIds, UUID orderId, String body) {
+        if (professionalIds == null || professionalIds.isEmpty()) {
+            return;
+        }
+
+        List<UUID> professionalUserIds = professionalRepository.findAllById(professionalIds).stream()
+                .map(professional -> professional.getUserId())
+                .toList();
+
+        notificationService.notifyUsers(
+                professionalUserIds,
+                NotificationType.new_request,
+                "Nova solicitacao Express",
+                body,
+                orderData(orderId)
+        );
     }
 
     private void recordTransition(UUID orderId, OrderStatus from, OrderStatus to,
@@ -163,5 +203,11 @@ public class ExpressWindowProcessor {
                 .reason(reason)
                 .changedBy(changedBy)
                 .build());
+    }
+
+    private JsonNode orderData(UUID orderId) {
+        var data = objectMapper.createObjectNode();
+        data.put("orderId", orderId.toString());
+        return data;
     }
 }
