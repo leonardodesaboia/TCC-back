@@ -8,6 +8,11 @@ import com.allset.api.auth.exception.InvalidTokenException;
 import com.allset.api.address.exception.SavedAddressNotFoundException;
 import com.allset.api.notification.exception.NotificationNotFoundException;
 import com.allset.api.notification.exception.PushTokenNotFoundException;
+import com.allset.api.payment.exception.PaymentAlreadyExistsException;
+import com.allset.api.payment.exception.PaymentNotFoundException;
+import com.allset.api.payment.exception.PaymentProcessingException;
+import com.allset.api.payment.exception.PaymentStatusTransitionException;
+import com.allset.api.payment.exception.InvalidWebhookSignatureException;
 import com.allset.api.order.exception.ExpressQueueViolationException;
 import com.allset.api.order.exception.NoProfessionalsAvailableException;
 import com.allset.api.order.exception.OrderNotFoundException;
@@ -80,7 +85,8 @@ public class GlobalExceptionHandler {
             BlockedPeriodNotFoundException.class,
             ConversationNotFoundException.class,
             NotificationNotFoundException.class,
-            PushTokenNotFoundException.class
+            PushTokenNotFoundException.class,
+            PaymentNotFoundException.class
     })
     public ResponseEntity<ApiError> handleNotFound(RuntimeException ex, HttpServletRequest request) {
         log.warn("status=404 method={} path={} message={}",
@@ -100,7 +106,8 @@ public class GlobalExceptionHandler {
             ProfessionalAlreadyExistsException.class,
             ServiceAreaNameAlreadyExistsException.class,
             SubscriptionPlanNameAlreadyExistsException.class,
-            SubscriptionPlanAlreadyActiveException.class
+            SubscriptionPlanAlreadyActiveException.class,
+            PaymentAlreadyExistsException.class
     })
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
                                                     HttpServletRequest request) {
@@ -142,7 +149,7 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler({InvalidCredentialsException.class, InvalidTokenException.class})
+    @ExceptionHandler({InvalidCredentialsException.class, InvalidTokenException.class, InvalidWebhookSignatureException.class})
     public ResponseEntity<ApiError> handleUnauthorized(RuntimeException ex, HttpServletRequest request) {
         log.warn("status=401 method={} path={} message={}",
             request.getMethod(), request.getRequestURI(), ex.getMessage());
@@ -197,7 +204,7 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler({OrderStatusTransitionException.class, ExpressQueueViolationException.class})
+    @ExceptionHandler({OrderStatusTransitionException.class, ExpressQueueViolationException.class, PaymentStatusTransitionException.class})
     public ResponseEntity<ApiError> handleOrderBusiness(RuntimeException ex, HttpServletRequest request) {
         log.warn("status=400 method={} path={} message={}",
             request.getMethod(), request.getRequestURI(), ex.getMessage());
@@ -231,6 +238,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest().body(new ApiError(
             HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(PaymentProcessingException.class)
+    public ResponseEntity<ApiError> handlePaymentProcessing(PaymentProcessingException ex,
+                                                             HttpServletRequest request) {
+        log.error("status=502 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage(), ex);
+
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(new ApiError(
+            HttpStatus.BAD_GATEWAY.value(),
             ex.getMessage(),
             null,
             Instant.now()

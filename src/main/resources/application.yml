@@ -40,6 +40,11 @@ frontend-url: ${FRONTEND_URL:*}
 chat-message-max-length: ${CHAT_MESSAGE_MAX_LENGTH:4000}
 chat-message-page-size: ${CHAT_MESSAGE_PAGE_SIZE:50}
 
+# Asaas (Pagamentos)
+asaas-api-key: ${ASAAS_API_KEY:}
+asaas-base-url: ${ASAAS_BASE_URL:https://sandbox.asaas.com/api/v3}
+asaas-webhook-token: ${ASAAS_WEBHOOK_TOKEN:}
+
 ---
 
 spring:

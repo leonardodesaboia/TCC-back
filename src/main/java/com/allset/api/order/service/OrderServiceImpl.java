@@ -9,6 +9,7 @@ import com.allset.api.chat.service.MessageService;
 import com.allset.api.config.AppProperties;
 import com.allset.api.notification.domain.NotificationType;
 import com.allset.api.notification.service.NotificationService;
+import com.allset.api.payment.service.PaymentService;
 import com.allset.api.order.domain.*;
 import com.allset.api.order.dto.*;
 import com.allset.api.order.exception.*;
@@ -56,6 +57,7 @@ public class OrderServiceImpl implements OrderService {
     private final ConversationService        conversationService;
     private final MessageService             messageService;
     private final NotificationService        notificationService;
+    private final PaymentService             paymentService;
 
     // ─────────────────────────────────────────
     // Criação do pedido Express
@@ -382,7 +384,6 @@ public class OrderServiceImpl implements OrderService {
         recordTransition(orderId, OrderStatus.pending, OrderStatus.accepted,
                 "Cliente escolheu proposta", clientId);
 
-        // TODO: iniciar cobrança via módulo payment
         // Criar conversa de chat entre cliente e profissional escolhido
         Conversation conv = conversationService.createForOrder(saved);
         notifyProfessional(
@@ -479,7 +480,8 @@ public class OrderServiceImpl implements OrderService {
         recordTransition(orderId, OrderStatus.completed_by_pro, OrderStatus.completed,
                 "Cliente confirmou conclusão", clientId);
 
-        // TODO: liberar escrow via módulo payment
+        // Libera escrow: transfere valor ao profissional (gross - 20% fee)
+        paymentService.releaseEscrow(orderId);
 
         notifyProfessional(
                 order.getProfessionalId(),
@@ -521,6 +523,9 @@ public class OrderServiceImpl implements OrderService {
 
         Order saved = orderRepository.save(order);
         recordTransition(orderId, current, OrderStatus.cancelled, request.reason(), requesterId);
+
+        // Processa reembolso/cancelamento de pagamento
+        paymentService.processOrderCancellation(order, requesterId);
 
         if (isClient) {
             if (order.getProfessionalId() != null) {

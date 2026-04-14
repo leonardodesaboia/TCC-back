@@ -130,6 +130,17 @@ public record AppProperties(
         @DefaultValue("50")
         @Min(value = 1, message = "CHAT_MESSAGE_PAGE_SIZE deve ser maior que 0")
         @Max(value = 200, message = "CHAT_MESSAGE_PAGE_SIZE não pode exceder 200")
-        Integer chatMessagePageSize
+        Integer chatMessagePageSize,
+
+        // --- Asaas (Pagamentos) ---
+
+        @NotBlank(message = "ASAAS_API_KEY é obrigatório")
+        String asaasApiKey,
+
+        @DefaultValue("https://sandbox.asaas.com/api/v3")
+        String asaasBaseUrl,
+
+        @NotBlank(message = "ASAAS_WEBHOOK_TOKEN é obrigatório")
+        String asaasWebhookToken
 
 ) {}
