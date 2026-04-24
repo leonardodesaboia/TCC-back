@@ -62,6 +62,10 @@ public record AppProperties(
         @DefaultValue("0 0 3 * * *")
         String pushTokenPruneCron,
 
+        @NotBlank(message = "REVIEW_PUBLICATION_CRON e obrigatorio")
+        @DefaultValue("0 0 * * * *")
+        String reviewPublicationCron,
+
         // --- Auth: TTLs ---
 
         @DefaultValue("15")

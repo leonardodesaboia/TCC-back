@@ -53,8 +53,8 @@ class ProfessionalOfferingServiceImplTest {
         UUID professionalId = UUID.randomUUID();
         CreateProfessionalOfferingRequest request = new CreateProfessionalOfferingRequest(
                 UUID.randomUUID(),
-                "Instalação",
-                "Descrição",
+                "Instalacao",
+                "Descricao",
                 PricingType.fixed,
                 new BigDecimal("120.00"),
                 90
@@ -73,8 +73,8 @@ class ProfessionalOfferingServiceImplTest {
         UUID categoryId = UUID.randomUUID();
         CreateProfessionalOfferingRequest request = new CreateProfessionalOfferingRequest(
                 categoryId,
-                "Instalação",
-                "Descrição",
+                "Instalacao",
+                "Descricao",
                 PricingType.fixed,
                 new BigDecimal("120.00"),
                 90
@@ -97,8 +97,8 @@ class ProfessionalOfferingServiceImplTest {
         ProfessionalOffering offering = ProfessionalOffering.builder()
                 .professionalId(professionalId)
                 .categoryId(categoryId)
-                .title("Título antigo")
-                .description("Descrição antiga")
+                .title("Titulo antigo")
+                .description("Descricao antiga")
                 .pricingType(PricingType.hourly)
                 .price(new BigDecimal("80.00"))
                 .estimatedDurationMinutes(60)
@@ -108,7 +108,7 @@ class ProfessionalOfferingServiceImplTest {
         offering.setCreatedAt(Instant.now());
 
         UpdateProfessionalOfferingRequest request = new UpdateProfessionalOfferingRequest(
-                "Título novo",
+                "Titulo novo",
                 null,
                 PricingType.fixed,
                 new BigDecimal("150.00"),
@@ -120,12 +120,14 @@ class ProfessionalOfferingServiceImplTest {
                 offeringId,
                 professionalId,
                 categoryId,
-                "Título novo",
-                "Descrição antiga",
+                "Titulo novo",
+                "Descricao antiga",
                 PricingType.fixed,
                 new BigDecimal("150.00"),
                 120,
                 false,
+                null,
+                0,
                 offering.getCreatedAt()
         );
 
@@ -137,8 +139,8 @@ class ProfessionalOfferingServiceImplTest {
         ProfessionalOfferingResponse result = professionalOfferingService.update(professionalId, offeringId, request);
 
         assertThat(result).isEqualTo(response);
-        assertThat(offering.getTitle()).isEqualTo("Título novo");
-        assertThat(offering.getDescription()).isEqualTo("Descrição antiga");
+        assertThat(offering.getTitle()).isEqualTo("Titulo novo");
+        assertThat(offering.getDescription()).isEqualTo("Descricao antiga");
         assertThat(offering.getPricingType()).isEqualTo(PricingType.fixed);
         assertThat(offering.getPrice()).isEqualByComparingTo("150.00");
         assertThat(offering.getEstimatedDurationMinutes()).isEqualTo(120);
@@ -152,7 +154,7 @@ class ProfessionalOfferingServiceImplTest {
         ProfessionalOffering offering = ProfessionalOffering.builder()
                 .professionalId(professionalId)
                 .categoryId(UUID.randomUUID())
-                .title("Serviço")
+                .title("Servico")
                 .pricingType(PricingType.fixed)
                 .price(new BigDecimal("99.00"))
                 .build();

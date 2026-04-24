@@ -91,7 +91,7 @@ class ProfessionalServiceImplTest {
         Professional professional = Professional.builder()
                 .userId(userId)
                 .verificationStatus(VerificationStatus.rejected)
-                .rejectionReason("Documento ilegível")
+                .rejectionReason("Documento ilegivel")
                 .build();
         professional.setId(professionalId);
         professional.setCreatedAt(Instant.now());
@@ -108,6 +108,8 @@ class ProfessionalServiceImplTest {
                 professional.isGeoActive(),
                 professional.getSubscriptionPlanId(),
                 professional.getSubscriptionExpiresAt(),
+                null,
+                0,
                 professional.getCreatedAt(),
                 professional.getUpdatedAt()
         );
@@ -118,7 +120,7 @@ class ProfessionalServiceImplTest {
 
         ProfessionalResponse result = professionalService.verify(
                 professionalId,
-                new VerifyProfessionalRequest(VerificationStatus.approved, "não deve permanecer")
+                new VerifyProfessionalRequest(VerificationStatus.approved, "nao deve permanecer")
         );
 
         assertThat(result.verificationStatus()).isEqualTo(VerificationStatus.approved);

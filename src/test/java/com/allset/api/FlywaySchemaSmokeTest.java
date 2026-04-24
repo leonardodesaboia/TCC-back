@@ -40,6 +40,7 @@ class FlywaySchemaSmokeTest {
         assertThat(tableExists("messages")).isTrue();
         assertThat(tableExists("push_tokens")).isTrue();
         assertThat(tableExists("notifications")).isTrue();
+        assertThat(tableExists("reviews")).isTrue();
 
         assertThat(enumExists("verification_status")).isTrue();
         assertThat(enumExists("doc_type")).isTrue();

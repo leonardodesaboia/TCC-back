@@ -20,6 +20,7 @@ import com.allset.api.document.exception.ProfessionalDocumentNotFoundException;
 import com.allset.api.offering.exception.ProfessionalOfferingNotFoundException;
 import com.allset.api.professional.exception.ProfessionalAlreadyExistsException;
 import com.allset.api.professional.exception.ProfessionalNotFoundException;
+import com.allset.api.review.exception.ReviewAlreadyExistsException;
 import com.allset.api.subscription.exception.SubscriptionPlanNameAlreadyExistsException;
 import com.allset.api.subscription.exception.SubscriptionPlanNotFoundException;
 import com.allset.api.subscription.exception.ProfessionalSubscriptionNotFoundException;
@@ -100,7 +101,8 @@ public class GlobalExceptionHandler {
             ProfessionalAlreadyExistsException.class,
             ServiceAreaNameAlreadyExistsException.class,
             SubscriptionPlanNameAlreadyExistsException.class,
-            SubscriptionPlanAlreadyActiveException.class
+            SubscriptionPlanAlreadyActiveException.class,
+            ReviewAlreadyExistsException.class
     })
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
                                                     HttpServletRequest request) {
