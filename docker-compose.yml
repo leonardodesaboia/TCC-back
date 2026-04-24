@@ -8,7 +8,7 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/datadocker
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -37,7 +37,7 @@ services:
       CPF_ENCRYPTION_KEY: ${CPF_ENCRYPTION_KEY}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       REDIS_HOST: redis
-      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PORT: 6379
       PORT: ${PORT:-8080}
       ACCESS_TOKEN_TTL_MINUTES: ${ACCESS_TOKEN_TTL_MINUTES:-15}
       REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-7}
