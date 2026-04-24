@@ -12,7 +12,10 @@ import com.allset.api.offering.repository.ProfessionalOfferingRepository;
 import com.allset.api.order.domain.Order;
 import com.allset.api.order.domain.OrderMode;
 import com.allset.api.order.domain.OrderStatus;
+import com.allset.api.order.repository.ExpressQueueRepository;
+import com.allset.api.order.repository.OrderPhotoRepository;
 import com.allset.api.order.repository.OrderRepository;
+import com.allset.api.order.repository.OrderStatusHistoryRepository;
 import com.allset.api.professional.domain.Professional;
 import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.repository.ProfessionalRepository;
@@ -21,6 +24,9 @@ import com.allset.api.review.repository.ReviewRepository;
 import com.allset.api.user.domain.User;
 import com.allset.api.user.domain.UserRole;
 import com.allset.api.user.repository.UserRepository;
+import com.allset.api.chat.repository.ConversationRepository;
+import com.allset.api.chat.repository.MessageRepository;
+import com.allset.api.notification.repository.NotificationRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -81,6 +87,24 @@ class ReviewModuleIntegrationTest {
     private OrderRepository orderRepository;
 
     @Autowired
+    private OrderStatusHistoryRepository orderStatusHistoryRepository;
+
+    @Autowired
+    private OrderPhotoRepository orderPhotoRepository;
+
+    @Autowired
+    private ExpressQueueRepository expressQueueRepository;
+
+    @Autowired
+    private ConversationRepository conversationRepository;
+
+    @Autowired
+    private MessageRepository messageRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
     private ProfessionalOfferingRepository professionalOfferingRepository;
 
     @Autowired
@@ -103,6 +127,12 @@ class ReviewModuleIntegrationTest {
     @BeforeEach
     void cleanDatabase() {
         reviewRepository.deleteAll();
+        notificationRepository.deleteAll();
+        messageRepository.deleteAll();
+        conversationRepository.deleteAll();
+        orderPhotoRepository.deleteAll();
+        orderStatusHistoryRepository.deleteAll();
+        expressQueueRepository.deleteAll();
         orderRepository.deleteAll();
         professionalOfferingRepository.deleteAll();
         professionalRepository.deleteAll();
