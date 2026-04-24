@@ -10,15 +10,17 @@ import java.util.UUID;
 public record ProfessionalResponse(
 
         @Schema(description = "ID do perfil profissional") UUID id,
-        @Schema(description = "ID do usuário vinculado") UUID userId,
-        @Schema(description = "Apresentação do profissional") String bio,
-        @Schema(description = "Anos de experiência") Short yearsOfExperience,
-        @Schema(description = "Taxa horária base sugerida") BigDecimal baseHourlyRate,
-        @Schema(description = "Status de verificação KYC") VerificationStatus verificationStatus,
-        @Schema(description = "Motivo de rejeição do KYC") String rejectionReason,
-        @Schema(description = "Disponível para pedidos Express") boolean geoActive,
+        @Schema(description = "ID do usuario vinculado") UUID userId,
+        @Schema(description = "Apresentacao do profissional") String bio,
+        @Schema(description = "Anos de experiencia") Short yearsOfExperience,
+        @Schema(description = "Taxa horaria base sugerida") BigDecimal baseHourlyRate,
+        @Schema(description = "Status de verificacao KYC") VerificationStatus verificationStatus,
+        @Schema(description = "Motivo de rejeicao do KYC") String rejectionReason,
+        @Schema(description = "Disponivel para pedidos Express") boolean geoActive,
         @Schema(description = "ID do plano de assinatura") UUID subscriptionPlanId,
-        @Schema(description = "Expiração do plano de assinatura") Instant subscriptionExpiresAt,
-        @Schema(description = "Data de criação") Instant createdAt,
-        @Schema(description = "Data de atualização") Instant updatedAt
+        @Schema(description = "Expiracao do plano de assinatura") Instant subscriptionExpiresAt,
+        @Schema(description = "Media das avaliacoes publicadas recebidas", nullable = true) BigDecimal averageRating,
+        @Schema(description = "Quantidade de avaliacoes publicadas recebidas") long reviewCount,
+        @Schema(description = "Data de criacao") Instant createdAt,
+        @Schema(description = "Data de atualizacao") Instant updatedAt
 ) {}
