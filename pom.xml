@@ -156,4 +156,18 @@
 		</plugins>
 	</build>
 
+	<profiles>
+		<profile>
+			<id>windows-local-build-dir</id>
+			<activation>
+				<os>
+					<family>Windows</family>
+				</os>
+			</activation>
+			<build>
+				<directory>${java.io.tmpdir}/allset-api-build/${project.artifactId}</directory>
+			</build>
+		</profile>
+	</profiles>
+
 </project>
