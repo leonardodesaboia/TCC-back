@@ -1,9 +1,13 @@
 package com.allset.api.shared.exception;
 
 import com.allset.api.auth.exception.InvalidCredentialsException;
+import com.allset.api.chat.exception.ConversationNotFoundException;
+import com.allset.api.chat.exception.MessageContentInvalidException;
 import com.allset.api.auth.exception.InvalidResetCodeException;
 import com.allset.api.auth.exception.InvalidTokenException;
 import com.allset.api.address.exception.SavedAddressNotFoundException;
+import com.allset.api.notification.exception.NotificationNotFoundException;
+import com.allset.api.notification.exception.PushTokenNotFoundException;
 import com.allset.api.order.exception.ExpressQueueViolationException;
 import com.allset.api.order.exception.NoProfessionalsAvailableException;
 import com.allset.api.order.exception.OrderNotFoundException;
@@ -73,7 +77,10 @@ public class GlobalExceptionHandler {
             ProfessionalSubscriptionNotFoundException.class,
             ProfessionalDocumentNotFoundException.class,
             ProfessionalOfferingNotFoundException.class,
-            BlockedPeriodNotFoundException.class
+            BlockedPeriodNotFoundException.class,
+            ConversationNotFoundException.class,
+            NotificationNotFoundException.class,
+            PushTokenNotFoundException.class
     })
     public ResponseEntity<ApiError> handleNotFound(RuntimeException ex, HttpServletRequest request) {
         log.warn("status=404 method={} path={} message={}",
@@ -170,6 +177,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(
             HttpStatus.FORBIDDEN.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(MessageContentInvalidException.class)
+    public ResponseEntity<ApiError> handleMessageContentInvalid(MessageContentInvalidException ex,
+                                                                 HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+            HttpStatus.BAD_REQUEST.value(),
             ex.getMessage(),
             null,
             Instant.now()

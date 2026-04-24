@@ -28,7 +28,7 @@ class FlywaySchemaSmokeTest {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void shouldExposeTablesAndEnumTypesFromMigrationsV5ToV11() {
+    void shouldExposeTablesAndEnumTypesFromCurrentMigrations() {
         assertThat(tableExists("subscription_plans")).isTrue();
         assertThat(tableExists("service_areas")).isTrue();
         assertThat(tableExists("service_categories")).isTrue();
@@ -36,11 +36,18 @@ class FlywaySchemaSmokeTest {
         assertThat(tableExists("professional_documents")).isTrue();
         assertThat(tableExists("professional_services")).isTrue();
         assertThat(tableExists("blocked_periods")).isTrue();
+        assertThat(tableExists("conversations")).isTrue();
+        assertThat(tableExists("messages")).isTrue();
+        assertThat(tableExists("push_tokens")).isTrue();
+        assertThat(tableExists("notifications")).isTrue();
 
         assertThat(enumExists("verification_status")).isTrue();
         assertThat(enumExists("doc_type")).isTrue();
         assertThat(enumExists("pricing_type")).isTrue();
         assertThat(enumExists("block_type")).isTrue();
+        assertThat(enumExists("msg_type")).isTrue();
+        assertThat(enumExists("notification_type")).isTrue();
+        assertThat(enumExists("platform")).isTrue();
     }
 
     private boolean tableExists(String tableName) {

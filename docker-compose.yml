@@ -44,6 +44,9 @@ services:
       RESET_CODE_TTL_MINUTES: ${RESET_CODE_TTL_MINUTES:-10}
       RESEND_API_KEY: ${RESEND_API_KEY}
       EMAIL_FROM: ${EMAIL_FROM}
+      FRONTEND_URL: ${FRONTEND_URL:-*}
+      CHAT_MESSAGE_MAX_LENGTH: ${CHAT_MESSAGE_MAX_LENGTH:-4000}
+      CHAT_MESSAGE_PAGE_SIZE: ${CHAT_MESSAGE_PAGE_SIZE:-50}
     depends_on:
       postgres:
         condition: service_healthy

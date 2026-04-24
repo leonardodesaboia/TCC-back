@@ -8,6 +8,7 @@ jwt-secret: ${JWT_SECRET:}
 cpf-encryption-key: ${CPF_ENCRYPTION_KEY:}
 user-purge-cron: ${USER_PURGE_CRON:0 0 2 * * *}
 subscription-expiration-cron: ${SUBSCRIPTION_EXPIRATION_CRON:0 */30 * * * *}
+push-token-prune-cron: ${PUSH_TOKEN_PRUNE_CRON:0 0 3 * * *}
 database-url: ${DATABASE_URL:}
 db-user: ${DB_USER:}
 db-pass: ${DB_PASS:}
@@ -31,6 +32,13 @@ express-search-radius-km: ${EXPRESS_SEARCH_RADIUS_KM:15}
 express-max-queue-size: ${EXPRESS_MAX_QUEUE_SIZE:10}
 express-max-search-attempts: ${EXPRESS_MAX_SEARCH_ATTEMPTS:3}
 express-max-radius-km: ${EXPRESS_MAX_RADIUS_KM:50}
+
+# CORS / Frontend
+frontend-url: ${FRONTEND_URL:*}
+
+# Chat
+chat-message-max-length: ${CHAT_MESSAGE_MAX_LENGTH:4000}
+chat-message-page-size: ${CHAT_MESSAGE_PAGE_SIZE:50}
 
 ---
 
