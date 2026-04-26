@@ -1,5 +1,6 @@
 package com.allset.api.user.dto;
 
+import com.allset.api.shared.storage.dto.StorageRefResponse;
 import com.allset.api.user.domain.UserRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -25,8 +26,8 @@ public record UserResponse(
     @Schema(description = "Papel do usuario no sistema", example = "client")
     UserRole role,
 
-    @Schema(description = "URL do avatar", nullable = true)
-    String avatarUrl,
+    @Schema(description = "Avatar do usuario (chave + URL pre-assinada)", nullable = true)
+    StorageRefResponse avatar,
 
     @Schema(description = "Indica se o usuario esta ativo", example = "true")
     boolean active,
