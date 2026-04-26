@@ -5,6 +5,7 @@ import com.allset.api.catalog.dto.ServiceCategoryResponse;
 import com.allset.api.catalog.dto.UpdateServiceCategoryRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -19,4 +20,8 @@ public interface ServiceCategoryService {
     ServiceCategoryResponse update(UUID id, UpdateServiceCategoryRequest request);
 
     void delete(UUID id);
+
+    ServiceCategoryResponse setIcon(UUID id, MultipartFile file);
+
+    ServiceCategoryResponse removeIcon(UUID id);
 }

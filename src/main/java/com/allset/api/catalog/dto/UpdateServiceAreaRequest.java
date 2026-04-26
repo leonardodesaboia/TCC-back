@@ -9,9 +9,6 @@ public record UpdateServiceAreaRequest(
         @Size(max = 80, message = "Nome deve ter no máximo 80 caracteres")
         String name,
 
-        @Schema(description = "URL do ícone no S3")
-        String iconUrl,
-
         @Schema(description = "Área ativa")
         Boolean active
 ) {}

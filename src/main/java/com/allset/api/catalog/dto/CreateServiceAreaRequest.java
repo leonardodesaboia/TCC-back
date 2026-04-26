@@ -9,8 +9,5 @@ public record CreateServiceAreaRequest(
         @Schema(description = "Nome da área", example = "Elétrica")
         @NotBlank(message = "Nome é obrigatório")
         @Size(max = 80, message = "Nome deve ter no máximo 80 caracteres")
-        String name,
-
-        @Schema(description = "URL do ícone no S3", example = "https://...")
-        String iconUrl
+        String name
 ) {}
