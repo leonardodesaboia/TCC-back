@@ -15,6 +15,9 @@ import com.allset.api.order.exception.*;
 import com.allset.api.order.mapper.OrderMapper;
 import com.allset.api.order.repository.*;
 import com.allset.api.professional.repository.ProfessionalRepository;
+import com.allset.api.shared.storage.domain.StorageBucket;
+import com.allset.api.shared.storage.domain.StoredObject;
+import com.allset.api.shared.storage.service.StorageService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -56,6 +60,7 @@ public class OrderServiceImpl implements OrderService {
     private final ConversationService        conversationService;
     private final MessageService             messageService;
     private final NotificationService        notificationService;
+    private final StorageService             storageService;
 
     // ─────────────────────────────────────────
     // Criação do pedido Express
@@ -111,16 +116,6 @@ public class OrderServiceImpl implements OrderService {
 
         Order saved = orderRepository.save(order);
         recordTransition(saved.getId(), null, OrderStatus.pending, "Pedido Express criado", null);
-
-        // Foto do problema (opcional)
-        if (request.photoUrl() != null && !request.photoUrl().isBlank()) {
-            photoRepository.save(OrderPhoto.builder()
-                    .orderId(saved.getId())
-                    .uploaderId(clientId)
-                    .photoType(PhotoType.request)
-                    .url(request.photoUrl())
-                    .build());
-        }
 
         // Cria entries para todos — notificados simultaneamente
         List<ExpressQueueEntry> entries = new ArrayList<>();
@@ -179,7 +174,7 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderNotFoundException(orderId);
         }
 
-        return orderMapper.toResponse(order);
+        return orderMapper.toResponse(order, photoRepository.findAllByOrderId(orderId));
     }
 
     @Override
@@ -414,7 +409,7 @@ public class OrderServiceImpl implements OrderService {
     // ─────────────────────────────────────────
 
     @Override
-    public OrderResponse completeByPro(UUID orderId, UUID professionalId, CompleteByProRequest request) {
+    public OrderResponse completeByPro(UUID orderId, UUID professionalId, MultipartFile file) {
         Order order = findActive(orderId);
 
         if (!professionalId.equals(order.getProfessionalId())) {
@@ -428,11 +423,13 @@ public class OrderServiceImpl implements OrderService {
                 .map(p -> p.getUserId())
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
+        StoredObject stored = storageService.upload(StorageBucket.ORDER_PHOTOS, orderId.toString(), file);
+
         photoRepository.save(OrderPhoto.builder()
                 .orderId(orderId)
                 .uploaderId(proUserId)
                 .photoType(PhotoType.completion_proof)
-                .url(request.photoUrl())
+                .storageKey(stored.key())
                 .build());
 
         Instant now = Instant.now();
@@ -453,7 +450,39 @@ public class OrderServiceImpl implements OrderService {
         );
 
         log.info("event=order_completed_by_pro orderId={} professionalId={}", orderId, professionalId);
-        return orderMapper.toResponse(saved);
+        return orderMapper.toResponse(saved, photoRepository.findAllByOrderId(orderId));
+    }
+
+    @Override
+    public OrderPhotoResponse uploadPhoto(UUID orderId, UUID requesterUserId, String requesterRole,
+                                          PhotoType type, MultipartFile file) {
+        Order order = findActive(orderId);
+
+        boolean isAdmin = "admin".equals(requesterRole);
+        boolean isClient = requesterUserId.equals(order.getClientId());
+        boolean isPro = false;
+        if ("professional".equals(requesterRole)) {
+            UUID proId = professionalRepository.findByUserIdAndDeletedAtIsNull(requesterUserId)
+                    .map(p -> p.getId())
+                    .orElse(null);
+            isPro = proId != null && proId.equals(order.getProfessionalId());
+        }
+
+        if (!isAdmin && !isClient && !isPro) {
+            throw new OrderNotFoundException(orderId);
+        }
+
+        StoredObject stored = storageService.upload(StorageBucket.ORDER_PHOTOS, orderId.toString(), file);
+
+        OrderPhoto saved = photoRepository.save(OrderPhoto.builder()
+                .orderId(orderId)
+                .uploaderId(requesterUserId)
+                .photoType(type)
+                .storageKey(stored.key())
+                .build());
+
+        log.info("event=order_photo_uploaded orderId={} type={} uploaderId={}", orderId, type, requesterUserId);
+        return orderMapper.toPhotoResponse(saved);
     }
 
     // ─────────────────────────────────────────

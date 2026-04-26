@@ -32,8 +32,8 @@ public class OrderPhoto {
     @Column(name = "photo_type", columnDefinition = "photo_type", nullable = false, updatable = false)
     private PhotoType photoType;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String url;
+    @Column(name = "url", nullable = false, columnDefinition = "TEXT")
+    private String storageKey;
 
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     private Instant uploadedAt;

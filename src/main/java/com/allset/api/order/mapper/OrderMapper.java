@@ -2,14 +2,33 @@ package com.allset.api.order.mapper;
 
 import com.allset.api.order.domain.ExpressQueueEntry;
 import com.allset.api.order.domain.Order;
+import com.allset.api.order.domain.OrderPhoto;
 import com.allset.api.order.dto.ExpressQueueEntryResponse;
+import com.allset.api.order.dto.OrderPhotoResponse;
 import com.allset.api.order.dto.OrderResponse;
+import com.allset.api.shared.storage.domain.StorageBucket;
+import com.allset.api.shared.storage.service.StorageRefFactory;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+import java.util.List;
+
 @Component
+@RequiredArgsConstructor
 public class OrderMapper {
 
+    private final StorageRefFactory storageRefFactory;
+
     public OrderResponse toResponse(Order order) {
+        return toResponse(order, Collections.emptyList());
+    }
+
+    public OrderResponse toResponse(Order order, List<OrderPhoto> photos) {
+        List<OrderPhotoResponse> photoResponses = photos == null ? List.of() : photos.stream()
+                .map(this::toPhotoResponse)
+                .toList();
+
         return new OrderResponse(
                 order.getId(),
                 order.getClientId(),
@@ -37,7 +56,18 @@ public class OrderMapper {
                 order.getCancelReason(),
                 order.getVersion(),
                 order.getCreatedAt(),
-                order.getUpdatedAt()
+                order.getUpdatedAt(),
+                photoResponses
+        );
+    }
+
+    public OrderPhotoResponse toPhotoResponse(OrderPhoto photo) {
+        return new OrderPhotoResponse(
+                photo.getId(),
+                photo.getPhotoType(),
+                photo.getUploaderId(),
+                storageRefFactory.from(StorageBucket.ORDER_PHOTOS, photo.getStorageKey()),
+                photo.getUploadedAt()
         );
     }
 
