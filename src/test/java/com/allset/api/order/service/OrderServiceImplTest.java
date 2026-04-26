@@ -19,6 +19,7 @@ import com.allset.api.order.mapper.OrderMapper;
 import com.allset.api.order.repository.*;
 import com.allset.api.professional.domain.Professional;
 import com.allset.api.professional.repository.ProfessionalRepository;
+import com.allset.api.shared.storage.service.StorageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -85,6 +86,9 @@ class OrderServiceImplTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private StorageService storageService;
+
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
 
@@ -113,7 +117,6 @@ class OrderServiceImplTest {
                 categoryId,
                 "Trocar tomada",
                 address.getId(),
-                null,
                 new BigDecimal("15.00")
         );
 
@@ -162,7 +165,6 @@ class OrderServiceImplTest {
                 categoryId,
                 "Trocar tomada",
                 address.getId(),
-                "https://cdn/request.png",
                 new BigDecimal("15.00")
         ));
 
@@ -182,7 +184,6 @@ class OrderServiceImplTest {
                 "Ha um novo pedido Express disponivel para a sua categoria.",
                 objectMapper.createObjectNode().put("orderId", orderId.toString())
         );
-        verify(photoRepository).save(any(OrderPhoto.class));
     }
 
     @Test
@@ -375,7 +376,8 @@ class OrderServiceImplTest {
                 order.getCancelReason(),
                 order.getVersion(),
                 order.getCreatedAt(),
-                order.getUpdatedAt()
+                order.getUpdatedAt(),
+                List.of()
         );
     }
 }

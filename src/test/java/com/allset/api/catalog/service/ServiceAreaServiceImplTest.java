@@ -8,12 +8,14 @@ import com.allset.api.catalog.exception.ServiceAreaNameAlreadyExistsException;
 import com.allset.api.catalog.exception.ServiceAreaNotFoundException;
 import com.allset.api.catalog.mapper.ServiceAreaMapper;
 import com.allset.api.catalog.repository.ServiceAreaRepository;
+import com.allset.api.shared.storage.service.StorageService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -33,12 +35,18 @@ class ServiceAreaServiceImplTest {
     @Mock
     private ServiceAreaMapper serviceAreaMapper;
 
+    @Mock
+    private StorageService storageService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private ServiceAreaServiceImpl serviceAreaService;
 
     @Test
     void createShouldRejectDuplicatedActiveName() {
-        CreateServiceAreaRequest request = new CreateServiceAreaRequest("Elétrica", "https://cdn/icon.svg");
+        CreateServiceAreaRequest request = new CreateServiceAreaRequest("Elétrica");
 
         when(serviceAreaRepository.existsByNameAndDeletedAtIsNull("Elétrica")).thenReturn(true);
 
@@ -52,14 +60,14 @@ class ServiceAreaServiceImplTest {
         UUID id = UUID.randomUUID();
         ServiceArea area = ServiceArea.builder()
                 .name("Limpeza")
-                .iconUrl("https://cdn/old.svg")
+                .iconKey("catalog-icons/areas/abc.svg")
                 .active(true)
                 .build();
         area.setId(id);
         area.setCreatedAt(Instant.now());
 
-        UpdateServiceAreaRequest request = new UpdateServiceAreaRequest("Jardinagem", "https://cdn/new.svg", false);
-        ServiceAreaResponse response = new ServiceAreaResponse(id, "Jardinagem", "https://cdn/new.svg", false, area.getCreatedAt());
+        UpdateServiceAreaRequest request = new UpdateServiceAreaRequest("Jardinagem", false);
+        ServiceAreaResponse response = new ServiceAreaResponse(id, "Jardinagem", null, false, area.getCreatedAt());
 
         when(serviceAreaRepository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.of(area));
         when(serviceAreaRepository.existsByNameAndDeletedAtIsNull("Jardinagem")).thenReturn(false);
@@ -70,7 +78,6 @@ class ServiceAreaServiceImplTest {
 
         assertThat(result).isEqualTo(response);
         assertThat(area.getName()).isEqualTo("Jardinagem");
-        assertThat(area.getIconUrl()).isEqualTo("https://cdn/new.svg");
         assertThat(area.isActive()).isFalse();
     }
 

@@ -1,5 +1,6 @@
 package com.allset.api.user.service;
 
+import com.allset.api.shared.storage.service.StorageService;
 import com.allset.api.user.domain.User;
 import com.allset.api.user.domain.UserRole;
 import com.allset.api.user.dto.BanUserRequest;
@@ -15,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
@@ -42,6 +44,12 @@ class UserServiceImplTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private StorageService storageService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -90,7 +98,7 @@ class UserServiceImplTest {
         when(userRepository.existsByEmail("novo@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> userService.update(userId,
-                new UpdateUserRequest("Maria Souza", "novo@example.com", null, null)))
+                new UpdateUserRequest("Maria Souza", "novo@example.com", null)))
                 .isInstanceOf(EmailAlreadyExistsException.class)
                 .hasMessageContaining("novo@example.com");
     }
@@ -166,7 +174,7 @@ class UserServiceImplTest {
                 user.getEmail(),
                 user.getPhone(),
                 user.getRole(),
-                user.getAvatarUrl(),
+                null,
                 user.isActive(),
                 user.getBanReason(),
                 null,

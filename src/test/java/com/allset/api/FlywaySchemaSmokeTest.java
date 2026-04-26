@@ -18,7 +18,12 @@ import static org.assertj.core.api.Assertions.assertThat;
         "redis-host=localhost",
         "redis-port=6379",
         "port=8080",
-        "user-purge-cron=0 0 2 * * *"
+        "user-purge-cron=0 0 2 * * *",
+        "minio.endpoint=http://test:9000",
+        "minio.public-endpoint=http://test:9000",
+        "minio.access-key=test",
+        "minio.secret-key=testsecret",
+        "minio.auto-create-buckets=false"
 })
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")

@@ -1,6 +1,5 @@
 package com.allset.api.catalog.service;
 
-import com.allset.api.catalog.domain.ServiceArea;
 import com.allset.api.catalog.domain.ServiceCategory;
 import com.allset.api.catalog.dto.CreateServiceCategoryRequest;
 import com.allset.api.catalog.dto.ServiceCategoryResponse;
@@ -9,12 +8,14 @@ import com.allset.api.catalog.exception.ServiceAreaNotFoundException;
 import com.allset.api.catalog.mapper.ServiceCategoryMapper;
 import com.allset.api.catalog.repository.ServiceAreaRepository;
 import com.allset.api.catalog.repository.ServiceCategoryRepository;
+import com.allset.api.shared.storage.service.StorageService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
@@ -25,7 +26,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +41,12 @@ class ServiceCategoryServiceImplTest {
     @Mock
     private ServiceCategoryMapper serviceCategoryMapper;
 
+    @Mock
+    private StorageService storageService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private ServiceCategoryServiceImpl serviceCategoryService;
 
@@ -51,7 +57,7 @@ class ServiceCategoryServiceImplTest {
         when(serviceAreaRepository.findByIdAndDeletedAtIsNull(areaId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> serviceCategoryService.create(
-                new CreateServiceCategoryRequest(areaId, "Instalacao", null)))
+                new CreateServiceCategoryRequest(areaId, "Instalacao")))
                 .isInstanceOf(ServiceAreaNotFoundException.class)
                 .hasMessageContaining(areaId.toString());
     }
@@ -95,10 +101,9 @@ class ServiceCategoryServiceImplTest {
         when(serviceCategoryMapper.toResponse(category)).thenAnswer(invocation -> response(invocation.getArgument(0)));
 
         ServiceCategoryResponse response = serviceCategoryService.update(category.getId(),
-                new UpdateServiceCategoryRequest("Reformas", "https://cdn/icon.png", false));
+                new UpdateServiceCategoryRequest("Reformas", false));
 
         assertThat(response.name()).isEqualTo("Reformas");
-        assertThat(response.iconUrl()).isEqualTo("https://cdn/icon.png");
         assertThat(response.active()).isFalse();
     }
 
@@ -118,7 +123,7 @@ class ServiceCategoryServiceImplTest {
                 category.getId(),
                 category.getAreaId(),
                 category.getName(),
-                category.getIconUrl(),
+                null,
                 category.isActive(),
                 category.getCreatedAt()
         );
