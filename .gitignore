@@ -1,5 +1,7 @@
 .env
-implemetation_plans
+implementation_plans/
+Users/
+.claude/settings.local.json
 
 HELP.md
 target/
