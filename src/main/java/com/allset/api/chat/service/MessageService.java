@@ -5,12 +5,15 @@ import com.allset.api.chat.dto.ReadReceiptEvent;
 import com.allset.api.chat.dto.SendMessageRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
 public interface MessageService {
 
     MessageResponse sendText(UUID conversationId, UUID senderId, SendMessageRequest request);
+
+    MessageResponse sendImageMessage(UUID conversationId, UUID senderId, MultipartFile file);
 
     /**
      * Chamado pelo módulo order em transições de status.

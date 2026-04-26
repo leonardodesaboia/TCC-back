@@ -6,6 +6,7 @@ import com.allset.api.chat.dto.ConversationSummaryResponse;
 import com.allset.api.chat.dto.MessageResponse;
 import com.allset.api.chat.exception.ConversationNotFoundException;
 import com.allset.api.chat.mapper.ConversationMapper;
+import com.allset.api.chat.mapper.MessageMapper;
 import com.allset.api.chat.repository.ConversationRepository;
 import com.allset.api.chat.repository.MessageRepository;
 import com.allset.api.order.domain.Order;
@@ -30,6 +31,7 @@ public class ConversationServiceImpl implements ConversationService {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final ConversationMapper conversationMapper;
+    private final MessageMapper messageMapper;
     private final ProfessionalService professionalService;
 
     @Override
@@ -85,17 +87,7 @@ public class ConversationServiceImpl implements ConversationService {
                 .map(conv -> {
                     MessageResponse lastMessage = messageRepository
                             .findTopByConversationIdAndDeletedAtIsNullOrderBySentAtDesc(conv.getId())
-                            .map(msg -> new MessageResponse(
-                                    msg.getId(),
-                                    msg.getConversationId(),
-                                    msg.getSenderId(),
-                                    msg.getMsgType(),
-                                    msg.getContent(),
-                                    msg.getAttachmentUrl(),
-                                    msg.getSentAt(),
-                                    msg.getDeliveredAt(),
-                                    msg.getReadAt()
-                            ))
+                            .map(messageMapper::toResponse)
                             .orElse(null);
 
                     long unreadCount = messageRepository

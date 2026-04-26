@@ -11,6 +11,9 @@ import com.allset.api.chat.mapper.MessageMapper;
 import com.allset.api.chat.repository.MessageRepository;
 import com.allset.api.notification.domain.NotificationType;
 import com.allset.api.notification.service.NotificationService;
+import com.allset.api.shared.storage.domain.StorageBucket;
+import com.allset.api.shared.storage.domain.StoredObject;
+import com.allset.api.shared.storage.service.StorageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -36,6 +40,7 @@ public class MessageServiceImpl implements MessageService {
     private final ChatBroadcaster chatBroadcaster;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final StorageService storageService;
 
     @Override
     public MessageResponse sendText(UUID conversationId, UUID senderId, SendMessageRequest request) {
@@ -54,6 +59,31 @@ public class MessageServiceImpl implements MessageService {
         notifyMessageRecipient(conversation, senderId, saved.getId());
 
         log.info("event=message_sent conversationId={} messageId={} senderId={}",
+                conversationId, saved.getId(), senderId);
+        return messageMapper.toResponse(saved);
+    }
+
+    @Override
+    public MessageResponse sendImageMessage(UUID conversationId, UUID senderId, MultipartFile file) {
+        Conversation conversation = conversationService.requireParticipant(conversationId, senderId);
+
+        StoredObject stored = storageService.upload(StorageBucket.CHAT_ATTACHMENTS, conversationId.toString(), file);
+
+        Message message = Message.builder()
+                .conversationId(conversationId)
+                .senderId(senderId)
+                .msgType(MessageType.image)
+                .attachmentKey(stored.key())
+                .attachmentSizeBytes((int) Math.min(stored.sizeBytes(), Integer.MAX_VALUE))
+                .attachmentMimeType(stored.contentType())
+                .sentAt(Instant.now())
+                .build();
+
+        Message saved = messageRepository.save(message);
+        eventPublisher.publishEvent(new MessageSentEvent(saved.getId()));
+        notifyMessageRecipient(conversation, senderId, saved.getId());
+
+        log.info("event=image_message_sent conversationId={} messageId={} senderId={}",
                 conversationId, saved.getId(), senderId);
         return messageMapper.toResponse(saved);
     }
