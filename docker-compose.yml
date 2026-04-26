@@ -25,6 +25,23 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     build: .
     ports:
@@ -47,11 +64,30 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-*}
       CHAT_MESSAGE_MAX_LENGTH: ${CHAT_MESSAGE_MAX_LENGTH:-4000}
       CHAT_MESSAGE_PAGE_SIZE: ${CHAT_MESSAGE_PAGE_SIZE:-50}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      MINIO_BUCKET_PREFIX: ${MINIO_BUCKET_PREFIX:-allset}
+      MINIO_AUTO_CREATE_BUCKETS: ${MINIO_AUTO_CREATE_BUCKETS:-true}
+      MINIO_PRESIGNED_URL_TTL_MINUTES: ${MINIO_PRESIGNED_URL_TTL_MINUTES:-15}
+      MINIO_PRESIGNED_URL_TTL_LONG_HOURS: ${MINIO_PRESIGNED_URL_TTL_LONG_HOURS:-24}
+      MINIO_MAX_AVATAR_SIZE_MB: ${MINIO_MAX_AVATAR_SIZE_MB:-5}
+      MINIO_MAX_DOCUMENT_SIZE_MB: ${MINIO_MAX_DOCUMENT_SIZE_MB:-5}
+      MINIO_MAX_ORDER_PHOTO_SIZE_MB: ${MINIO_MAX_ORDER_PHOTO_SIZE_MB:-5}
+      MINIO_MAX_CHAT_ATTACHMENT_SIZE_MB: ${MINIO_MAX_CHAT_ATTACHMENT_SIZE_MB:-5}
+      MINIO_MAX_CATALOG_ICON_SIZE_MB: ${MINIO_MAX_CATALOG_ICON_SIZE_MB:-1}
+      MINIO_MAX_DISPUTE_EVIDENCE_SIZE_MB: ${MINIO_MAX_DISPUTE_EVIDENCE_SIZE_MB:-5}
+      MINIO_MAX_DATA_EXPORT_SIZE_MB: ${MINIO_MAX_DATA_EXPORT_SIZE_MB:-100}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
 
 volumes:
   postgres_data:
+  minio_data:
