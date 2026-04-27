@@ -23,12 +23,6 @@ public record CreateExpressOrderRequest(
         @NotNull(message = "Endereço é obrigatório")
         UUID addressId,
 
-        /**
-         * URL da foto do problema/situação — opcional.
-         * O upload deve ser feito previamente no S3; aqui é informada apenas a URL.
-         */
-        String photoUrl,
-
         @Positive(message = "Taxa de urgência deve ser positiva")
         BigDecimal urgencyFee
 ) {}

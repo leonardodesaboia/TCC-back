@@ -20,8 +20,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
@@ -136,6 +138,41 @@ public class ConversationController {
             @CurrentUser UUID currentUserId
     ) {
         MessageResponse response = messageService.sendText(id, currentUserId, request);
+        URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/v1/conversations/{convId}/messages/{msgId}")
+                .buildAndExpand(id, response.id())
+                .toUri();
+        return ResponseEntity.created(location).body(response);
+    }
+
+    @Operation(
+            summary = "Enviar mensagem com imagem",
+            description = "Faz upload da imagem (JPEG/PNG) e persiste a mensagem como tipo `image`. "
+                        + "Retorna 404 se o usuário autenticado não for participante."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Mensagem com imagem enviada",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = MessageResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Tipo de arquivo inválido",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Token ausente ou inválido", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Conversa não encontrada",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "413", description = "Arquivo excede o tamanho máximo permitido",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping(value = "/{id}/messages/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<MessageResponse> sendImageMessage(
+            @Parameter(description = "ID da conversa", required = true) @PathVariable UUID id,
+            @Parameter(description = "Arquivo de imagem (JPEG/PNG)", required = true)
+            @RequestPart("file") MultipartFile file,
+            @CurrentUser UUID currentUserId
+    ) {
+        MessageResponse response = messageService.sendImageMessage(id, currentUserId, file);
         URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/v1/conversations/{convId}/messages/{msgId}")
                 .buildAndExpand(id, response.id())

@@ -14,9 +14,7 @@ import com.allset.api.notification.repository.NotificationRepository;
 import com.allset.api.offering.domain.PricingType;
 import com.allset.api.offering.domain.ProfessionalOffering;
 import com.allset.api.offering.repository.ProfessionalOfferingRepository;
-import com.allset.api.order.domain.OrderPhoto;
 import com.allset.api.order.dto.ClientRespondRequest;
-import com.allset.api.order.dto.CompleteByProRequest;
 import com.allset.api.order.dto.CreateExpressOrderRequest;
 import com.allset.api.order.dto.OrderResponse;
 import com.allset.api.order.dto.ProRespondRequest;
@@ -29,6 +27,9 @@ import com.allset.api.professional.domain.Professional;
 import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.repository.ProfessionalRepository;
 import com.allset.api.review.repository.ReviewRepository;
+import com.allset.api.shared.storage.domain.StorageBucket;
+import com.allset.api.shared.storage.domain.StoredObject;
+import com.allset.api.shared.storage.service.StorageService;
 import com.allset.api.shared.token.TokenService;
 import com.allset.api.user.domain.User;
 import com.allset.api.user.domain.UserRole;
@@ -40,8 +41,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -52,7 +55,11 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -71,7 +78,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "push-token-prune-cron=0 0 3 * * *",
         "review-publication-cron=0 0 * * * *",
         "resend-api-key=test-key",
-        "email-from=test@example.com"
+        "email-from=test@example.com",
+        "minio.endpoint=http://test:9000",
+        "minio.public-endpoint=http://test:9000",
+        "minio.access-key=test",
+        "minio.secret-key=testsecret",
+        "minio.auto-create-buckets=false"
 })
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")
@@ -129,6 +141,9 @@ class OrderChatFlowIntegrationTest {
     @Autowired
     private UserRepository userRepository;
 
+    @MockBean
+    private StorageService storageService;
+
     private final AtomicInteger sequence = new AtomicInteger(1);
 
     @BeforeEach
@@ -168,7 +183,6 @@ class OrderChatFlowIntegrationTest {
                 category.getId(),
                 "Trocar tomada com urgencia",
                 address.getId(),
-                "https://cdn/request.png",
                 new BigDecimal("15.00")
         ));
 
@@ -223,10 +237,17 @@ class OrderChatFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.affectedCount").value(1));
 
-        mockMvc.perform(post("/api/v1/orders/{id}/complete", order.id())
-                        .header("Authorization", professionalBearer)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new CompleteByProRequest("https://cdn/completion.png"))))
+        String completionKey = "order-photos/" + order.id() + "/completion.jpg";
+        when(storageService.upload(eq(StorageBucket.ORDER_PHOTOS), eq(order.id().toString()), any(org.springframework.web.multipart.MultipartFile.class)))
+                .thenReturn(new StoredObject(StorageBucket.ORDER_PHOTOS, completionKey, "image/jpeg", 4L));
+        when(storageService.generateDownloadUrl(eq(StorageBucket.ORDER_PHOTOS), eq(completionKey)))
+                .thenReturn("http://test/download/" + completionKey);
+
+        MockMultipartFile completionPhoto = new MockMultipartFile(
+                "file", "completion.jpg", MediaType.IMAGE_JPEG_VALUE, new byte[]{1, 2, 3, 4});
+        mockMvc.perform(multipart("/api/v1/orders/{id}/complete", order.id())
+                        .file(completionPhoto)
+                        .header("Authorization", professionalBearer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("completed_by_pro"));
 
@@ -240,8 +261,9 @@ class OrderChatFlowIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("completed"));
 
-        assertThat(orderPhotoRepository.findAllByOrderId(order.id())).extracting(OrderPhoto::getUrl)
-                .contains("https://cdn/request.png", "https://cdn/completion.png");
+        assertThat(orderPhotoRepository.findAllByOrderId(order.id()))
+                .extracting(p -> p.getStorageKey())
+                .containsExactly(completionKey);
         assertThat(notificationRepository.findAll()).extracting(notification -> notification.getType())
                 .contains(NotificationType.new_request, NotificationType.request_accepted,
                         NotificationType.new_message, NotificationType.request_status_update);

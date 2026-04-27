@@ -926,6 +926,438 @@ Usar o `refreshToken` retornado pelo login no header `Authorization`. Espera-se 
 
 ---
 
+## Fluxo 10: disputas
+
+**Pre-requisito:** executar o Fluxo 5 (pedido Express completo) ate o passo 5 (profissional marca como concluido). O pedido precisa estar em `status = completed_by_pro` e com `dispute_deadline` preenchido (24h apos `pro_completed_at`).
+
+> Este modulo ainda nao esta implementado — os fluxos abaixo refletem o comportamento esperado conforme `implementation_plans/5_dispute_plan.md`.
+
+### Parte A — Abertura e envio de evidencias
+
+#### 1. Cliente abre disputa
+
+- Endpoint: `POST /api/v1/orders/{{order_id}}/disputes`
+- Token: `client_access_token`
+
+```json
+{
+  "reason": "Servico nao foi realizado conforme combinado. O acabamento ficou com defeito."
+}
+```
+
+Espera-se:
+- `201 Created`
+- `status = "open"`
+- `openedBy = {{client_user_id}}`
+- `orderId = {{order_id}}`
+
+Guarde o `id` retornado como `dispute_id`.
+
+Apos isto, o pedido deve ter `status = disputed`. Verificar com:
+- Endpoint: `GET /api/v1/orders/{{order_id}}`
+- Token: `client_access_token`
+
+---
+
+#### 2. Cliente envia evidencia de texto
+
+- Endpoint: `POST /api/v1/disputes/{{dispute_id}}/evidences`
+- Token: `client_access_token`
+
+```json
+{
+  "evidenceType": "text",
+  "content": "O acabamento da tomada ficou exposto, com risco eletrico visivel."
+}
+```
+
+Espera-se:
+- `201 Created`
+- `senderId = {{client_user_id}}`
+- `evidenceType = "text"`
+
+---
+
+#### 3. Profissional envia evidencia de texto
+
+- Endpoint: `POST /api/v1/disputes/{{dispute_id}}/evidences`
+- Token: `professional_access_token`
+
+```json
+{
+  "evidenceType": "text",
+  "content": "O servico foi concluido normalmente conforme combinado."
+}
+```
+
+Espera-se:
+- `201 Created`
+- `senderId = {{professional_user_id}}`
+
+---
+
+#### 4. Listar evidencias (como admin)
+
+- Endpoint: `GET /api/v1/disputes/{{dispute_id}}/evidences`
+- Token: `admin_access_token`
+
+Espera-se:
+- `200 OK`
+- 2 evidencias em ordem cronologica
+
+---
+
+### Parte B — Admin resolve a disputa
+
+#### 5. Admin marca como em analise
+
+- Endpoint: `PATCH /api/v1/disputes/{{dispute_id}}/under-review`
+- Token: `admin_access_token`
+
+Sem body.
+
+Espera-se:
+- `200 OK`
+- `status = "under_review"`
+
+---
+
+#### 6. Admin consulta a disputa com `adminNotes` visivel
+
+- Endpoint: `GET /api/v1/disputes/{{dispute_id}}`
+- Token: `admin_access_token`
+
+Espera-se:
+- `200 OK`
+- `adminNotes` visivel (pode ser `null` neste ponto)
+
+Repetir com `client_access_token` e verificar que `adminNotes = null` na resposta do cliente.
+
+---
+
+#### 7. Admin resolve com reembolso parcial
+
+- Endpoint: `POST /api/v1/disputes/{{dispute_id}}/resolve`
+- Token: `admin_access_token`
+
+```json
+{
+  "resolution": "refund_partial",
+  "clientRefundAmount": 60.00,
+  "professionalAmount": 40.00,
+  "adminNotes": "Servico parcialmente concluido conforme evidencias apresentadas."
+}
+```
+
+> A soma `clientRefundAmount + professionalAmount` deve ser igual a `order.total_amount`.
+
+Espera-se:
+- `200 OK`
+- `status = "resolved"`
+- `resolution = "refund_partial"`
+- `resolvedBy = {{admin_user_id}}`
+- `resolvedAt` preenchido
+
+---
+
+#### 8. Verificar mensagens de sistema na conversa
+
+- Endpoint: `GET /api/v1/conversations/{{conversation_id}}/messages?sort=sentAt,asc`
+- Token: `client_access_token`
+
+Espera-se mensagens de sistema indicando:
+- Abertura da disputa
+- Assumida pelo admin (under_review)
+- Resolucao da disputa
+
+---
+
+### Parte C — Casos de erro
+
+#### Abrir disputa fora da janela de 24h
+
+Simular passando um pedido cujo `dispute_deadline` ja expirou.
+
+Espera-se:
+- `400 Bad Request`
+- Mensagem indicando que a janela de 24h expirou
+
+---
+
+#### Profissional tenta abrir disputa (nao permitido)
+
+- Endpoint: `POST /api/v1/orders/{{order_id}}/disputes`
+- Token: `professional_access_token`
+
+```json
+{
+  "reason": "Tento abrir como profissional."
+}
+```
+
+Espera-se:
+- `403 Forbidden`
+
+---
+
+#### Disputa duplicada para o mesmo pedido
+
+Tentar abrir uma segunda disputa apos ja ter uma aberta.
+
+Espera-se:
+- `409 Conflict`
+
+---
+
+#### Adicionar evidencia em disputa resolvida
+
+Apos a resolucao (passo 7), tentar enviar mais uma evidencia.
+
+Espera-se:
+- `400 Bad Request`
+
+---
+
+#### Terceiro usuario acessa a disputa
+
+- Endpoint: `GET /api/v1/disputes/{{dispute_id}}`
+- Token: token de um usuario que nao e participante do pedido
+
+Espera-se:
+- `404 Not Found` — segue o padrao de ownership leak prevention
+
+---
+
+#### Resolucao com soma incorreta
+
+- Endpoint: `POST /api/v1/disputes/{{dispute_id}}/resolve`
+- Token: `admin_access_token`
+
+```json
+{
+  "resolution": "refund_partial",
+  "clientRefundAmount": 50.00,
+  "professionalAmount": 30.00,
+  "adminNotes": "Soma incorreta."
+}
+```
+
+Espera-se:
+- `400 Bad Request`
+- Mensagem indicando que a soma nao bate com `order.total_amount`
+
+---
+
+### Resumo do que validar
+
+| Cenario | Esperado |
+|---|---|
+| `POST /disputes` pelo cliente dentro do prazo | `201` + `status = open` |
+| `POST /disputes` pelo profissional | `403` |
+| `POST /disputes` apos 24h | `400` |
+| `POST /disputes` duplicada | `409` |
+| `POST /evidences` por participante | `201` |
+| `POST /evidences` em disputa resolvida | `400` |
+| `PATCH /under-review` pelo admin | `200` + `status = under_review` |
+| `POST /resolve` com soma correta | `200` + `status = resolved` |
+| `POST /resolve` com soma incorreta | `400` |
+| `GET /disputes/{id}` por participante | `200` + `adminNotes = null` |
+| `GET /disputes/{id}` pelo admin | `200` + `adminNotes` visivel |
+| `GET /disputes/{id}` por terceiro | `404` |
+| `GET /disputes` pelo admin | `200` paginado |
+| `GET /disputes` por nao-admin | `403` |
+| Chat tem mensagens de sistema | Abertura, under_review, resolucao |
+
+---
+
+## Fluxo 11: storage com MinIO (plano 6)
+
+**Pre-requisito:** MinIO rodando via `docker compose up -d minio`. Console acessivel em `http://localhost:9001` (login: `minioadmin` / `minioadmin`).
+
+> Este modulo ainda nao esta implementado — os fluxos abaixo refletem o comportamento esperado conforme `implementation_plans/6_minio_storage_plan.md`.
+
+### Parte A — Upload de avatar de usuario
+
+#### 1. Upload de avatar
+
+- Endpoint: `POST /api/users/{{client_user_id}}/avatar`
+- Token: `client_access_token`
+- Content-Type: `multipart/form-data`
+- Campo: `file` (arquivo JPEG ou PNG, max 5MB)
+
+Espera-se:
+- `200 OK`
+- Response com `StorageRefResponse`:
+
+```json
+{
+  "key": "avatars/{{client_user_id}}/abc123.jpg",
+  "downloadUrl": "http://localhost:9000/allset-dev-avatars/...",
+  "urlExpiresAt": "2026-04-25T14:15:00Z"
+}
+```
+
+---
+
+#### 2. Verificar que o perfil inclui o avatar
+
+- Endpoint: `GET /api/users/{{client_user_id}}`
+- Token: `client_access_token`
+
+Espera-se:
+- `avatar.key` preenchido
+- `avatar.downloadUrl` com URL presignada valida
+
+---
+
+#### 3. Remover avatar
+
+- Endpoint: `DELETE /api/users/{{client_user_id}}/avatar`
+- Token: `client_access_token`
+
+Espera-se:
+- `204 No Content`
+
+Repetir o `GET` — `avatar` deve ser `null`.
+
+---
+
+### Parte B — Documento do profissional (multipart)
+
+#### 4. Upload de documento KYC
+
+- Endpoint: `POST /api/v1/professionals/{{professional_id}}/documents`
+- Token: `professional_access_token`
+- Content-Type: `multipart/form-data`
+- Campos:
+  - `docType`: `rg`
+  - `file`: arquivo JPEG/PNG/PDF, max 5MB
+
+Espera-se:
+- `201 Created`
+- `file.key` com chave do objeto no MinIO (ex: `documents/{{professional_id}}/rg/xyz.jpg`)
+- `file.downloadUrl` presignada
+
+---
+
+### Parte C — Foto de pedido (multipart)
+
+#### 5. Cliente envia foto do problema
+
+- Endpoint: `POST /api/v1/orders/{{order_id}}/photos`
+- Token: `client_access_token`
+- Content-Type: `multipart/form-data`
+- Campo: `photo` (JPEG/PNG, max 5MB)
+
+> Deve ser feito antes do profissional enviar a primeira proposta.
+
+Espera-se:
+- `200 OK`
+- Foto gravada no MinIO em `order-photos/{{order_id}}/request/{uuid}.jpg`
+
+---
+
+#### 6. Profissional conclui pedido com foto (multipart)
+
+- Endpoint: `POST /api/v1/orders/{{order_id}}/complete`
+- Token: `professional_access_token`
+- Content-Type: `multipart/form-data`
+- Campos:
+  - `photo`: arquivo JPEG/PNG, max 5MB
+  - `notes`: `"Servico concluido conforme combinado"` (opcional)
+
+Espera-se:
+- `200 OK`
+- `order.photos` inclui a foto de conclusao com `downloadUrl`
+
+---
+
+### Parte D — Icone de catalogo (bucket publico)
+
+#### 7. Admin sobe icone de area de servico
+
+- Endpoint: `PUT /api/v1/service-areas/{{area_id}}/icon`
+- Token: `admin_access_token`
+- Content-Type: `multipart/form-data`
+- Campo: `file` (PNG ou SVG, max 1MB)
+
+Espera-se:
+- `200 OK`
+- `icon.downloadUrl` sem assinatura (URL publica estavel)
+- `icon.urlExpiresAt = null` (bucket publico nao tem expiracao)
+
+Abrir `icon.downloadUrl` no navegador deve exibir a imagem sem autenticacao.
+
+---
+
+### Parte E — Casos de erro
+
+#### Arquivo acima do limite
+
+- Endpoint: `POST /api/users/{{client_user_id}}/avatar`
+- Token: `client_access_token`
+- Campo: `file` com arquivo de 6MB
+
+Espera-se:
+- `413 Payload Too Large`
+- `ApiError` com mensagem de limite excedido
+
+---
+
+#### MIME invalido para o bucket
+
+- Endpoint: `POST /api/users/{{client_user_id}}/avatar`
+- Token: `client_access_token`
+- Campo: `file` com arquivo `text/plain` ou PDF
+
+Espera-se:
+- `400 Bad Request`
+- Mensagem indicando tipo de arquivo nao permitido
+
+---
+
+#### PDF valido para documentos (DOCUMENTS aceita PDF)
+
+- Endpoint: `POST /api/v1/professionals/{{professional_id}}/documents`
+- Token: `professional_access_token`
+- Campo: `file` com arquivo PDF, `docType: cnh`
+
+Espera-se:
+- `201 Created` — PDF e aceito no bucket DOCUMENTS
+
+---
+
+#### URL presignada expira
+
+1. Fazer `GET /api/users/{{client_user_id}}` e copiar `avatar.downloadUrl`.
+2. Aguardar mais de 15 minutos (TTL padrao).
+3. Acessar a URL diretamente no navegador.
+
+Espera-se:
+- `403 Forbidden` (URL expirada)
+
+Fazer um novo `GET /api/users/{{client_user_id}}` e obter uma nova URL valida.
+
+---
+
+### Resumo do que validar
+
+| Cenario | Esperado |
+|---|---|
+| Upload de avatar JPEG valido | `200` + `StorageRefResponse` com URL presignada |
+| Upload de avatar acima de 5MB | `413` |
+| Upload de avatar em formato PDF | `400` |
+| `GET` usuario apos upload | `avatar.downloadUrl` valida |
+| `DELETE` avatar | `204`; `GET` retorna `avatar = null` |
+| Upload de documento KYC (PDF) | `201` |
+| Upload de documento (formato invalido) | `400` |
+| Foto de conclusao de pedido (multipart) | `200` + foto em `order.photos` |
+| Upload de icone de catalogo (PNG) | `200` + URL publica sem assinatura |
+| URL presignada apos 15 min | `403` (expirada) |
+| MinIO console em http://localhost:9001 | Buckets criados com prefix + policies corretas |
+
+---
+
 ## Observacoes importantes do estado atual
 
 - Varios endpoints documentados como admin/owner-only hoje estao apenas como autenticados.

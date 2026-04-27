@@ -43,6 +43,9 @@ class ConversationServiceImplTest {
     private com.allset.api.chat.mapper.ConversationMapper conversationMapper;
 
     @Mock
+    private com.allset.api.chat.mapper.MessageMapper messageMapper;
+
+    @Mock
     private com.allset.api.professional.service.ProfessionalService professionalService;
 
     @InjectMocks
@@ -173,6 +176,11 @@ class ConversationServiceImplTest {
                 .thenReturn(new PageImpl<>(List.of(conversation)));
         when(messageRepository.findTopByConversationIdAndDeletedAtIsNullOrderBySentAtDesc(conversationId))
                 .thenReturn(Optional.of(message));
+        when(messageMapper.toResponse(message)).thenReturn(new com.allset.api.chat.dto.MessageResponse(
+                message.getId(), conversationId, otherParticipantId,
+                MessageType.text, "Ola", null, null, null,
+                message.getSentAt(), null, null
+        ));
         when(messageRepository.countByConversationIdAndSenderIdNotAndReadAtIsNull(conversationId, currentUserId))
                 .thenReturn(2L);
 

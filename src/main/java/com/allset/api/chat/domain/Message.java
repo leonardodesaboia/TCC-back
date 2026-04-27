@@ -33,7 +33,7 @@ public class Message extends PostgresEntity {
     private String content;
 
     @Column(name = "attachment_url", columnDefinition = "TEXT")
-    private String attachmentUrl;
+    private String attachmentKey;
 
     @Column(name = "attachment_size_bytes")
     private Integer attachmentSizeBytes;

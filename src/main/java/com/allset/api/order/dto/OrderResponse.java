@@ -5,6 +5,7 @@ import com.allset.api.order.domain.OrderStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record OrderResponse(
@@ -34,5 +35,6 @@ public record OrderResponse(
         String cancelReason,
         int version,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        List<OrderPhotoResponse> photos
 ) {}

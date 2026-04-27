@@ -1,6 +1,7 @@
 package com.allset.api.order.controller;
 
 import com.allset.api.order.domain.OrderStatus;
+import com.allset.api.order.domain.PhotoType;
 import com.allset.api.order.dto.*;
 import com.allset.api.order.service.OrderService;
 import com.allset.api.shared.annotation.CurrentUser;
@@ -21,10 +22,12 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
@@ -220,15 +223,53 @@ public class OrderController {
         @ApiResponse(responseCode = "404", description = "Pedido não encontrado",
                 content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
-    @PostMapping("/{id}/complete")
+    @PostMapping(value = "/{id}/complete", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('professional')")
     public ResponseEntity<OrderResponse> completeByPro(
             @PathVariable UUID id,
-            @Valid @RequestBody CompleteByProRequest request,
+            @Parameter(description = "Foto comprobatória (JPEG/PNG)", required = true)
+            @RequestPart("file") MultipartFile file,
             @CurrentUser UUID userId
     ) {
         UUID professionalId = resolveProfessionalId(userId);
-        return ResponseEntity.ok(orderService.completeByPro(id, professionalId, request));
+        return ResponseEntity.ok(orderService.completeByPro(id, professionalId, file));
+    }
+
+    @Operation(
+        summary = "Enviar foto do pedido",
+        description = "Adiciona uma foto vinculada ao pedido (request, completion_proof, etc.). "
+                    + "Permitido ao cliente dono, profissional do pedido ou admin."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Foto enviada com sucesso",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderPhotoResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Tipo de arquivo inválido",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "404", description = "Pedido não encontrado ou sem permissão",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "413", description = "Arquivo excede o tamanho máximo permitido",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping(value = "/{id}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyAuthority('client', 'professional', 'admin')")
+    public ResponseEntity<OrderPhotoResponse> uploadPhoto(
+            @PathVariable UUID id,
+            @Parameter(description = "Tipo da foto", required = true) @RequestParam("type") PhotoType type,
+            @Parameter(description = "Arquivo de imagem (JPEG/PNG)", required = true)
+            @RequestPart("file") MultipartFile file,
+            @CurrentUser UUID userId,
+            Authentication authentication
+    ) {
+        String role = authentication.getAuthorities().stream()
+                .findFirst()
+                .map(a -> a.getAuthority())
+                .orElse("client");
+        OrderPhotoResponse response = orderService.uploadPhoto(id, userId, role, type, file);
+        URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/v1/orders/{orderId}/photos/{photoId}")
+                .buildAndExpand(id, response.id())
+                .toUri();
+        return ResponseEntity.created(location).body(response);
     }
 
     @Operation(

@@ -16,11 +16,19 @@ import com.allset.api.calendar.exception.BlockedPeriodNotFoundException;
 import com.allset.api.catalog.exception.ServiceAreaNameAlreadyExistsException;
 import com.allset.api.catalog.exception.ServiceAreaNotFoundException;
 import com.allset.api.catalog.exception.ServiceCategoryNotFoundException;
+import com.allset.api.dispute.exception.DisputeAlreadyExistsException;
+import com.allset.api.dispute.exception.DisputeNotFoundException;
+import com.allset.api.dispute.exception.DisputeStatusTransitionException;
+import com.allset.api.dispute.exception.DisputeWindowExpiredException;
 import com.allset.api.document.exception.ProfessionalDocumentNotFoundException;
 import com.allset.api.offering.exception.ProfessionalOfferingNotFoundException;
 import com.allset.api.professional.exception.ProfessionalAlreadyExistsException;
 import com.allset.api.professional.exception.ProfessionalNotFoundException;
 import com.allset.api.review.exception.ReviewAlreadyExistsException;
+import com.allset.api.shared.storage.exception.FileTooLargeException;
+import com.allset.api.shared.storage.exception.InvalidFileTypeException;
+import com.allset.api.shared.storage.exception.StorageObjectNotFoundException;
+import com.allset.api.shared.storage.exception.StorageUploadException;
 import com.allset.api.subscription.exception.SubscriptionPlanNameAlreadyExistsException;
 import com.allset.api.subscription.exception.SubscriptionPlanNotFoundException;
 import com.allset.api.subscription.exception.ProfessionalSubscriptionNotFoundException;
@@ -40,6 +48,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 
 import java.time.Instant;
 import java.util.Map;
@@ -81,7 +91,9 @@ public class GlobalExceptionHandler {
             BlockedPeriodNotFoundException.class,
             ConversationNotFoundException.class,
             NotificationNotFoundException.class,
-            PushTokenNotFoundException.class
+            PushTokenNotFoundException.class,
+            StorageObjectNotFoundException.class,
+            DisputeNotFoundException.class
     })
     public ResponseEntity<ApiError> handleNotFound(RuntimeException ex, HttpServletRequest request) {
         log.warn("status=404 method={} path={} message={}",
@@ -102,7 +114,8 @@ public class GlobalExceptionHandler {
             ServiceAreaNameAlreadyExistsException.class,
             SubscriptionPlanNameAlreadyExistsException.class,
             SubscriptionPlanAlreadyActiveException.class,
-            ReviewAlreadyExistsException.class
+            ReviewAlreadyExistsException.class,
+            DisputeAlreadyExistsException.class
     })
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
                                                     HttpServletRequest request) {
@@ -199,7 +212,12 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler({OrderStatusTransitionException.class, ExpressQueueViolationException.class})
+    @ExceptionHandler({
+            OrderStatusTransitionException.class,
+            ExpressQueueViolationException.class,
+            DisputeStatusTransitionException.class,
+            DisputeWindowExpiredException.class
+    })
     public ResponseEntity<ApiError> handleOrderBusiness(RuntimeException ex, HttpServletRequest request) {
         log.warn("status=400 method={} path={} message={}",
             request.getMethod(), request.getRequestURI(), ex.getMessage());
@@ -223,6 +241,71 @@ public class GlobalExceptionHandler {
             ex.getMessage(),
             null,
             Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(InvalidFileTypeException.class)
+    public ResponseEntity<ApiError> handleInvalidFileType(InvalidFileTypeException ex, HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage(),
+                null,
+                Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(FileTooLargeException.class)
+    public ResponseEntity<ApiError> handleFileTooLarge(FileTooLargeException ex, HttpServletRequest request) {
+        log.warn("status=413 method={} path={} message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ApiError(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                ex.getMessage(),
+                null,
+                Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        log.warn("status=413 method={} path={} message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ApiError(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                "Arquivo excede o limite máximo permitido pelo servidor",
+                null,
+                Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiError> handleMultipart(MultipartException ex, HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+                HttpStatus.BAD_REQUEST.value(),
+                "Requisição multipart inválida",
+                null,
+                Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(StorageUploadException.class)
+    public ResponseEntity<ApiError> handleStorageUpload(StorageUploadException ex, HttpServletRequest request) {
+        log.error("event=storage_upload_failed status=500 method={} path={} message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage(), ex);
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiError(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Falha ao processar arquivo no storage",
+                null,
+                Instant.now()
         ));
     }
 

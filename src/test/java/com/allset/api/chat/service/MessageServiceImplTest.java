@@ -9,6 +9,7 @@ import com.allset.api.chat.mapper.MessageMapper;
 import com.allset.api.chat.repository.MessageRepository;
 import com.allset.api.notification.domain.NotificationType;
 import com.allset.api.notification.service.NotificationService;
+import com.allset.api.shared.storage.service.StorageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +51,9 @@ class MessageServiceImplTest {
     @Mock
     private ObjectMapper objectMapper;
 
+    @Mock
+    private StorageService storageService;
+
     @InjectMocks
     private MessageServiceImpl messageService;
 
@@ -82,6 +86,8 @@ class MessageServiceImplTest {
                 senderId,
                 MessageType.text,
                 "Oi",
+                null,
+                null,
                 null,
                 saved.getSentAt(),
                 null,

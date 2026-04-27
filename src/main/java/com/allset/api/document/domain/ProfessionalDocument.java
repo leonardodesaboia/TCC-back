@@ -34,7 +34,7 @@ public class ProfessionalDocument {
     private DocType docType;
 
     @Column(name = "file_url", nullable = false, columnDefinition = "TEXT")
-    private String fileUrl;
+    private String fileKey;
 
     @CreatedDate
     @Column(name = "uploaded_at", nullable = false, updatable = false)

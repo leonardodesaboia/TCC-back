@@ -1,6 +1,7 @@
 package com.allset.api.chat.dto;
 
 import com.allset.api.chat.domain.MessageType;
+import com.allset.api.shared.storage.dto.StorageRefResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
@@ -24,8 +25,14 @@ public record MessageResponse(
         @Schema(description = "Conteúdo textual da mensagem", example = "Chego em 10 minutos", nullable = true)
         String content,
 
-        @Schema(description = "URL do anexo (apenas para msg_type=image)", nullable = true)
-        String attachmentUrl,
+        @Schema(description = "Anexo da mensagem (apenas para msg_type=image)", nullable = true)
+        StorageRefResponse attachment,
+
+        @Schema(description = "Tamanho do anexo em bytes", nullable = true)
+        Integer attachmentSizeBytes,
+
+        @Schema(description = "MIME type do anexo", nullable = true)
+        String attachmentMimeType,
 
         @Schema(description = "Momento em que a mensagem foi enviada")
         Instant sentAt,

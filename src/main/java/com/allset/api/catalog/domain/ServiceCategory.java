@@ -22,7 +22,7 @@ public class ServiceCategory extends PostgresEntity {
     private String name;
 
     @Column(name = "icon_url")
-    private String iconUrl;
+    private String iconKey;
 
     @Builder.Default
     @Column(name = "is_active", nullable = false)

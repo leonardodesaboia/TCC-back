@@ -46,7 +46,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "user-purge-cron=0 0 2 * * *",
         "push-token-prune-cron=0 0 3 * * *",
         "resend-api-key=test-key",
-        "email-from=test@example.com"
+        "email-from=test@example.com",
+        "minio.endpoint=http://test:9000",
+        "minio.public-endpoint=http://test:9000",
+        "minio.access-key=test",
+        "minio.secret-key=testsecret",
+        "minio.auto-create-buckets=false"
 })
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")
