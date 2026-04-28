@@ -107,6 +107,7 @@ class AuthUserAddressIntegrationTest {
                 "52998224725",
                 "maria@example.com",
                 "+5585999999999",
+                java.time.LocalDate.of(1995, 9, 15),
                 "Senha@2025!",
                 UserRole.client
         ));

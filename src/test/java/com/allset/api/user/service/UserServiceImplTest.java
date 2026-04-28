@@ -22,6 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDate;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Optional;
@@ -62,6 +63,7 @@ class UserServiceImplTest {
                 "52998224725",
                 "maria@example.com",
                 "+5585999999999",
+                LocalDate.of(1995, 9, 15),
                 "Senha@2025!",
                 UserRole.client
         );
@@ -156,6 +158,7 @@ class UserServiceImplTest {
                 .cpfHash(sha256Hex("52998224725"))
                 .email(email)
                 .phone("+5585999999999")
+                .birthDate(LocalDate.of(1995, 9, 15))
                 .password("senha-criptografada")
                 .role(UserRole.client)
                 .active(true)
@@ -173,6 +176,7 @@ class UserServiceImplTest {
                 user.getName(),
                 user.getEmail(),
                 user.getPhone(),
+                user.getBirthDate(),
                 user.getRole(),
                 null,
                 user.isActive(),

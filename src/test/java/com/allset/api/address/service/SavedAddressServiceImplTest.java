@@ -180,6 +180,7 @@ class SavedAddressServiceImplTest {
                 "Usuario",
                 "usuario@example.com",
                 "+5585999999999",
+                java.time.LocalDate.of(1990, 1, 1),
                 UserRole.client,
                 null,
                 true,

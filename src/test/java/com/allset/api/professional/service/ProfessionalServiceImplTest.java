@@ -61,7 +61,7 @@ class ProfessionalServiceImplTest {
                 "Bio",
                 (short) 5,
                 new BigDecimal("80.00"),
-                List.of(new ProfessionalSpecialtyRequest(UUID.randomUUID(), (short) 5))
+                List.of(new ProfessionalSpecialtyRequest(UUID.randomUUID(), (short) 5, new BigDecimal("80.00")))
         );
 
         when(userRepository.findByIdAndDeletedAtIsNull(userId)).thenReturn(Optional.empty());
@@ -79,7 +79,7 @@ class ProfessionalServiceImplTest {
                 "Bio",
                 (short) 5,
                 new BigDecimal("80.00"),
-                List.of(new ProfessionalSpecialtyRequest(UUID.randomUUID(), (short) 5))
+                List.of(new ProfessionalSpecialtyRequest(UUID.randomUUID(), (short) 5, new BigDecimal("80.00")))
         );
 
         when(userRepository.findByIdAndDeletedAtIsNull(userId)).thenReturn(Optional.of(User.builder().build()));
