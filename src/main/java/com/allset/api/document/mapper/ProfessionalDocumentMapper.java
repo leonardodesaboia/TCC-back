@@ -20,6 +20,7 @@ public class ProfessionalDocumentMapper {
                 document.getId(),
                 document.getProfessionalId(),
                 document.getDocType(),
+                document.getDocSide(),
                 storageRefFactory.from(StorageBucket.DOCUMENTS, document.getFileKey()),
                 document.getUploadedAt(),
                 document.isVerified()

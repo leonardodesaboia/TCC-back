@@ -96,6 +96,8 @@ class ProfessionalDocumentServiceImplTest {
 
         when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId))
                 .thenReturn(Optional.of(Professional.builder().userId(UUID.randomUUID()).build()));
+        when(professionalDocumentRepository.findByProfessionalIdAndDocType(professionalId, DocType.cnh))
+                .thenReturn(Optional.empty());
         when(storageService.upload(eq(StorageBucket.DOCUMENTS), eq(professionalId.toString()), eq(file)))
                 .thenReturn(new StoredObject(StorageBucket.DOCUMENTS, storedKey, "application/pdf", 3L));
         when(professionalDocumentRepository.save(any(ProfessionalDocument.class))).thenReturn(saved);
@@ -104,6 +106,51 @@ class ProfessionalDocumentServiceImplTest {
         ProfessionalDocumentResponse result = professionalDocumentService.create(professionalId, DocType.cnh, file);
 
         assertThat(result).isEqualTo(response);
+    }
+
+    @Test
+    void createShouldReplaceExistingDocumentOfSameType() {
+        UUID professionalId = UUID.randomUUID();
+        UUID existingId = UUID.randomUUID();
+        MultipartFile file = new MockMultipartFile("file", "document-front.jpg", "image/jpeg", new byte[]{1, 2, 3});
+        String oldKey = "documents/" + professionalId + "/front-old.jpg";
+        String newKey = "documents/" + professionalId + "/front-new.jpg";
+
+        ProfessionalDocument existing = ProfessionalDocument.builder()
+                .professionalId(professionalId)
+                .docType(DocType.document_front)
+                .fileKey(oldKey)
+                .build();
+        existing.setId(existingId);
+
+        ProfessionalDocument saved = ProfessionalDocument.builder()
+                .professionalId(professionalId)
+                .docType(DocType.document_front)
+                .fileKey(newKey)
+                .uploadedAt(Instant.now())
+                .verified(false)
+                .build();
+
+        when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId))
+                .thenReturn(Optional.of(Professional.builder().userId(UUID.randomUUID()).build()));
+        when(professionalDocumentRepository.findByProfessionalIdAndDocType(professionalId, DocType.document_front))
+                .thenReturn(Optional.of(existing));
+        when(storageService.upload(eq(StorageBucket.DOCUMENTS), eq(professionalId.toString()), eq(file)))
+                .thenReturn(new StoredObject(StorageBucket.DOCUMENTS, newKey, "image/jpeg", 3L));
+        when(professionalDocumentRepository.save(any(ProfessionalDocument.class))).thenReturn(saved);
+        when(professionalDocumentMapper.toResponse(saved)).thenReturn(new ProfessionalDocumentResponse(
+                UUID.randomUUID(),
+                professionalId,
+                DocType.document_front,
+                null,
+                saved.getUploadedAt(),
+                false
+        ));
+
+        professionalDocumentService.create(professionalId, DocType.document_front, file);
+
+        verify(professionalDocumentRepository).delete(existing);
+        verify(eventPublisher).publishEvent(new ObjectDeletionRequestedEvent(StorageBucket.DOCUMENTS, oldKey));
     }
 
     @Test
