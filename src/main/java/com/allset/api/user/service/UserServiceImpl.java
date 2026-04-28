@@ -67,6 +67,7 @@ public class UserServiceImpl implements UserService {
             .cpfHash(cpfHash)
             .email(request.email())
             .phone(request.phone())
+            .birthDate(request.birthDate())
             .password(passwordEncoder.encode(request.password()))
             .role(request.role())
             .build();

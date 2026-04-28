@@ -27,6 +27,7 @@ public class UserMapper {
             user.getName(),
             user.getEmail(),
             user.getPhone(),
+            user.getBirthDate(),
             user.getRole(),
             storageRefFactory.from(StorageBucket.AVATARS, user.getAvatarUrl()),
             user.isActive(),

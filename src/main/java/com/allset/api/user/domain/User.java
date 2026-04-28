@@ -7,6 +7,8 @@ import lombok.*;
 import org.hibernate.annotations.JdbcType;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
 
+import java.time.LocalDate;
+
 @Entity
 @Table(name = "users")
 @Getter
@@ -31,6 +33,9 @@ public class User extends PostgresEntity {
 
     @Column(nullable = false, length = 20)
     private String phone;
+
+    @Column(name = "birth_date", nullable = false)
+    private LocalDate birthDate;
 
     @Column(nullable = false, length = 255)
     private String password;

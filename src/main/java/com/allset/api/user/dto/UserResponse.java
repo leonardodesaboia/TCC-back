@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Schema(description = "Dados publicos de um usuario")
@@ -22,6 +23,9 @@ public record UserResponse(
 
     @Schema(description = "Telefone", example = "+5511999999999")
     String phone,
+
+    @Schema(description = "Data de nascimento", example = "1995-09-15")
+    LocalDate birthDate,
 
     @Schema(description = "Papel do usuario no sistema", example = "client")
     UserRole role,

@@ -38,6 +38,7 @@ class FlywaySchemaSmokeTest {
         assertThat(tableExists("service_areas")).isTrue();
         assertThat(tableExists("service_categories")).isTrue();
         assertThat(tableExists("professionals")).isTrue();
+        assertThat(tableExists("professional_specialties")).isTrue();
         assertThat(tableExists("professional_documents")).isTrue();
         assertThat(tableExists("professional_services")).isTrue();
         assertThat(tableExists("blocked_periods")).isTrue();

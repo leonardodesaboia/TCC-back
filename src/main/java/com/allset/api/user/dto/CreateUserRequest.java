@@ -6,6 +6,8 @@ import com.allset.api.user.domain.UserRole;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 
+import java.time.LocalDate;
+
 @Schema(description = "Dados para criação de um novo usuário")
 public record CreateUserRequest(
 
@@ -32,6 +34,11 @@ public record CreateUserRequest(
         message = "Telefone inválido. Use formato E.164 (ex: +5511999999999)"
     )
     String phone,
+
+    @Schema(description = "Data de nascimento", example = "1995-09-15")
+    @NotNull(message = "Data de nascimento é obrigatória")
+    @Past(message = "Data de nascimento deve estar no passado")
+    LocalDate birthDate,
 
     @Schema(description = "Senha (mínimo 8 caracteres, uma maiúscula, uma minúscula, um número e um caractere especial)", example = "Senha@2025!")
     @NotBlank(message = "Senha é obrigatória")
