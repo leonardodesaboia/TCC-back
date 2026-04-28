@@ -45,6 +45,10 @@ frontend-url: ${FRONTEND_URL:*}
 chat-message-max-length: ${CHAT_MESSAGE_MAX_LENGTH:4000}
 chat-message-page-size: ${CHAT_MESSAGE_PAGE_SIZE:50}
 
+# Seed
+seed:
+  enabled: ${SEED_ENABLED:false}
+
 # Storage / MinIO
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
