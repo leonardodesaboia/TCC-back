@@ -1,34 +1,129 @@
 # Módulo Profissional No Backend
 
-Este documento resume como a parte de profissional está modelada hoje no backend: quais tabelas existem, quais dados cada uma salva, como o cadastro acontece e quais lacunas ainda existem para o front.
+Este documento registra as regras de negócio atuais do fluxo de profissional e como elas estão refletidas no backend.
 
-## Visão Geral
+Legenda:
 
-Hoje o profissional não é uma entidade única isolada. O backend distribui os dados em blocos:
+- `[x]` feito
+- `[~]` parcial
+- `[ ]` não feito
 
-- `users`: conta base do usuário
-- `professionals`: perfil profissional estendido
-- `professional_specialties`: categorias que o profissional atende com experiência por categoria
-- `professional_documents`: documentos e foto de perfil
-- `professional_services`: serviços que o profissional oferece
-- `blocked_periods`: agenda e bloqueios
-- `subscription_plans`: catálogo de planos
-- `orders`: pedidos vinculados ao profissional
-- `express_queue`: propostas no fluxo Express
-- `reviews`: avaliações recebidas e feitas
-- `conversations` e `messages`: chat por pedido
+## Objetivo Do Fluxo
 
-## Fluxo Atual De Cadastro
+O profissional:
 
-O cadastro do profissional acontece em 2 chamadas:
+1. cria a conta
+2. envia os dados obrigatórios do cadastro profissional
+3. fica com status `pending`
+4. passa por verificação automatizada futura via IDwall
+5. só depois de aprovado pode operar normalmente
 
-1. Criar o usuário em `POST /api/users`
-2. Criar o perfil profissional em `POST /api/v1/professionals`
-3. Após autenticar, enviar documentos em `POST /api/v1/professionals/{professionalId}/documents`
+Ponto importante:
 
-### 1. Usuário Base
+- [~] a automação com IDwall ainda não foi implementada
+- [x] o backend já deixa o fluxo preparado para isso
 
-Tabela: `users`
+## Regras De Negócio Confirmadas
+
+### Cadastro Inicial
+
+Campos obrigatórios:
+
+- [x] nome
+- [x] cpf
+- [x] email
+- [x] telefone
+- [x] data de nascimento
+- [x] senha
+- [x] profissões/categorias escolhidas
+- [x] experiência por profissão
+- [x] tipo de documento de identificação
+- [x] documento frente
+- [x] documento verso
+
+Campos opcionais:
+
+- [x] descrição profissional
+- [~] foto de perfil
+
+### Profissões E Áreas
+
+- [x] o profissional pode selecionar profissões de áreas diferentes
+- [x] o limite atual é de `3` profissões
+- [x] esse limite deve ser fácil de alterar
+- [x] cada profissão precisa ter experiência própria
+- [x] não existe mais regra de manter experiência global como fonte principal de verdade
+
+### Valor/Hora
+
+- [x] o valor/hora é tratado por profissão
+- [x] ele pode existir por profissão específica
+- [x] o campo pode ficar nulo
+- [~] no futuro, um serviço poderá usar:
+  - [x] preço próprio
+  - [~] ou valor/hora da profissão
+
+### Documentos
+
+- [x] o profissional escolhe o tipo do documento de identificação
+- [x] hoje os tipos relevantes para esse fluxo são `rg` e `cnh`
+- [x] o backend salva frente e verso separadamente
+- [x] depois que os documentos são enviados e a verificação fica `pending`, eles não podem ser alterados
+- [x] se a verificação for `rejected`, o profissional pode reenviar
+
+### Status E Permissões
+
+- [x] ao concluir o cadastro, o profissional fica `pending`
+- [~] enquanto estiver `pending`, ele:
+  - [ ] não pode editar perfil
+  - [ ] não pode cadastrar/editar serviços
+  - [~] não pode receber pedidos
+- [x] se for `rejected`, ele pode corrigir e reenviar documentos
+- [~] se for `approved`, ele passa a operar normalmente
+
+### Express
+
+- [x] o profissional só pode receber pedidos Express quando:
+  - [x] estiver aprovado
+  - [x] ativar disponibilidade
+  - [x] compartilhar localização atual
+
+### On Demand
+
+- [x] o cliente escolhe um serviço publicado pelo profissional
+- [x] os serviços são cadastrados depois do onboarding inicial
+- [x] cada serviço deve ficar vinculado a uma profissão/categoria
+- [x] todo serviço precisa ter preço
+
+### Chat E Avaliação
+
+- [x] o chat só abre depois que o pedido foi aceito
+- [x] cliente e profissional podem se avaliar
+- [x] a avaliação só pode acontecer em pedido realmente realizado entre aquelas partes
+
+## Estrutura Atual Do Backend
+
+O profissional não vive em uma tabela única. O modelo está distribuído em blocos:
+
+- `users`
+- `professionals`
+- `professional_specialties`
+- `professional_documents`
+- `professional_services`
+- `blocked_periods`
+- `subscription_plans`
+- `orders`
+- `express_queue`
+- `reviews`
+- `conversations`
+- `messages`
+
+## Tabelas Principais
+
+### `users`
+
+Responsabilidade:
+conta base de autenticação.
 
 Campos relevantes:
 
@@ -38,6 +133,7 @@ Campos relevantes:
 - `cpf_hash`
 - `email`
 - `phone`
+- `birth_date`
 - `password`
 - `role`
 - `avatar_url`
@@ -48,20 +144,16 @@ Campos relevantes:
 - `updated_at`
 - `deleted_at`
 
-Campos obrigatórios no create:
+Observações:
 
-- `name`
-- `cpf`
-- `email`
-- `phone`
-- `password`
-- `role`
+- `birth_date` agora faz parte do contrato de criação
+- `role=professional` continua sendo definido aqui
+- `avatar_url` existe na conta e pode ser usado futuramente para foto de perfil
 
-Para profissional, `role` deve ser `professional`.
+### `professionals`
 
-### 2. Perfil Profissional
-
-Tabela: `professionals`
+Responsabilidade:
+perfil profissional estendido.
 
 Campos relevantes:
 
@@ -84,79 +176,17 @@ Campos relevantes:
 - `updated_at`
 - `deleted_at`
 
-Campos obrigatórios no create hoje:
-
-- `userId`
-- `specialties`
-
-Campos opcionais no create hoje:
-
-- `bio`
-- `yearsOfExperience`
-- `baseHourlyRate`
-
-Regras importantes:
-
-- `specialties` agora é obrigatório no contrato de criação
-- cada item de `specialties` precisa ter:
-  - `categoryId`
-  - `yearsOfExperience`
-- `yearsOfExperience` global do perfil pode ser enviado, mas se vier vazio o backend deriva esse valor pelo maior tempo de experiência entre as especialidades
-
-### 3. Documentos Do Cadastro
-
-Tabela: `professional_documents`
-
-No fluxo atual do front, o cadastro profissional também envia:
-
-- `document_front`
-- `document_back`
-
-Esses uploads usam o endpoint de documentos depois que o usuário já foi criado, o perfil profissional já existe e o login já foi concluído.
-
-## Tabelas Do Módulo Profissional
-
-### `users`
-
-Responsabilidade:
-Conta principal do sistema. Todo profissional começa aqui.
-
-Relação com profissional:
-
-- `users.id` <-> `professionals.user_id`
-
 Observações:
 
-- `cpf` é persistido com conversor de criptografia
-- `cpf_hash` existe para busca e unicidade
-- `avatar_url` é da conta, não do perfil profissional
-
-### `professionals`
-
-Responsabilidade:
-Perfil estendido do profissional.
-
-Dados salvos:
-
-- apresentação (`bio`)
-- experiência (`years_of_experience`)
-- preço base (`base_hourly_rate`)
-- status de verificação (`verification_status`)
-- dados de KYC/IDwall
-- geolocalização e disponibilidade express
-- plano ativo e datas da assinatura
-- auditoria e soft delete
-
-Regras implícitas:
-
-- 1 usuário pode ter no máximo 1 perfil profissional
 - `verification_status` começa em `pending`
 - `geo_active` começa em `false`
+- `bio` funciona como descrição profissional opcional
+- `years_of_experience` e `base_hourly_rate` continuam existindo no schema por compatibilidade, mas a fonte principal do onboarding agora é `professional_specialties`
 
 ### `professional_specialties`
 
 Responsabilidade:
-Registrar em quais categorias profissionais o usuário atua e quantos anos de experiência ele tem em cada uma.
+guardar as profissões/categorias escolhidas pelo profissional.
 
 Campos:
 
@@ -164,59 +194,62 @@ Campos:
 - `professional_id`
 - `category_id`
 - `years_of_experience`
+- `hourly_rate`
 - `created_at`
 - `updated_at`
 - `deleted_at`
 
 Regras:
 
-- um profissional pode ter várias especialidades
-- uma categoria não pode ser repetida para o mesmo profissional
-- a área é inferida pela `service_categories.area_id`
+- limite atual de `3` especialidades no cadastro
+- não pode repetir a mesma categoria para o mesmo profissional
+- cada item representa uma profissão/categoria específica
+- a área é inferida por `service_categories.area_id`
 
 Uso prático:
 
-- suportar seleção de área + profissão no cadastro
-- guardar experiência específica por profissão
-- alimentar busca, perfil e filtros futuros
+- seleção de profissões no cadastro
+- experiência por profissão
+- valor/hora por profissão
+- vínculo futuro dos serviços publicados
 
 ### `professional_documents`
 
 Responsabilidade:
-Documentos enviados pelo profissional.
+documentos do profissional usados no KYC.
 
 Campos:
 
 - `id`
 - `professional_id`
 - `doc_type`
+- `doc_side`
 - `file_url`
 - `uploaded_at`
 - `verified`
 
-Tipos de documento hoje:
+Tipos relevantes para o fluxo atual:
 
 - `rg`
 - `cnh`
-- `proof_of_address`
-- `profile_photo`
-- `document_front`
-- `document_back`
 
-Uso prático:
+Lados:
 
-- KYC
-- comprovação de endereço
-- foto de perfil documental
-- frente e verso do documento principal do cadastro
+- `front`
+- `back`
 
-Observação:
-O backend hoje faz replace por `doc_type`. Se o profissional reenviar `document_front` ou `document_back`, o registro anterior daquele mesmo tipo é substituído.
+Regras atuais:
+
+- o upload é feito por `doc_type + doc_side`
+- existe unicidade por profissional + tipo + lado
+- se já existir documento daquele tipo/lado:
+  - com profissional `rejected`, pode substituir
+  - com profissional `pending` ou `approved`, não pode alterar
 
 ### `professional_services`
 
 Responsabilidade:
-Serviços oferecidos pelo profissional.
+serviços publicados pelo profissional depois do cadastro.
 
 Campos:
 
@@ -233,283 +266,103 @@ Campos:
 - `updated_at`
 - `deleted_at`
 
-Tipos de preço:
+Regras de produto:
 
-- `hourly`
-- `fixed`
-
-Uso prático:
-
-- catálogo próprio do profissional
-- base para pedidos `on_demand`
-
-Observação:
-Não existe vínculo direto desta tabela com `service_areas`. O vínculo é com `service_categories`.
+- serviço vem depois do cadastro
+- serviço deve ficar vinculado a uma profissão/categoria
+- serviço sempre precisa de preço
+- no futuro pode usar preço específico ou valor/hora da profissão como referência de negócio
 
 ### `blocked_periods`
 
 Responsabilidade:
-Agenda invertida do profissional. Em vez de salvar horários disponíveis, o sistema salva bloqueios.
-
-Campos:
-
-- `id`
-- `professional_id`
-- `block_type`
-- `weekday`
-- `specific_date`
-- `starts_at`
-- `ends_at`
-- `order_id`
-- `order_starts_at`
-- `order_ends_at`
-- `reason`
-- `created_at`
-
-Tipos de bloqueio:
-
-- `recurring`
-- `specific_date`
-- `order`
-
-Uso prático:
-
-- bloqueio recorrente semanal
-- indisponibilidade em data específica
-- reserva automática por pedido aceito
-
-### `subscription_plans`
-
-Responsabilidade:
-Catálogo de planos que podem ser atribuídos ao profissional.
-
-Campos:
-
-- `id`
-- `name`
-- `price_monthly`
-- `highlight_in_search`
-- `express_priority`
-- `badge_label`
-- `is_active`
-- `created_at`
-- `updated_at`
-- `deleted_at`
-
-Observação importante:
-Não existe uma tabela `professional_subscriptions`.
-O vínculo atual do profissional com assinatura fica salvo na própria tabela `professionals`:
-
-- `subscription_plan_id`
-- `subscription_expires_at`
-- `subscription_cancelled_at`
-
-## Tabelas Operacionais Que Envolvem O Profissional
-
-### `orders`
-
-Responsabilidade:
-Pedido principal do sistema.
-
-Campos relacionados ao profissional:
-
-- `professional_id`
-- `service_id`
-- `area_id`
-- `category_id`
-- `mode`
-- `status`
-- `base_amount`
-- `platform_fee`
-- `total_amount`
-- `pro_completed_at`
-- `dispute_deadline`
-- `completed_at`
-- `cancelled_at`
-- `cancel_reason`
-
-Uso prático:
-
-- `on_demand`: pedido de um serviço específico do profissional
-- `express`: pedido distribuído para profissionais elegíveis
-
-### `express_queue`
-
-Responsabilidade:
-Fila de profissionais notificados no fluxo Express.
-
-Campos:
-
-- `id`
-- `order_id`
-- `professional_id`
-- `proposed_amount`
-- `notified_at`
-- `responded_at`
-- `pro_response`
-- `client_response`
-- `client_responded_at`
-- `queue_position`
-
-Uso prático:
-
-- controlar quais profissionais receberam a oferta
-- guardar proposta de valor
-- registrar aceite, recusa ou timeout
-- registrar escolha final do cliente
-
-### `reviews`
-
-Responsabilidade:
-Avaliações vinculadas a pedidos.
-
-Campos:
-
-- `id`
-- `order_id`
-- `reviewer_id`
-- `reviewee_id`
-- `rating`
-- `comment`
-- `submitted_at`
-- `published_at`
-
-Uso prático:
-
-- média do profissional
-- contagem de avaliações
-- reputação no app
-
-### `conversations`
-
-Responsabilidade:
-Conversa principal por pedido.
-
-Campos:
-
-- `id`
-- `order_id`
-- `client_id`
-- `professional_user_id`
-- `created_at`
-- `updated_at`
-- `deleted_at`
+agenda do profissional.
 
 Observação:
-O chat usa o `user_id` do profissional, não o `professional.id`.
 
-### `messages`
+- agenda continua sendo configurada depois do cadastro
+- o profissional pode existir aprovado sem agenda configurada
 
-Responsabilidade:
-Mensagens da conversa.
+## Fluxo Técnico Atual
 
-Campos:
+Hoje o cadastro profissional é composto por chamadas separadas:
 
-- `id`
-- `conversation_id`
-- `sender_id`
-- `msg_type`
-- `content`
-- `attachment_url`
-- `attachment_size_bytes`
-- `attachment_mime_type`
-- `sent_at`
-- `delivered_at`
-- `read_at`
-- `created_at`
-- `updated_at`
-- `deleted_at`
+1. `POST /api/users`
+2. `POST /api/v1/professionals`
+3. autenticação
+4. `POST /api/v1/professionals/{professionalId}/documents`
 
-## Auditoria E Soft Delete
+### `POST /api/users`
 
-Várias tabelas estendem `PostgresEntity`, então herdam:
+Cria a conta base com:
 
-- `id`
-- `created_at`
-- `updated_at`
-- `deleted_at`
+- `name`
+- `cpf`
+- `email`
+- `phone`
+- `birthDate`
+- `password`
+- `role`
 
-Isso vale para:
+### `POST /api/v1/professionals`
 
-- `users`
-- `professionals`
-- `professional_services`
-- `subscription_plans`
-- `orders`
-- `conversations`
-- `messages`
+Cria o perfil profissional com:
 
-Nem todas as tabelas seguem esse padrão. Exemplos:
+- `userId`
+- `bio` opcional
+- `specialties[]`
 
-- `professional_documents` tem `uploaded_at`, mas não usa `deleted_at`
-- `blocked_periods` tem `created_at`, mas não usa `updated_at` nem `deleted_at`
-- `reviews` tem `submitted_at` e `published_at`
+Cada item de `specialties[]` possui:
 
-## O Que O Backend Já Consegue Salvar Para Um Profissional
+- `categoryId`
+- `yearsOfExperience`
+- `hourlyRate` opcional
 
-Hoje já existe persistência para:
+### `POST /api/v1/professionals/{professionalId}/documents`
 
-- conta do usuário
-- perfil profissional
-- documentos
-- serviços oferecidos
-- disponibilidade e bloqueios
-- plano atual de assinatura
-- localização e modo express
-- pedidos e propostas
-- fotos de conclusão de pedido
-- avaliações
-- conversas e mensagens
+Envia o documento com:
 
-## O Que Ainda Não Está Modelado Como Estrutura Própria
+- `docType`
+- `docSide`
+- `file`
 
-Hoje não existe:
+## O Que Já Está Implementado
 
-- tabela de áreas atendidas por profissional
-- tabela de onboarding do profissional
-- histórico de assinatura em tabela própria
-- vínculo direto `professional -> service_area`
-- endpoint transacional único de cadastro que persiste tudo de uma vez
+### Feito
 
-Na prática, o modelo atual sugere este onboarding:
+- [x] `birth_date` em `users`
+- [x] `professional_specialties` com experiência por categoria
+- [x] `hourly_rate` por profissão
+- [x] `doc_side` em `professional_documents`
+- [x] bloqueio de alteração de documento quando o profissional não está `rejected`
+- [x] data de nascimento no cadastro profissional
+- [x] seleção de até 3 profissões
+- [x] experiência por profissão
+- [x] tipo de documento
+- [x] upload de frente e verso
 
-1. criar conta base
-2. criar perfil profissional
-3. vincular especialidades por categoria com experiência
-4. autenticar
-5. enviar documentos
-6. cadastrar serviços
-7. configurar agenda
-8. ativar geolocalização/express
-9. opcionalmente contratar plano
+### Parcial
 
-## Impacto Para O Front
+- [~] automação real de verificação via IDwall
+- [~] travas completas de edição/operação enquanto `pending`
+- [~] foto de perfil opcional dentro do cadastro
+- [~] reaproveitar a mesma regra de `birthDate` também no fluxo de cliente de ponta a ponta
+- [~] validações funcionais completas no fluxo de aprovação/rejeição
+- [~] serviços vinculados explicitamente à profissão escolhida no onboarding
 
-Se o front quiser ficar 100% alinhado ao backend atual, o cadastro inicial do profissional pode ser dividido em:
+### Não Feito
 
-- etapa obrigatória mínima:
-  - `name`
-  - `cpf`
-  - `email`
-  - `phone`
-  - `password`
-  - `role=professional`
-  - `userId`
-  - `specialties[]`
+- [ ] integração efetiva com um provedor de verificação em tempo real
+- [ ] regra centralizada de bloqueio por status para perfil, serviços e pedidos
+- [ ] onboarding com foto de perfil obrigatória ou opcional no mesmo fluxo
 
-- onboarding posterior:
-  - `bio`
-  - `baseHourlyRate`
-  - `yearsOfExperience` global, se quiser sobrescrever o valor derivado
-  - serviços
-  - agenda
-  - geo
-  - assinatura
+## Fonte De Verdade Atual
 
-No estado atual:
+Para o cadastro profissional, a referência de negócio agora é:
 
-- `specialties` já faz parte do contrato obrigatório do backend
-- `document_front` e `document_back` já são suportados
-- o upload de documentos ainda acontece em uma chamada separada após login
+- `users.birth_date`
+- `professionals.verification_status`
+- `professional_specialties`
+- `professional_documents` com `doc_type + doc_side`
 
-Se a regra de produto exigir atomicidade total no cadastro, o próximo passo seria criar um endpoint composto de registro profissional.
+O campo global de experiência do perfil não deve ser tratado como a modelagem principal do produto. A modelagem principal é por profissão.
