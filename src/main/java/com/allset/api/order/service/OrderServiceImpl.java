@@ -14,6 +14,11 @@ import com.allset.api.order.dto.*;
 import com.allset.api.order.exception.*;
 import com.allset.api.order.mapper.OrderMapper;
 import com.allset.api.order.repository.*;
+import com.allset.api.offering.domain.ProfessionalOffering;
+import com.allset.api.offering.repository.ProfessionalOfferingRepository;
+import com.allset.api.professional.domain.Professional;
+import com.allset.api.professional.domain.VerificationStatus;
+import com.allset.api.professional.exception.ProfessionalNotApprovedException;
 import com.allset.api.professional.repository.ProfessionalRepository;
 import com.allset.api.shared.storage.domain.StorageBucket;
 import com.allset.api.shared.storage.domain.StoredObject;
@@ -53,6 +58,7 @@ public class OrderServiceImpl implements OrderService {
     private final ServiceCategoryRepository  categoryRepository;
     private final SavedAddressRepository     addressRepository;
     private final ProfessionalRepository     professionalRepository;
+    private final ProfessionalOfferingRepository offeringRepository;
     private final OrderMapper                orderMapper;
     private final ObjectMapper               objectMapper;
     private final AppProperties              appProperties;
@@ -140,6 +146,139 @@ public class OrderServiceImpl implements OrderService {
         log.info("event=express_order_created orderId={} clientId={} professionals={}",
                 saved.getId(), clientId, nearbyIds.size());
 
+        return orderMapper.toResponse(saved);
+    }
+
+    // ─────────────────────────────────────────
+    // Criação do pedido On Demand
+    // ─────────────────────────────────────────
+
+    @Override
+    public OrderResponse createOnDemandOrder(UUID clientId, CreateOnDemandOrderRequest request) {
+        ProfessionalOffering offering = offeringRepository.findById(request.serviceId())
+                .filter(o -> o.getDeletedAt() == null)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Serviço não encontrado: " + request.serviceId()));
+
+        if (!offering.isActive()) {
+            throw new IllegalArgumentException("Serviço não está ativo: " + request.serviceId());
+        }
+
+        Professional professional = professionalRepository.findByIdAndDeletedAtIsNull(offering.getProfessionalId())
+                .orElseThrow(() -> new IllegalArgumentException("Profissional do serviço não encontrado"));
+
+        if (professional.getVerificationStatus() != VerificationStatus.approved) {
+            throw new IllegalArgumentException("Profissional não está aprovado para receber pedidos");
+        }
+
+        SavedAddress address = addressRepository.findByIdAndUserId(request.addressId(), clientId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Endereço não encontrado: " + request.addressId()));
+
+        if (request.scheduledAt().isBefore(Instant.now())) {
+            throw new IllegalArgumentException("Data agendada deve ser no futuro");
+        }
+
+        JsonNode snapshot = serializeAddress(address);
+
+        BigDecimal price = offering.getPrice();
+        BigDecimal fee = price.multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal total = price;
+
+        Order order = Order.builder()
+                .clientId(clientId)
+                .professionalId(offering.getProfessionalId())
+                .serviceId(offering.getId())
+                .categoryId(offering.getCategoryId())
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.pending)
+                .description(request.description())
+                .addressId(request.addressId())
+                .addressSnapshot(snapshot)
+                .scheduledAt(request.scheduledAt())
+                .expiresAt(request.scheduledAt().minus(4, ChronoUnit.HOURS))
+                .baseAmount(price)
+                .platformFee(fee)
+                .totalAmount(total)
+                .searchRadiusKm(BigDecimal.ZERO)
+                .searchAttempts((short) 0)
+                .build();
+
+        Order saved = orderRepository.save(order);
+        recordTransition(saved.getId(), null, OrderStatus.pending, "Pedido On Demand criado", null);
+
+        notifyProfessional(
+                offering.getProfessionalId(),
+                NotificationType.new_request,
+                "Novo pedido On Demand",
+                "Voce recebeu um novo pedido para o servico \"" + offering.getTitle() + "\".",
+                saved.getId()
+        );
+
+        log.info("event=on_demand_order_created orderId={} clientId={} professionalId={} serviceId={}",
+                saved.getId(), clientId, offering.getProfessionalId(), offering.getId());
+
+        return orderMapper.toResponse(saved);
+    }
+
+    // ─────────────────────────────────────────
+    // Resposta do profissional (On Demand)
+    // ─────────────────────────────────────────
+
+    @Override
+    public OrderResponse respondOnDemand(UUID orderId, UUID professionalId, boolean accepted) {
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        if (order.getMode() != OrderMode.on_demand) {
+            throw new OrderStatusTransitionException(order.getStatus(), "resposta on demand em pedido não on_demand");
+        }
+        if (order.getStatus() != OrderStatus.pending) {
+            throw new OrderStatusTransitionException(order.getStatus(), "resposta do profissional");
+        }
+        if (!professionalId.equals(order.getProfessionalId())) {
+            throw new OrderNotFoundException(orderId);
+        }
+
+        if (!accepted) {
+            Instant now = Instant.now();
+            order.setCancelledAt(now);
+            order.setCancelReason("Profissional recusou o pedido");
+            order.setStatus(OrderStatus.cancelled);
+
+            Order saved = orderRepository.save(order);
+            recordTransition(orderId, OrderStatus.pending, OrderStatus.cancelled,
+                    "Profissional recusou o pedido On Demand", professionalId);
+
+            notifyClient(
+                    order.getClientId(),
+                    NotificationType.request_rejected,
+                    "Pedido recusado",
+                    "O profissional recusou o seu pedido. Voce pode tentar outro profissional.",
+                    orderId
+            );
+
+            log.info("event=on_demand_rejected orderId={} professionalId={}", orderId, professionalId);
+            return orderMapper.toResponse(saved);
+        }
+
+        order.setStatus(OrderStatus.accepted);
+        Order saved = orderRepository.save(order);
+        recordTransition(orderId, OrderStatus.pending, OrderStatus.accepted,
+                "Profissional aceitou o pedido On Demand", professionalId);
+
+        Conversation conv = conversationService.createForOrder(saved);
+        messageService.sendSystemMessage(conv.getId(), "Pedido aceito. Vocês podem conversar por aqui.");
+
+        notifyClient(
+                order.getClientId(),
+                NotificationType.request_accepted,
+                "Pedido aceito",
+                "O profissional aceitou o seu pedido.",
+                orderId
+        );
+
+        log.info("event=on_demand_accepted orderId={} professionalId={}", orderId, professionalId);
         return orderMapper.toResponse(saved);
     }
 
@@ -234,6 +373,13 @@ public class OrderServiceImpl implements OrderService {
         }
         if (order.getStatus() != OrderStatus.pending) {
             throw new OrderStatusTransitionException(order.getStatus(), "resposta do profissional");
+        }
+
+        // Valida que o profissional ainda está aprovado
+        Professional professional = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
+                .orElseThrow(() -> new ExpressQueueViolationException("Profissional não encontrado"));
+        if (professional.getVerificationStatus() != VerificationStatus.approved) {
+            throw new ProfessionalNotApprovedException(professional.getVerificationStatus());
         }
 
         // Valida que este profissional está na fila e ainda não respondeu

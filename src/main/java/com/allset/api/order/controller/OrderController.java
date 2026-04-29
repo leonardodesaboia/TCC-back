@@ -75,6 +75,31 @@ public class OrderController {
         return ResponseEntity.created(location).body(response);
     }
 
+    @Operation(
+        summary = "Criar pedido On Demand",
+        description = "Cria um pedido On Demand a partir de um serviço publicado por um profissional. "
+                    + "O pedido vai direto para o profissional dono do serviço."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Pedido criado com sucesso",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos, serviço inativo ou profissional não aprovado",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping("/on-demand")
+    @PreAuthorize("hasAuthority('client')")
+    public ResponseEntity<OrderResponse> createOnDemand(
+            @Valid @RequestBody CreateOnDemandOrderRequest request,
+            @CurrentUser UUID clientId
+    ) {
+        OrderResponse response = orderService.createOnDemandOrder(clientId, request);
+        URI location = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/api/v1/orders/{id}")
+                .buildAndExpand(response.id())
+                .toUri();
+        return ResponseEntity.created(location).body(response);
+    }
+
     // ─────────────────────────────────────────
     // Leitura
     // ─────────────────────────────────────────
@@ -176,6 +201,33 @@ public class OrderController {
         // Precisamos do professionalId a partir do userId
         UUID professionalId = resolveProfessionalId(userId);
         return ResponseEntity.ok(orderService.proRespond(id, professionalId, request));
+    }
+
+    // ─────────────────────────────────────────
+    // On Demand — resposta do profissional
+    // ─────────────────────────────────────────
+
+    @Operation(
+        summary = "Profissional aceita ou recusa pedido On Demand",
+        description = "Profissional aceita ou recusa um pedido On Demand pendente."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Resposta registrada",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Status não permite resposta",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "404", description = "Pedido não encontrado",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping("/{id}/on-demand/respond")
+    @PreAuthorize("hasAuthority('professional')")
+    public ResponseEntity<OrderResponse> respondOnDemand(
+            @PathVariable UUID id,
+            @RequestParam boolean accepted,
+            @CurrentUser UUID userId
+    ) {
+        UUID professionalId = resolveProfessionalId(userId);
+        return ResponseEntity.ok(orderService.respondOnDemand(id, professionalId, accepted));
     }
 
     // ─────────────────────────────────────────

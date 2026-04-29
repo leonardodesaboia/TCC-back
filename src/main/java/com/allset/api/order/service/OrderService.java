@@ -15,6 +15,12 @@ public interface OrderService {
     /** Cria pedido Express, notifica todos os profissionais próximos ao mesmo tempo. */
     OrderResponse createExpressOrder(UUID clientId, CreateExpressOrderRequest request);
 
+    /** Cria pedido On Demand a partir de um serviço publicado por um profissional. */
+    OrderResponse createOnDemandOrder(UUID clientId, CreateOnDemandOrderRequest request);
+
+    /** Profissional aceita ou recusa um pedido On Demand pendente. */
+    OrderResponse respondOnDemand(UUID orderId, UUID professionalId, boolean accepted);
+
     /** Retorna o pedido — acesso ao cliente dono, profissional do pedido ou admin. */
     OrderResponse getOrder(UUID orderId, UUID requesterId, String requesterRole);
 
