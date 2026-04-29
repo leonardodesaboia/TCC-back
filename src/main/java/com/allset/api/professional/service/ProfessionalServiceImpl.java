@@ -2,6 +2,7 @@ package com.allset.api.professional.service;
 
 import com.allset.api.catalog.exception.ServiceCategoryNotFoundException;
 import com.allset.api.catalog.repository.ServiceCategoryRepository;
+import com.allset.api.document.repository.ProfessionalDocumentRepository;
 import com.allset.api.professional.domain.Professional;
 import com.allset.api.professional.domain.ProfessionalSpecialty;
 import com.allset.api.professional.domain.VerificationStatus;
@@ -19,6 +20,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.allset.api.professional.exception.ProfessionalNotApprovedException;
+
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -34,6 +37,7 @@ public class ProfessionalServiceImpl implements ProfessionalService {
 
     private final ProfessionalRepository professionalRepository;
     private final ProfessionalSpecialtyRepository professionalSpecialtyRepository;
+    private final ProfessionalDocumentRepository professionalDocumentRepository;
     private final ServiceCategoryRepository serviceCategoryRepository;
     private final UserRepository userRepository;
     private final ProfessionalMapper professionalMapper;
@@ -92,6 +96,7 @@ public class ProfessionalServiceImpl implements ProfessionalService {
     @Override
     public ProfessionalResponse update(UUID id, UpdateProfessionalRequest request) {
         Professional professional = findActiveById(id);
+        requireApproved(professional);
 
         if (request.bio() != null) professional.setBio(request.bio());
         if (request.baseHourlyRate() != null) professional.setBaseHourlyRate(request.baseHourlyRate());
@@ -108,6 +113,7 @@ public class ProfessionalServiceImpl implements ProfessionalService {
     @Override
     public ProfessionalResponse updateGeo(UUID id, UpdateGeoRequest request) {
         Professional professional = findActiveById(id);
+        requireApproved(professional);
 
         if (Boolean.TRUE.equals(request.geoActive())) {
             boolean hasLat = request.geoLat() != null || professional.getGeoLat() != null;
@@ -133,6 +139,21 @@ public class ProfessionalServiceImpl implements ProfessionalService {
             throw new IllegalArgumentException("Motivo de rejeição é obrigatório quando status = rejected");
         }
 
+        if (request.status() == VerificationStatus.approved) {
+            long docCount = professionalDocumentRepository.countByProfessionalId(id);
+            if (docCount < 2) {
+                throw new IllegalArgumentException(
+                        "Não é possível aprovar: profissional precisa ter ao menos frente e verso do documento enviados");
+            }
+
+            List<ProfessionalSpecialty> specialties = professionalSpecialtyRepository
+                    .findAllByProfessionalIdAndDeletedAtIsNullOrderByCreatedAtAsc(id);
+            if (specialties.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Não é possível aprovar: profissional precisa ter ao menos uma especialidade cadastrada");
+            }
+        }
+
         professional.setVerificationStatus(request.status());
         professional.setRejectionReason(request.status() == VerificationStatus.rejected ? request.rejectionReason() : null);
 
@@ -144,6 +165,12 @@ public class ProfessionalServiceImpl implements ProfessionalService {
         Professional professional = findActiveById(id);
         professional.setDeletedAt(Instant.now());
         professionalRepository.save(professional);
+    }
+
+    private void requireApproved(Professional professional) {
+        if (professional.getVerificationStatus() != VerificationStatus.approved) {
+            throw new ProfessionalNotApprovedException(professional.getVerificationStatus());
+        }
     }
 
     private Professional findActiveById(UUID id) {

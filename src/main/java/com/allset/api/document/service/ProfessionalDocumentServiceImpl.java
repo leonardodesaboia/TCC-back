@@ -83,6 +83,14 @@ public class ProfessionalDocumentServiceImpl implements ProfessionalDocumentServ
 
     @Override
     public void delete(UUID professionalId, UUID id) {
+        Professional professional = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
+                .orElseThrow(() -> new ProfessionalNotFoundException(professionalId));
+
+        if (professional.getVerificationStatus() != VerificationStatus.rejected) {
+            throw new IllegalArgumentException(
+                    "Documento bloqueado para exclusão enquanto a verificação não for rejeitada");
+        }
+
         ProfessionalDocument document = professionalDocumentRepository.findByIdAndProfessionalId(id, professionalId)
                 .orElseThrow(() -> new ProfessionalDocumentNotFoundException(id));
 

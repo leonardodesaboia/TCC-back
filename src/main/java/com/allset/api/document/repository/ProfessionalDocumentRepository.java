@@ -20,4 +20,6 @@ public interface ProfessionalDocumentRepository extends JpaRepository<Profession
             DocType docType,
             DocumentSide docSide
     );
+
+    long countByProfessionalId(UUID professionalId);
 }

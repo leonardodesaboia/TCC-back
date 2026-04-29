@@ -22,6 +22,7 @@ import com.allset.api.dispute.domain.EvidenceType;
 import com.allset.api.dispute.repository.DisputeEvidenceRepository;
 import com.allset.api.dispute.repository.DisputeRepository;
 import com.allset.api.document.domain.DocType;
+import com.allset.api.document.domain.DocumentSide;
 import com.allset.api.document.domain.ProfessionalDocument;
 import com.allset.api.document.repository.ProfessionalDocumentRepository;
 import com.allset.api.notification.domain.Notification;
@@ -47,8 +48,10 @@ import com.allset.api.order.repository.OrderPhotoRepository;
 import com.allset.api.order.repository.OrderRepository;
 import com.allset.api.order.repository.OrderStatusHistoryRepository;
 import com.allset.api.professional.domain.Professional;
+import com.allset.api.professional.domain.ProfessionalSpecialty;
 import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.repository.ProfessionalRepository;
+import com.allset.api.professional.repository.ProfessionalSpecialtyRepository;
 import com.allset.api.review.domain.Review;
 import com.allset.api.review.repository.ReviewRepository;
 import com.allset.api.subscription.domain.SubscriptionPlan;
@@ -91,6 +94,7 @@ public class StartupSeedService {
     private final ServiceCategoryRepository serviceCategoryRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final ProfessionalRepository professionalRepository;
+    private final ProfessionalSpecialtyRepository professionalSpecialtyRepository;
     private final ProfessionalDocumentRepository professionalDocumentRepository;
     private final ProfessionalOfferingRepository professionalOfferingRepository;
     private final BlockedPeriodRepository blockedPeriodRepository;
@@ -128,12 +132,12 @@ public class StartupSeedService {
         SubscriptionPlan proPlan = saveSubscriptionPlan("Plano Pro", new BigDecimal("49.90"), true, true, "Pro", true);
         SubscriptionPlan destaquePlan = saveSubscriptionPlan("Plano Destaque", new BigDecimal("79.90"), true, true, "Destaque", true);
 
-        User clientUser = saveUser("Cliente Seed", "52998224725", CLIENT_EMAIL, "+5585999990001", UserRole.client, true, null);
-        User electricianUser = saveUser("Profissional Eletrica Seed", "11144477735", "profissional.eletrica.seed@allset.local", "+5585999990002", UserRole.professional, true, null);
-        User backupElectricianUser = saveUser("Profissional Backup Seed", "12345678909", "profissional.backup.seed@allset.local", "+5585999990003", UserRole.professional, true, null);
-        User cleanerUser = saveUser("Profissional Limpeza Seed", "98765432100", "profissional.limpeza.seed@allset.local", "+5585999990004", UserRole.professional, true, null);
-        User adminUser = saveUser("Admin Seed", "22233344455", ADMIN_EMAIL, "+5585999990005", UserRole.admin, true, null);
-        User bannedUser = saveUser("Usuario Banido Seed", "33344455566", "banido.seed@allset.local", "+5585999990006", UserRole.client, false, "Conta suspensa para testes administrativos");
+        User clientUser = saveUser("Cliente Seed", "52998224725", CLIENT_EMAIL, "+5585999990001", LocalDate.of(1995, 9, 15), UserRole.client, true, null, "avatars/client-seed.jpg");
+        User electricianUser = saveUser("Profissional Eletrica Seed", "11144477735", "profissional.eletrica.seed@allset.local", "+5585999990002", LocalDate.of(1990, 4, 20), UserRole.professional, true, null, "avatars/electrician-seed.jpg");
+        User backupElectricianUser = saveUser("Profissional Backup Seed", "12345678909", "profissional.backup.seed@allset.local", "+5585999990003", LocalDate.of(1993, 8, 11), UserRole.professional, true, null, "avatars/backup-electrician-seed.jpg");
+        User cleanerUser = saveUser("Profissional Limpeza Seed", "98765432100", "profissional.limpeza.seed@allset.local", "+5585999990004", LocalDate.of(1992, 1, 8), UserRole.professional, true, null, "avatars/cleaner-seed.jpg");
+        User adminUser = saveUser("Admin Seed", "22233344455", ADMIN_EMAIL, "+5585999990005", LocalDate.of(1988, 12, 3), UserRole.admin, true, null, "avatars/admin-seed.jpg");
+        User bannedUser = saveUser("Usuario Banido Seed", "33344455566", "banido.seed@allset.local", "+5585999990006", LocalDate.of(1991, 6, 27), UserRole.client, false, "Conta suspensa para testes administrativos", null);
 
         SavedAddress clientHome = saveAddress(
                 clientUser,
@@ -201,9 +205,17 @@ public class StartupSeedService {
                 null
         );
 
-        saveDocument(electricianProfessional, DocType.rg, "documents/electrician-rg.jpg", true);
-        saveDocument(electricianProfessional, DocType.proof_of_address, "documents/electrician-address.pdf", true);
-        saveDocument(cleanerProfessional, DocType.profile_photo, "documents/cleaner-profile.jpg", true);
+        saveSpecialty(electricianProfessional, eletricistaCategory, (short) 8, new BigDecimal("150.00"));
+        saveSpecialty(electricianProfessional, encanadorCategory, (short) 4, new BigDecimal("140.00"));
+        saveSpecialty(backupElectricianProfessional, eletricistaCategory, (short) 5, new BigDecimal("130.00"));
+        saveSpecialty(cleanerProfessional, diaristaCategory, (short) 6, new BigDecimal("95.00"));
+
+        saveDocument(electricianProfessional, DocType.rg, DocumentSide.front, "documents/electrician-rg-front.jpg", true);
+        saveDocument(electricianProfessional, DocType.rg, DocumentSide.back, "documents/electrician-rg-back.jpg", true);
+        saveDocument(backupElectricianProfessional, DocType.cnh, DocumentSide.front, "documents/backup-electrician-cnh-front.jpg", true);
+        saveDocument(backupElectricianProfessional, DocType.cnh, DocumentSide.back, "documents/backup-electrician-cnh-back.jpg", true);
+        saveDocument(cleanerProfessional, DocType.rg, DocumentSide.front, "documents/cleaner-rg-front.jpg", true);
+        saveDocument(cleanerProfessional, DocType.rg, DocumentSide.back, "documents/cleaner-rg-back.jpg", true);
 
         ProfessionalOffering electricianOffering = saveOffering(
                 electricianProfessional,
@@ -221,7 +233,7 @@ public class StartupSeedService {
                 "Diagnostico eletrico residencial",
                 "Visita tecnica para identificar curto, sobrecarga e falhas intermitentes.",
                 PricingType.hourly,
-                new BigDecimal("120.00"),
+                null,
                 60,
                 true
         );
@@ -616,15 +628,27 @@ public class StartupSeedService {
                 .build());
     }
 
-    private User saveUser(String name, String cpf, String email, String phone, UserRole role, boolean active, String banReason) {
+    private User saveUser(
+            String name,
+            String cpf,
+            String email,
+            String phone,
+            LocalDate birthDate,
+            UserRole role,
+            boolean active,
+            String banReason,
+            String avatarKey
+    ) {
         return userRepository.save(User.builder()
                 .name(name)
                 .cpf(cpf)
                 .cpfHash(sha256Hex(cpf))
                 .email(email)
                 .phone(phone)
+                .birthDate(birthDate)
                 .password(passwordEncoder.encode(DEFAULT_PASSWORD))
                 .role(role)
+                .avatarUrl(avatarKey)
                 .active(active)
                 .notificationsEnabled(true)
                 .banReason(banReason)
@@ -687,10 +711,31 @@ public class StartupSeedService {
                 .build());
     }
 
-    private ProfessionalDocument saveDocument(Professional professional, DocType docType, String fileKey, boolean verified) {
+    private ProfessionalSpecialty saveSpecialty(
+            Professional professional,
+            ServiceCategory category,
+            short yearsOfExperience,
+            BigDecimal hourlyRate
+    ) {
+        return professionalSpecialtyRepository.save(ProfessionalSpecialty.builder()
+                .professionalId(professional.getId())
+                .categoryId(category.getId())
+                .yearsOfExperience(yearsOfExperience)
+                .hourlyRate(hourlyRate)
+                .build());
+    }
+
+    private ProfessionalDocument saveDocument(
+            Professional professional,
+            DocType docType,
+            DocumentSide docSide,
+            String fileKey,
+            boolean verified
+    ) {
         return professionalDocumentRepository.save(ProfessionalDocument.builder()
                 .professionalId(professional.getId())
                 .docType(docType)
+                .docSide(docSide)
                 .fileKey(fileKey)
                 .verified(verified)
                 .build());

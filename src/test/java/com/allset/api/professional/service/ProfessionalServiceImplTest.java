@@ -1,7 +1,9 @@
 package com.allset.api.professional.service;
 
 import com.allset.api.catalog.repository.ServiceCategoryRepository;
+import com.allset.api.document.repository.ProfessionalDocumentRepository;
 import com.allset.api.professional.domain.Professional;
+import com.allset.api.professional.domain.ProfessionalSpecialty;
 import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.dto.CreateProfessionalRequest;
 import com.allset.api.professional.dto.ProfessionalResponse;
@@ -40,6 +42,9 @@ class ProfessionalServiceImplTest {
 
     @Mock
     private ProfessionalSpecialtyRepository professionalSpecialtyRepository;
+
+    @Mock
+    private ProfessionalDocumentRepository professionalDocumentRepository;
 
     @Mock
     private ServiceCategoryRepository serviceCategoryRepository;
@@ -138,6 +143,9 @@ class ProfessionalServiceImplTest {
         );
 
         when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId)).thenReturn(Optional.of(professional));
+        when(professionalDocumentRepository.countByProfessionalId(professionalId)).thenReturn(2L);
+        when(professionalSpecialtyRepository.findAllByProfessionalIdAndDeletedAtIsNullOrderByCreatedAtAsc(professionalId))
+                .thenReturn(List.of(ProfessionalSpecialty.builder().professionalId(professionalId).categoryId(UUID.randomUUID()).yearsOfExperience((short) 3).build()));
         when(professionalRepository.save(professional)).thenReturn(professional);
         when(professionalMapper.toResponse(professional)).thenReturn(response);
 

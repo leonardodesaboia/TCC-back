@@ -23,6 +23,7 @@ import com.allset.api.dispute.exception.DisputeWindowExpiredException;
 import com.allset.api.document.exception.ProfessionalDocumentNotFoundException;
 import com.allset.api.offering.exception.ProfessionalOfferingNotFoundException;
 import com.allset.api.professional.exception.ProfessionalAlreadyExistsException;
+import com.allset.api.professional.exception.ProfessionalNotApprovedException;
 import com.allset.api.professional.exception.ProfessionalNotFoundException;
 import com.allset.api.review.exception.ReviewAlreadyExistsException;
 import com.allset.api.shared.storage.exception.FileTooLargeException;
@@ -178,6 +179,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest().body(new ApiError(
             HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(ProfessionalNotApprovedException.class)
+    public ResponseEntity<ApiError> handleNotApproved(ProfessionalNotApprovedException ex,
+                                                      HttpServletRequest request) {
+        log.warn("status=403 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(
+            HttpStatus.FORBIDDEN.value(),
             ex.getMessage(),
             null,
             Instant.now()
