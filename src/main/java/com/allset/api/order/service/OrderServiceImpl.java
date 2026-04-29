@@ -14,12 +14,14 @@ import com.allset.api.order.dto.*;
 import com.allset.api.order.exception.*;
 import com.allset.api.order.mapper.OrderMapper;
 import com.allset.api.order.repository.*;
+import com.allset.api.offering.domain.PricingType;
 import com.allset.api.offering.domain.ProfessionalOffering;
 import com.allset.api.offering.repository.ProfessionalOfferingRepository;
 import com.allset.api.professional.domain.Professional;
 import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.exception.ProfessionalNotApprovedException;
 import com.allset.api.professional.repository.ProfessionalRepository;
+import com.allset.api.professional.repository.ProfessionalSpecialtyRepository;
 import com.allset.api.shared.storage.domain.StorageBucket;
 import com.allset.api.shared.storage.domain.StoredObject;
 import com.allset.api.shared.storage.service.StorageService;
@@ -58,6 +60,7 @@ public class OrderServiceImpl implements OrderService {
     private final ServiceCategoryRepository  categoryRepository;
     private final SavedAddressRepository     addressRepository;
     private final ProfessionalRepository     professionalRepository;
+    private final ProfessionalSpecialtyRepository specialtyRepository;
     private final ProfessionalOfferingRepository offeringRepository;
     private final OrderMapper                orderMapper;
     private final ObjectMapper               objectMapper;
@@ -181,7 +184,11 @@ public class OrderServiceImpl implements OrderService {
 
         JsonNode snapshot = serializeAddress(address);
 
-        BigDecimal price = offering.getPrice();
+        BigDecimal price = resolveOfferingPrice(offering);
+        if (price == null) {
+            throw new IllegalArgumentException(
+                    "Serviço sem preço definido e sem valor/hora na especialidade vinculada");
+        }
         BigDecimal fee = price.multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP);
         BigDecimal total = price;
 
@@ -862,6 +869,20 @@ public class OrderServiceImpl implements OrderService {
                 address.getComplement(), address.getDistrict(), address.getCity(),
                 address.getState(), address.getZipCode(), address.getLat(), address.getLng()
         ));
+    }
+
+    private BigDecimal resolveOfferingPrice(ProfessionalOffering offering) {
+        if (offering.getPrice() != null) {
+            return offering.getPrice();
+        }
+        if (offering.getPricingType() == PricingType.hourly) {
+            return specialtyRepository
+                    .findByProfessionalIdAndCategoryIdAndDeletedAtIsNull(
+                            offering.getProfessionalId(), offering.getCategoryId())
+                    .map(s -> s.getHourlyRate())
+                    .orElse(null);
+        }
+        return null;
     }
 
     private record AddressSnapshot(
