@@ -35,6 +35,29 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     Page<Order> findAllByProfessionalIdAndStatusAndDeletedAtIsNull(UUID professionalId, OrderStatus status, Pageable pageable);
 
+    @Query("""
+        SELECT o FROM Order o
+        WHERE o.deletedAt IS NULL
+          AND o.mode = :mode
+          AND o.status = :status
+          AND o.professionalId IS NULL
+          AND EXISTS (
+              SELECT 1 FROM ExpressQueueEntry e
+              WHERE e.orderId = o.id
+                AND e.professionalId = :professionalId
+                AND (
+                    e.proResponse IS NULL
+                    OR (e.proResponse = com.allset.api.order.domain.ProResponse.accepted AND e.clientResponse IS NULL)
+                )
+          )
+        """)
+    Page<Order> findExpressInboxByProfessionalId(
+            @Param("professionalId") UUID professionalId,
+            @Param("mode") OrderMode mode,
+            @Param("status") OrderStatus status,
+            Pageable pageable
+    );
+
     /**
      * Pedidos Express pendentes cujo prazo expirou.
      * O scheduler usa esta query para processar tanto o fim da janela de propostas

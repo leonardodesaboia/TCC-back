@@ -50,8 +50,8 @@ public class OrderController {
 
     @Operation(
         summary = "Criar pedido Express",
-        description = "Cria um pedido Express e monta a fila de profissionais disponíveis "
-                    + "no raio de 15km, ordenados por proximidade (com prioridade para assinantes Pro)."
+        description = "Cria um pedido Express e monta a primeira rodada da fila de profissionais disponíveis "
+                    + "no raio inicial configurado, ordenados por proximidade (com prioridade para assinantes Pro)."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Pedido criado com sucesso",
@@ -141,6 +141,21 @@ public class OrderController {
                 .map(a -> a.getAuthority())
                 .orElse("client");
         return ResponseEntity.ok(orderService.listOrders(userId, role, status, pageable));
+    }
+
+    @Operation(
+        summary = "Listar inbox Express do profissional",
+        description = "Retorna pedidos Express pendentes para os quais o profissional foi notificado ou já enviou proposta e ainda aguarda decisão do cliente."
+    )
+    @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso")
+    @GetMapping("/express/inbox")
+    @PreAuthorize("hasAuthority('professional')")
+    public ResponseEntity<Page<OrderResponse>> listProfessionalExpressInbox(
+            @Parameter(description = "Filtrar por status") @RequestParam(required = false) OrderStatus status,
+            @CurrentUser UUID userId,
+            @ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable
+    ) {
+        return ResponseEntity.ok(orderService.listProfessionalExpressInbox(userId, status, pageable));
     }
 
     // ─────────────────────────────────────────

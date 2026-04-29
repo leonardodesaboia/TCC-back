@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>Responsabilidades delegadas ao service:
  * <ul>
- *   <li>Marcar timeout de profissionais que não responderam em {@code expressProTimeoutMinutes} (10min)</li>
+ *   <li>Marcar timeout de profissionais que não responderam em {@code expressProTimeoutMinutes}</li>
  *   <li>Expandir raio ou cancelar pedidos sem nenhuma proposta após o prazo</li>
  *   <li>Cancelar pedidos onde o cliente não escolheu uma proposta no prazo de {@code expressClientWindowMinutes} (30min)</li>
  * </ul>

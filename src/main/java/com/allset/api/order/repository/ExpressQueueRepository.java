@@ -79,8 +79,8 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
 
     /**
      * Busca profissionais próximos via fórmula de Haversine.
-     * Retorna IDs de profissionais aprovados, com geo ativo, que oferecem
-     * a categoria solicitada, ordenados por: express_priority DESC, distância ASC.
+     * Retorna IDs de profissionais aprovados, com geo ativo, que possuem
+     * a especialidade/categoria solicitada, ordenados por: express_priority DESC, distância ASC.
      */
     @Query(value = """
         SELECT p.id FROM professionals p
@@ -88,10 +88,9 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
           AND p.verification_status = 'approved'
           AND p.deleted_at IS NULL
           AND EXISTS (
-              SELECT 1 FROM professional_services ps
+              SELECT 1 FROM professional_specialties ps
               WHERE ps.professional_id = p.id
                 AND ps.category_id = :categoryId
-                AND ps.is_active = TRUE
                 AND ps.deleted_at IS NULL
           )
           AND (
@@ -141,10 +140,9 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
           AND p.deleted_at IS NULL
           AND p.id NOT IN :excludeIds
           AND EXISTS (
-              SELECT 1 FROM professional_services ps
+              SELECT 1 FROM professional_specialties ps
               WHERE ps.professional_id = p.id
                 AND ps.category_id = :categoryId
-                AND ps.is_active = TRUE
                 AND ps.deleted_at IS NULL
           )
           AND (

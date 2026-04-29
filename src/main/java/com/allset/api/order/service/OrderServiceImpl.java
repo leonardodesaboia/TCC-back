@@ -182,6 +182,11 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalArgumentException("Data agendada deve ser no futuro");
         }
 
+        UUID areaId = categoryRepository.findByIdAndDeletedAtIsNull(offering.getCategoryId())
+                .map(category -> category.getAreaId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Categoria do serviço não encontrada: " + offering.getCategoryId()));
+
         JsonNode snapshot = serializeAddress(address);
 
         BigDecimal price = resolveOfferingPrice(offering);
@@ -196,6 +201,7 @@ public class OrderServiceImpl implements OrderService {
                 .clientId(clientId)
                 .professionalId(offering.getProfessionalId())
                 .serviceId(offering.getId())
+                .areaId(areaId)
                 .categoryId(offering.getCategoryId())
                 .mode(OrderMode.on_demand)
                 .status(OrderStatus.pending)
@@ -305,14 +311,15 @@ public class OrderServiceImpl implements OrderService {
         // com order.professionalId e com a fila express.
         boolean isPro    = false;
         boolean isInQueue = false;
+        ExpressQueueEntry queueEntry = null;
         if ("professional".equals(requesterRole)) {
             UUID proId = professionalRepository.findByUserIdAndDeletedAtIsNull(requesterId)
                     .map(p -> p.getId())
                     .orElse(null);
             if (proId != null) {
                 isPro    = proId.equals(order.getProfessionalId());
-                isInQueue = !isPro && queueRepository
-                        .findByOrderIdAndProfessionalId(orderId, proId).isPresent();
+                queueEntry = queueRepository.findByOrderIdAndProfessionalId(orderId, proId).orElse(null);
+                isInQueue = !isPro && queueEntry != null;
             }
         }
 
@@ -320,7 +327,7 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderNotFoundException(orderId);
         }
 
-        return orderMapper.toResponse(order, photoRepository.findAllByOrderId(orderId));
+        return orderMapper.toResponse(order, photoRepository.findAllByOrderId(orderId), queueEntry);
     }
 
     @Override
@@ -338,6 +345,27 @@ public class OrderServiceImpl implements OrderService {
                 ? orderRepository.findAllByClientIdAndStatusAndDeletedAtIsNull(userId, status, pageable)
                 : orderRepository.findAllByClientIdAndDeletedAtIsNull(userId, pageable))
                 .map(orderMapper::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> listProfessionalExpressInbox(UUID userId, OrderStatus status, Pageable pageable) {
+        if (status != null && status != OrderStatus.pending) {
+            return Page.empty(pageable);
+        }
+
+        return professionalRepository.findByUserIdAndDeletedAtIsNull(userId)
+                .map(pro -> orderRepository.findExpressInboxByProfessionalId(
+                        pro.getId(),
+                        OrderMode.express,
+                        OrderStatus.pending,
+                        pageable
+                ).map(order -> orderMapper.toResponse(
+                        order,
+                        queueRepository.findByOrderIdAndProfessionalId(order.getId(), pro.getId()).orElse(null)
+                )))
+                .orElse(Page.empty(pageable))
+                ;
     }
 
     @Override
@@ -416,7 +444,7 @@ public class OrderServiceImpl implements OrderService {
             );
 
             log.info("event=express_pro_rejected orderId={} professionalId={}", orderId, professionalId);
-            return orderMapper.toResponse(order);
+            return orderMapper.toResponse(order, entry);
         }
 
         // accepted — proposedAmount obrigatório
@@ -450,7 +478,10 @@ public class OrderServiceImpl implements OrderService {
 
         log.info("event=express_pro_accepted orderId={} professionalId={} amount={}",
                 orderId, professionalId, request.proposedAmount());
-        return orderMapper.toResponse(orderRepository.findByIdAndDeletedAtIsNull(orderId).orElseThrow());
+        return orderMapper.toResponse(
+                orderRepository.findByIdAndDeletedAtIsNull(orderId).orElseThrow(),
+                queueRepository.findByOrderIdAndProfessionalId(orderId, professionalId).orElse(entry)
+        );
     }
 
     // ─────────────────────────────────────────

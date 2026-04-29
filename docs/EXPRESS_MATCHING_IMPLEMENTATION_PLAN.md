@@ -826,3 +826,34 @@ Uma entrega estará pronta quando:
 - permitir profissional notificado visualizar e responder;
 - permitir cliente escolher proposta;
 - encerrar corretamente por indisponibilidade quando necessário.
+
+
+
+
+--------------------------------------------------
+Achados
+
+  - Alta: o novo toggle de Express ainda não cria um caminho funcional para ativação real do profissional. A tela só envia
+    geoActive em TCC-front/src/app/(professional)/(profile)/edit.tsx:48, mas o backend exige coordenadas existentes para
+    ativar o modo Express em TCC-back/src/main/java/com/allset/api/professional/service/ProfessionalServiceImpl.java:118, e
+    o contrato já aceita geoLat/geoLng em TCC-back/src/main/java/com/allset/api/professional/dto/UpdateGeoRequest.java:10.
+    Para qualquer profissional novo sem coordenadas persistidas, o switch sempre volta com erro. Na prática, a UI nova
+    sugere uma capacidade que o fluxo ainda não entrega.
+  - Média: a fusão client-side de /orders com /orders/express/inbox quebra a semântica de paginação. Em TCC-front/src/lib/
+    integrations/professional/default-professional-integration.ts:38, cada endpoint é paginado separadamente e depois os
+    resultados são concatenados, deduplicados e reordenados no app em TCC-front/src/lib/integrations/professional/default-
+    professional-integration.ts:46. Se alguma tela passar page/size, page=0,size=20 pode virar até 40 itens, e páginas
+    seguintes podem repetir ou pular pedidos porque não existe paginação global do conjunto combinado.
+  - Média: o novo estado da fila Express no detalhe do profissional cobre só proResponse = null e accepted, mas não trata
+    rejected ou timeout. A tela decide os estados apenas em TCC-front/src/app/(professional)/(orders)/[orderId].tsx:92 e
+    mostra ações só nos ramos de TCC-front/src/app/(professional)/(orders)/[orderId].tsx:316 e TCC-front/src/app/
+    (professional)/(orders)/[orderId].tsx:352. Só que o backend ainda permite abrir o pedido para qualquer profissional que
+    tenha entry na fila em TCC-back/src/main/java/com/allset/api/order/service/OrderServiceImpl.java:321. Resultado: links
+    antigos/notificações antigas podem abrir um pedido “Pendente/Express” sem ação nem explicação, parecendo tela quebrada.
+
+  Perguntas / pressupostos
+
+  - Assumi que o objetivo do toggle era permitir autoativação do Express por profissionais aprovados sem depender de seed/
+    manual no banco. Se a intenção era só expor estado, o achado 1 cai de severidade.
+  - Assumi que page/size podem ser usados futuramente em pedidos profissionais. Se essas telas sempre carregarem listas
+    curtas sem paginação, o achado 2 fica mais como dívida técnica do que bug imediato.

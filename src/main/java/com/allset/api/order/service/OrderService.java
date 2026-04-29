@@ -27,6 +27,9 @@ public interface OrderService {
     /** Lista pedidos do usuário filtrados por status (opcional). */
     Page<OrderResponse> listOrders(UUID userId, String role, OrderStatus status, Pageable pageable);
 
+    /** Lista pedidos Express pendentes em que o profissional foi notificado ou já enviou proposta e aguarda decisão. */
+    Page<OrderResponse> listProfessionalExpressInbox(UUID userId, OrderStatus status, Pageable pageable);
+
     /** Retorna as propostas recebidas para um pedido Express (apenas cliente dono ou admin). */
     List<ExpressProposalResponse> getProposals(UUID orderId, UUID clientId, String requesterRole);
 
