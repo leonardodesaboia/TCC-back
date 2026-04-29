@@ -25,8 +25,7 @@ public record CreateProfessionalOfferingRequest(
         @NotNull(message = "Tipo de precificação é obrigatório")
         PricingType pricingType,
 
-        @Schema(description = "Valor — por hora se hourly | total se fixed", example = "120.00")
-        @NotNull(message = "Preço é obrigatório")
+        @Schema(description = "Valor — por hora se hourly | total se fixed. Quando omitido em hourly, usa o valor/hora da especialidade.", example = "120.00")
         @DecimalMin(value = "0.0", inclusive = false, message = "Preço deve ser maior que zero")
         BigDecimal price,
 

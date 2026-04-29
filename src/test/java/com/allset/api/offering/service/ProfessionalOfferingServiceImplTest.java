@@ -113,6 +113,7 @@ class ProfessionalOfferingServiceImplTest {
                 PricingType.fixed,
                 new BigDecimal("150.00"),
                 120,
+                false,
                 false
         );
 
@@ -123,6 +124,7 @@ class ProfessionalOfferingServiceImplTest {
                 "Titulo novo",
                 "Descricao antiga",
                 PricingType.fixed,
+                new BigDecimal("150.00"),
                 new BigDecimal("150.00"),
                 120,
                 false,
