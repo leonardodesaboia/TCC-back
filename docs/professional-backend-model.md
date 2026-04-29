@@ -44,7 +44,7 @@ Campos obrigatórios:
 Campos opcionais:
 
 - [x] descrição profissional
-- [~] foto de perfil
+- [x] foto de perfil (via endpoint de avatar do usuário — `PUT /api/v1/users/{id}/avatar` — o frontend integra como passo do onboarding)
 
 ### Profissões E Áreas
 
@@ -59,9 +59,9 @@ Campos opcionais:
 - [x] o valor/hora é tratado por profissão
 - [x] ele pode existir por profissão específica
 - [x] o campo pode ficar nulo
-- [~] no futuro, um serviço poderá usar:
+- [x] um serviço pode usar:
   - [x] preço próprio
-  - [~] ou valor/hora da profissão
+  - [x] ou valor/hora da profissão
 
 ### Documentos
 
@@ -74,12 +74,12 @@ Campos opcionais:
 ### Status E Permissões
 
 - [x] ao concluir o cadastro, o profissional fica `pending`
-- [~] enquanto estiver `pending`, ele:
-  - [ ] não pode editar perfil
-  - [ ] não pode cadastrar/editar serviços
-  - [~] não pode receber pedidos
+- [x] enquanto estiver `pending`, ele:
+  - [x] não pode editar perfil
+  - [x] não pode cadastrar/editar serviços
+  - [x] não pode receber pedidos
 - [x] se for `rejected`, ele pode corrigir e reenviar documentos
-- [~] se for `approved`, ele passa a operar normalmente
+- [x] se for `approved`, ele passa a operar normalmente
 
 ### Express
 
@@ -93,7 +93,7 @@ Campos opcionais:
 - [x] o cliente escolhe um serviço publicado pelo profissional
 - [x] os serviços são cadastrados depois do onboarding inicial
 - [x] cada serviço deve ficar vinculado a uma profissão/categoria
-- [x] todo serviço precisa ter preço
+- [x] todo serviço precisa ter preço (serviço `fixed` exige preço explícito; `hourly` pode herdar `hourlyRate` da especialidade — `effectivePrice` sempre resolve)
 
 ### Chat E Avaliação
 
@@ -245,6 +245,7 @@ Regras atuais:
 - se já existir documento daquele tipo/lado:
   - com profissional `rejected`, pode substituir
   - com profissional `pending` ou `approved`, não pode alterar
+- o backend bloqueia tanto substituição quanto exclusão de documentos enquanto o profissional não estiver `rejected`
 
 ### `professional_services`
 
@@ -270,8 +271,8 @@ Regras de produto:
 
 - serviço vem depois do cadastro
 - serviço deve ficar vinculado a uma profissão/categoria
-- serviço sempre precisa de preço
-- no futuro pode usar preço específico ou valor/hora da profissão como referência de negócio
+- serviço `fixed` precisa de preço
+- serviço `hourly` pode usar preço próprio ou herdar o valor/hora da especialidade
 
 ### `blocked_periods`
 
@@ -334,7 +335,7 @@ Envia o documento com:
 - [x] `professional_specialties` com experiência por categoria
 - [x] `hourly_rate` por profissão
 - [x] `doc_side` em `professional_documents`
-- [x] bloqueio de alteração de documento quando o profissional não está `rejected`
+- [x] bloqueio de alteração e exclusão de documento quando o profissional não está `rejected`
 - [x] data de nascimento no cadastro profissional
 - [x] seleção de até 3 profissões
 - [x] experiência por profissão
@@ -344,17 +345,18 @@ Envia o documento com:
 ### Parcial
 
 - [~] automação real de verificação via IDwall
-- [~] travas completas de edição/operação enquanto `pending`
-- [~] foto de perfil opcional dentro do cadastro
-- [~] reaproveitar a mesma regra de `birthDate` também no fluxo de cliente de ponta a ponta
-- [~] validações funcionais completas no fluxo de aprovação/rejeição
-- [~] serviços vinculados explicitamente à profissão escolhida no onboarding
+- [x] travas completas de edição/operação enquanto `pending`
+- [x] foto de perfil opcional dentro do cadastro (endpoint de avatar já existente, integrado pelo frontend no onboarding)
+- [x] reaproveitar a mesma regra de `birthDate` também no fluxo de cliente de ponta a ponta
+- [x] validações funcionais completas no fluxo de aprovação/rejeição (verifica documentos >= 2 e pelo menos 1 especialidade)
+- [x] serviços vinculados explicitamente à profissão escolhida no onboarding
 
 ### Não Feito
 
 - [ ] integração efetiva com um provedor de verificação em tempo real
-- [ ] regra centralizada de bloqueio por status para perfil, serviços e pedidos
-- [ ] onboarding com foto de perfil obrigatória ou opcional no mesmo fluxo
+- [x] regra centralizada de bloqueio por status para perfil, serviços e pedidos (`requireApproved()` em `ProfessionalServiceImpl` e `ProfessionalOfferingServiceImpl`; validação de `approved` em `OrderServiceImpl`)
+- [x] onboarding com foto de perfil opcional (backend pronto via `PUT /api/v1/users/{id}/avatar`, orquestrado pelo frontend)
+- [x] fluxo completo de pedido On Demand a partir de um serviço publicado (`POST /on-demand`, `POST /{id}/on-demand/respond`)
 
 ## Fonte De Verdade Atual
 
@@ -366,3 +368,10 @@ Para o cadastro profissional, a referência de negócio agora é:
 - `professional_documents` com `doc_type + doc_side`
 
 O campo global de experiência do perfil não deve ser tratado como a modelagem principal do produto. A modelagem principal é por profissão.
+
+## Observações Importantes
+
+- o backend impõe `approved` para editar perfil, cadastrar/editar serviços e operar no Express e On Demand
+- as permissões por dono/admin nas rotas HTTP ainda não estão completamente fechadas
+- a aprovação valida que existem ao menos 2 documentos e pelo menos 1 especialidade antes de aprovar
+- a foto de perfil é gerenciada pelo endpoint de avatar do usuário (`PUT /api/v1/users/{id}/avatar`); o frontend orquestra como passo do onboarding
