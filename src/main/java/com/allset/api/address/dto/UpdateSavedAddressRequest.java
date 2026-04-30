@@ -1,5 +1,6 @@
 package com.allset.api.address.dto;
 
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 
@@ -20,26 +21,32 @@ public record UpdateSavedAddressRequest(
 
     @Schema(description = "Rótulo do endereço", example = "Trabalho", nullable = true)
     @Size(max = 60, message = "Rótulo deve ter no máximo 60 caracteres")
+    @NoHtml
     String label,
 
     @Schema(description = "Logradouro", example = "Av. Paulista", nullable = true)
     @Size(max = 200, message = "Logradouro deve ter no máximo 200 caracteres")
+    @NoHtml
     String street,
 
     @Schema(description = "Número", example = "1000", nullable = true)
     @Size(max = 20, message = "Número deve ter no máximo 20 caracteres")
+    @NoHtml
     String number,
 
     @Schema(description = "Complemento", example = "Sala 501", nullable = true)
     @Size(max = 80, message = "Complemento deve ter no máximo 80 caracteres")
+    @NoHtml
     String complement,
 
     @Schema(description = "Bairro", example = "Bela Vista", nullable = true)
     @Size(max = 80, message = "Bairro deve ter no máximo 80 caracteres")
+    @NoHtml
     String district,
 
     @Schema(description = "Cidade", example = "São Paulo", nullable = true)
     @Size(max = 80, message = "Cidade deve ter no máximo 80 caracteres")
+    @NoHtml
     String city,
 
     @Schema(description = "Sigla do estado (2 letras maiúsculas)", example = "SP", nullable = true)

@@ -49,6 +49,7 @@ public class ProfessionalController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping
+    @PreAuthorize("hasAuthority('admin') or #request.userId().toString() == authentication.name")
     public ResponseEntity<ProfessionalResponse> create(@Valid @RequestBody CreateProfessionalRequest request) {
         ProfessionalResponse response = professionalService.create(request);
         URI location = ServletUriComponentsBuilder
@@ -68,7 +69,7 @@ public class ProfessionalController {
     })
     @GetMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Page<ProfessionalResponse>> findAll(
             @Parameter(description = "Filtrar por status de verificação") @RequestParam(required = false) VerificationStatus status,
             @Parameter(description = "Filtrar disponíveis no Express") @RequestParam(defaultValue = "false") boolean geoActive,
@@ -88,7 +89,6 @@ public class ProfessionalController {
     })
     @GetMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
     public ResponseEntity<ProfessionalResponse> findById(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID id
     ) {
@@ -108,7 +108,7 @@ public class ProfessionalController {
     })
     @PutMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
     public ResponseEntity<ProfessionalResponse> update(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID id,
             @Valid @RequestBody UpdateProfessionalRequest request
@@ -129,7 +129,7 @@ public class ProfessionalController {
     })
     @PatchMapping("/{id}/geo")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
     public ResponseEntity<ProfessionalResponse> updateGeo(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID id,
             @Valid @RequestBody UpdateGeoRequest request
@@ -150,7 +150,7 @@ public class ProfessionalController {
     })
     @PatchMapping("/{id}/verify")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ProfessionalResponse> verify(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID id,
             @Valid @RequestBody VerifyProfessionalRequest request
@@ -168,7 +168,7 @@ public class ProfessionalController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
     public ResponseEntity<Void> delete(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID id
     ) {

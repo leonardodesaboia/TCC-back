@@ -1,5 +1,6 @@
 package com.allset.api.subscription.dto;
 
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -11,6 +12,7 @@ public record UpdateSubscriptionPlanRequest(
 
         @Schema(description = "Novo nome do plano", example = "Plano Premium")
         @Size(max = 60, message = "Nome deve ter no maximo 60 caracteres")
+        @NoHtml
         String name,
 
         @Schema(description = "Novo valor mensal", example = "59.90")
@@ -26,6 +28,7 @@ public record UpdateSubscriptionPlanRequest(
 
         @Schema(description = "Novo selo exibido no perfil", example = "Premium")
         @Size(max = 30, message = "Selo deve ter no maximo 30 caracteres")
+        @NoHtml
         String badgeLabel,
 
         @Schema(description = "Plano ativo", example = "true")

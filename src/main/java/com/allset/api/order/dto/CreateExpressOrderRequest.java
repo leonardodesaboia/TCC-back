@@ -1,5 +1,6 @@
 package com.allset.api.order.dto;
 
+import com.allset.api.shared.validation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -18,6 +19,7 @@ public record CreateExpressOrderRequest(
 
         @NotBlank(message = "Descrição é obrigatória")
         @Size(max = 2000, message = "Descrição deve ter no máximo 2000 caracteres")
+        @NoHtml
         String description,
 
         @NotNull(message = "Endereço é obrigatório")

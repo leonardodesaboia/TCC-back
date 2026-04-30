@@ -1,5 +1,6 @@
 package com.allset.api.review.dto;
 
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -18,5 +19,6 @@ public record CreateReviewRequest(
         @Schema(description = "Comentario da avaliacao. Obrigatorio para cliente -> profissional e proibido para profissional -> cliente",
                 example = "Servico muito bom, chegou no horario combinado.")
         @Size(max = 1000, message = "comment nao pode ultrapassar 1000 caracteres")
+        @NoHtml
         String comment
 ) {}
