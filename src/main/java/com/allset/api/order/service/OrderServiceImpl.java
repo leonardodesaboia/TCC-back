@@ -253,6 +253,10 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderNotFoundException(orderId);
         }
 
+        UUID professionalUserId = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
+                .map(Professional::getUserId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
         if (!accepted) {
             Instant now = Instant.now();
             order.setCancelledAt(now);
@@ -261,7 +265,7 @@ public class OrderServiceImpl implements OrderService {
 
             Order saved = orderRepository.save(order);
             recordTransition(orderId, OrderStatus.pending, OrderStatus.cancelled,
-                    "Profissional recusou o pedido On Demand", professionalId);
+                    "Profissional recusou o pedido On Demand", professionalUserId);
 
             notifyClient(
                     order.getClientId(),
@@ -278,7 +282,7 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.accepted);
         Order saved = orderRepository.save(order);
         recordTransition(orderId, OrderStatus.pending, OrderStatus.accepted,
-                "Profissional aceitou o pedido On Demand", professionalId);
+                "Profissional aceitou o pedido On Demand", professionalUserId);
 
         Conversation conv = conversationService.createForOrder(saved);
         messageService.sendSystemMessage(conv.getId(), "Pedido aceito. Vocês podem conversar por aqui.");
@@ -715,7 +719,10 @@ public class OrderServiceImpl implements OrderService {
         Order order = findActive(orderId);
 
         boolean isClient = requesterId.equals(order.getClientId());
-        boolean isPro    = requesterId.equals(order.getProfessionalId());
+        boolean isPro    = professionalRepository.findByUserIdAndDeletedAtIsNull(requesterId)
+                .map(Professional::getId)
+                .map(professionalId -> professionalId.equals(order.getProfessionalId()))
+                .orElse(false);
 
         if (!isClient && !isPro) {
             throw new OrderNotFoundException(orderId);
