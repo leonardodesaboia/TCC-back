@@ -11,5 +11,9 @@ public interface ProfessionalSpecialtyRepository extends JpaRepository<Professio
 
     List<ProfessionalSpecialty> findAllByProfessionalIdAndDeletedAtIsNullOrderByCreatedAtAsc(UUID professionalId);
 
+    List<ProfessionalSpecialty> findAllByProfessionalIdInAndDeletedAtIsNullOrderByCreatedAtAsc(List<UUID> professionalIds);
+
+    List<ProfessionalSpecialty> findAllByCategoryIdInAndDeletedAtIsNull(List<UUID> categoryIds);
+
     Optional<ProfessionalSpecialty> findByProfessionalIdAndCategoryIdAndDeletedAtIsNull(UUID professionalId, UUID categoryId);
 }

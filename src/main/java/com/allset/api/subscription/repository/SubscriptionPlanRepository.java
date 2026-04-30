@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.util.List;
 
 public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPlan, UUID> {
 
@@ -17,6 +18,8 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
     Page<SubscriptionPlan> findAllByDeletedAtIsNull(Pageable pageable);
 
     Page<SubscriptionPlan> findAllByActiveTrueAndDeletedAtIsNull(Pageable pageable);
+
+    List<SubscriptionPlan> findAllByIdInAndActiveTrueAndDeletedAtIsNull(List<UUID> ids);
 
     boolean existsByNameIgnoreCaseAndDeletedAtIsNull(String name);
 }
