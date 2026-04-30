@@ -45,7 +45,7 @@ services:
   app:
     build: .
     ports:
-      - "${PORT:-8080}:${PORT:-8080}"
+      - "${PORT:-8081}:${PORT:-8081}"
     environment:
       DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       DB_USER: ${DB_USER}
@@ -55,7 +55,7 @@ services:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      PORT: ${PORT:-8080}
+      PORT: ${PORT:-8081}
       ACCESS_TOKEN_TTL_MINUTES: ${ACCESS_TOKEN_TTL_MINUTES:-15}
       REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-7}
       RESET_CODE_TTL_MINUTES: ${RESET_CODE_TTL_MINUTES:-10}
