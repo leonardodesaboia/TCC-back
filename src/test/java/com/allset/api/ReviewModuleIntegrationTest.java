@@ -197,9 +197,7 @@ class ReviewModuleIntegrationTest {
 
         mockMvc.perform(get("/api/users/{id}", client.getId())
                         .with(jwtFor(professionalUser.getId(), "professional")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.averageRating").value(4.00))
-                .andExpect(jsonPath("$.reviewCount").value(1));
+                .andExpect(status().isForbidden());
 
         assertThat(reviewRepository.findAll()).hasSize(2);
         assertThat(reviewRepository.findAll()).allMatch(review -> review.getPublishedAt() != null);
