@@ -21,6 +21,8 @@ import com.allset.api.dispute.exception.DisputeNotFoundException;
 import com.allset.api.dispute.exception.DisputeStatusTransitionException;
 import com.allset.api.dispute.exception.DisputeWindowExpiredException;
 import com.allset.api.document.exception.ProfessionalDocumentNotFoundException;
+import com.allset.api.favorite.exception.FavoriteProfessionalAlreadyExistsException;
+import com.allset.api.favorite.exception.FavoriteProfessionalNotFoundException;
 import com.allset.api.offering.exception.ProfessionalOfferingNotFoundException;
 import com.allset.api.professional.exception.ProfessionalAlreadyExistsException;
 import com.allset.api.professional.exception.ProfessionalNotFoundException;
@@ -93,7 +95,8 @@ public class GlobalExceptionHandler {
             NotificationNotFoundException.class,
             PushTokenNotFoundException.class,
             StorageObjectNotFoundException.class,
-            DisputeNotFoundException.class
+            DisputeNotFoundException.class,
+            FavoriteProfessionalNotFoundException.class
     })
     public ResponseEntity<ApiError> handleNotFound(RuntimeException ex, HttpServletRequest request) {
         log.warn("status=404 method={} path={} message={}",
@@ -115,7 +118,8 @@ public class GlobalExceptionHandler {
             SubscriptionPlanNameAlreadyExistsException.class,
             SubscriptionPlanAlreadyActiveException.class,
             ReviewAlreadyExistsException.class,
-            DisputeAlreadyExistsException.class
+            DisputeAlreadyExistsException.class,
+            FavoriteProfessionalAlreadyExistsException.class
     })
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
                                                     HttpServletRequest request) {
