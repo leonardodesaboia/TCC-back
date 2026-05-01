@@ -1,6 +1,7 @@
 package com.allset.api.offering.dto;
 
 import com.allset.api.offering.domain.PricingType;
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 
@@ -16,9 +17,12 @@ public record CreateProfessionalOfferingRequest(
         @Schema(description = "Título do serviço", example = "Instalação de tomadas")
         @NotBlank(message = "Título é obrigatório")
         @Size(max = 100, message = "Título deve ter no máximo 100 caracteres")
+        @NoHtml
         String title,
 
         @Schema(description = "Descrição detalhada do serviço")
+        @NoHtml
+        @Size(max = 1000, message = "Descricao deve ter no maximo 1000 caracteres")
         String description,
 
         @Schema(description = "Tipo de precificação: hourly (por hora) ou fixed (preço fechado)")

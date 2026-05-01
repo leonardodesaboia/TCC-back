@@ -1,5 +1,6 @@
 package com.allset.api.dispute.dto;
 
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -11,5 +12,6 @@ public record AddTextEvidenceRequest(
                 example = "O servico apresentou problemas no acabamento da parede sul")
         @NotBlank(message = "Conteudo da evidencia e obrigatorio")
         @Size(max = 4000, message = "Conteudo nao pode exceder 4000 caracteres")
+        @NoHtml
         String content
 ) {}

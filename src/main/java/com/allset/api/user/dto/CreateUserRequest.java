@@ -1,6 +1,7 @@
 package com.allset.api.user.dto;
 
 import com.allset.api.shared.validation.ValidCPF;
+import com.allset.api.shared.validation.NoHtml;
 import com.allset.api.shared.validation.ValidPassword;
 import com.allset.api.user.domain.UserRole;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -14,6 +15,7 @@ public record CreateUserRequest(
     @Schema(description = "Nome completo", example = "João da Silva")
     @NotBlank(message = "Nome é obrigatório")
     @Size(max = 150, message = "Nome deve ter no máximo 150 caracteres")
+    @NoHtml
     String name,
 
     @Schema(description = "CPF do usuário (com ou sem máscara)", example = "529.982.247-25")

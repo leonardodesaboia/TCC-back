@@ -1,6 +1,7 @@
 package com.allset.api.dispute.dto;
 
 import com.allset.api.dispute.domain.DisputeResolution;
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -33,5 +34,6 @@ public record ResolveDisputeRequest(
         @Schema(description = "Notas internas do admin justificando a decisao",
                 example = "Evidencias do cliente comprovam servico parcialmente concluido", nullable = true)
         @Size(max = 4000, message = "Notas nao podem exceder 4000 caracteres")
+        @NoHtml
         String adminNotes
 ) {}

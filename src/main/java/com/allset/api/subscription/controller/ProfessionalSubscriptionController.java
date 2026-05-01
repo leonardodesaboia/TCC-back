@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,7 +46,7 @@ public class ProfessionalSubscriptionController {
     })
     @GetMapping
     // TODO: mapear restricao de role - descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<ProfessionalSubscriptionResponse> findCurrent(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId
     ) {
@@ -66,7 +67,7 @@ public class ProfessionalSubscriptionController {
     })
     @PutMapping
     // TODO: mapear restricao de role - descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<ProfessionalSubscriptionResponse> assignPlan(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId,
             @Valid @RequestBody AssignSubscriptionPlanRequest request
@@ -84,7 +85,7 @@ public class ProfessionalSubscriptionController {
     })
     @PostMapping("/cancel")
     // TODO: mapear restricao de role - descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<CancelSubscriptionResponse> cancel(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId
     ) {

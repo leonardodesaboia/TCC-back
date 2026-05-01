@@ -1,5 +1,6 @@
 package com.allset.api.professional.dto;
 
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
@@ -15,6 +16,8 @@ import static com.allset.api.professional.domain.ProfessionalRules.MAX_SPECIALTI
 public record UpdateProfessionalRequest(
 
         @Schema(description = "Apresentação do profissional")
+        @NoHtml
+        @Size(max = 1000, message = "Bio deve ter no maximo 1000 caracteres")
         String bio,
 
         @Schema(description = "Anos de experiência", example = "5")

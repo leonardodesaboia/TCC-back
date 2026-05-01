@@ -53,7 +53,7 @@ public class ServiceAreaController {
     })
     @PostMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceAreaResponse> create(@Valid @RequestBody CreateServiceAreaRequest request) {
         ServiceAreaResponse response = serviceAreaService.create(request);
         URI location = ServletUriComponentsBuilder
@@ -108,7 +108,7 @@ public class ServiceAreaController {
     })
     @PutMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceAreaResponse> update(
             @Parameter(description = "ID da área", required = true) @PathVariable UUID id,
             @Valid @RequestBody UpdateServiceAreaRequest request
@@ -126,7 +126,7 @@ public class ServiceAreaController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Void> delete(
             @Parameter(description = "ID da área", required = true) @PathVariable UUID id
     ) {
@@ -148,7 +148,7 @@ public class ServiceAreaController {
     })
     @PutMapping(value = "/{id}/icon", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceAreaResponse> setIcon(
             @Parameter(description = "ID da área", required = true) @PathVariable UUID id,
             @Parameter(description = "Arquivo do ícone (PNG/SVG)", required = true)
@@ -166,7 +166,7 @@ public class ServiceAreaController {
     })
     @DeleteMapping("/{id}/icon")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceAreaResponse> removeIcon(
             @Parameter(description = "ID da área", required = true) @PathVariable UUID id
     ) {

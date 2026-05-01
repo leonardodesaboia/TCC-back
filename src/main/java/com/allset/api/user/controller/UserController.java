@@ -80,7 +80,7 @@ public class UserController {
     })
     @GetMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Page<UserResponse>> findAll(
         @Parameter(description = "Filtrar usuários banidos") @RequestParam(defaultValue = "false") boolean banned,
         @Parameter(description = "Filtrar usuários removidos (soft delete)") @RequestParam(defaultValue = "false") boolean deleted,
@@ -104,7 +104,7 @@ public class UserController {
     })
     @GetMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> findById(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
@@ -132,7 +132,7 @@ public class UserController {
     })
     @PutMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> update(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id,
         @Valid @RequestBody UpdateUserRequest request
@@ -157,7 +157,7 @@ public class UserController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> softDelete(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
@@ -180,7 +180,7 @@ public class UserController {
     })
     @PatchMapping("/{id}/reactivate")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> reactivate(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
@@ -203,7 +203,7 @@ public class UserController {
     })
     @PatchMapping("/{id}/ban")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<UserResponse> ban(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id,
         @Valid @RequestBody BanUserRequest request
@@ -225,6 +225,7 @@ public class UserController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PatchMapping("/{id}/activate")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<UserResponse> activate(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
@@ -251,7 +252,7 @@ public class UserController {
     })
     @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> uploadAvatar(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id,
         @Parameter(description = "Arquivo de imagem (JPEG/PNG)", required = true)
@@ -275,7 +276,7 @@ public class UserController {
     })
     @DeleteMapping("/{id}/avatar")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> deleteAvatar(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
