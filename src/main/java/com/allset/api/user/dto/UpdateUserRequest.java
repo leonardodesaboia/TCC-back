@@ -1,5 +1,6 @@
 package com.allset.api.user.dto;
 
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
@@ -10,6 +11,7 @@ public record UpdateUserRequest(
 
     @Schema(description = "Novo nome completo", example = "João Souza")
     @Size(max = 150, message = "Nome deve ter no máximo 150 caracteres")
+    @NoHtml
     String name,
 
     @Schema(description = "Novo endereço de e-mail", example = "joao.novo@email.com")

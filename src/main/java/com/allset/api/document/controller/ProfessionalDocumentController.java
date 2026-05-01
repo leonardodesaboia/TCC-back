@@ -51,7 +51,7 @@ public class ProfessionalDocumentController {
     })
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<ProfessionalDocumentResponse> create(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId,
             @Parameter(description = "Tipo do documento", required = true) @RequestParam("docType") DocType docType,
@@ -78,7 +78,7 @@ public class ProfessionalDocumentController {
     })
     @GetMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<List<ProfessionalDocumentResponse>> findAll(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId
     ) {
@@ -95,7 +95,7 @@ public class ProfessionalDocumentController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<Void> delete(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId,
             @Parameter(description = "ID do documento", required = true) @PathVariable UUID id

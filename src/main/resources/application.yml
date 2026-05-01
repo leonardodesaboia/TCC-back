@@ -7,6 +7,10 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 15MB
+  data:
+    web:
+      pageable:
+        max-page-size: 100
 
 jwt-secret: ${JWT_SECRET:}
 cpf-encryption-key: ${CPF_ENCRYPTION_KEY:}

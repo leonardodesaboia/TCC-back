@@ -1,10 +1,12 @@
 package com.allset.api.calendar.dto;
 
 import com.allset.api.calendar.domain.BlockType;
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -41,5 +43,7 @@ public record CreateBlockedPeriodRequest(
         Instant orderEndsAt,
 
         @Schema(description = "Motivo do bloqueio")
+        @NoHtml
+        @Size(max = 500, message = "Motivo deve ter no maximo 500 caracteres")
         String reason
 ) {}

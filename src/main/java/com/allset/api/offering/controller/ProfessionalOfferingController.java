@@ -51,7 +51,7 @@ public class ProfessionalOfferingController {
     })
     @PostMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<ProfessionalOfferingResponse> create(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId,
             @Valid @RequestBody CreateProfessionalOfferingRequest request
@@ -111,7 +111,7 @@ public class ProfessionalOfferingController {
     })
     @PutMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<ProfessionalOfferingResponse> update(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId,
             @Parameter(description = "ID do serviço", required = true) @PathVariable UUID id,
@@ -130,7 +130,7 @@ public class ProfessionalOfferingController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<Void> delete(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId,
             @Parameter(description = "ID do serviço", required = true) @PathVariable UUID id

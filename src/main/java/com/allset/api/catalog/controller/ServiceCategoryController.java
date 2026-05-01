@@ -53,7 +53,7 @@ public class ServiceCategoryController {
     })
     @PostMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceCategoryResponse> create(@Valid @RequestBody CreateServiceCategoryRequest request) {
         ServiceCategoryResponse response = serviceCategoryService.create(request);
         URI location = ServletUriComponentsBuilder
@@ -107,7 +107,7 @@ public class ServiceCategoryController {
     })
     @PutMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceCategoryResponse> update(
             @Parameter(description = "ID da categoria", required = true) @PathVariable UUID id,
             @Valid @RequestBody UpdateServiceCategoryRequest request
@@ -125,7 +125,7 @@ public class ServiceCategoryController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Void> delete(
             @Parameter(description = "ID da categoria", required = true) @PathVariable UUID id
     ) {
@@ -147,7 +147,7 @@ public class ServiceCategoryController {
     })
     @PutMapping(value = "/{id}/icon", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceCategoryResponse> setIcon(
             @Parameter(description = "ID da categoria", required = true) @PathVariable UUID id,
             @Parameter(description = "Arquivo do ícone (PNG/SVG)", required = true)
@@ -165,7 +165,7 @@ public class ServiceCategoryController {
     })
     @DeleteMapping("/{id}/icon")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceCategoryResponse> removeIcon(
             @Parameter(description = "ID da categoria", required = true) @PathVariable UUID id
     ) {

@@ -21,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -58,7 +59,7 @@ public class SubscriptionPlanController {
     })
     @PostMapping
     // TODO: mapear restricao de role - descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<SubscriptionPlanResponse> create(@Valid @RequestBody CreateSubscriptionPlanRequest request) {
         SubscriptionPlanResponse response = subscriptionPlanService.create(request);
         URI location = ServletUriComponentsBuilder
@@ -113,7 +114,7 @@ public class SubscriptionPlanController {
     })
     @PutMapping("/{id}")
     // TODO: mapear restricao de role - descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<SubscriptionPlanResponse> update(
             @Parameter(description = "ID do plano", required = true) @PathVariable UUID id,
             @Valid @RequestBody UpdateSubscriptionPlanRequest request
@@ -131,7 +132,7 @@ public class SubscriptionPlanController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restricao de role - descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Void> delete(
             @Parameter(description = "ID do plano", required = true) @PathVariable UUID id
     ) {
