@@ -14,7 +14,14 @@ import com.allset.api.order.dto.*;
 import com.allset.api.order.exception.*;
 import com.allset.api.order.mapper.OrderMapper;
 import com.allset.api.order.repository.*;
+import com.allset.api.offering.domain.PricingType;
+import com.allset.api.offering.domain.ProfessionalOffering;
+import com.allset.api.offering.repository.ProfessionalOfferingRepository;
+import com.allset.api.professional.domain.Professional;
+import com.allset.api.professional.domain.VerificationStatus;
+import com.allset.api.professional.exception.ProfessionalNotApprovedException;
 import com.allset.api.professional.repository.ProfessionalRepository;
+import com.allset.api.professional.repository.ProfessionalSpecialtyRepository;
 import com.allset.api.shared.storage.domain.StorageBucket;
 import com.allset.api.shared.storage.domain.StoredObject;
 import com.allset.api.shared.storage.service.StorageService;
@@ -53,6 +60,8 @@ public class OrderServiceImpl implements OrderService {
     private final ServiceCategoryRepository  categoryRepository;
     private final SavedAddressRepository     addressRepository;
     private final ProfessionalRepository     professionalRepository;
+    private final ProfessionalSpecialtyRepository specialtyRepository;
+    private final ProfessionalOfferingRepository offeringRepository;
     private final OrderMapper                orderMapper;
     private final ObjectMapper               objectMapper;
     private final AppProperties              appProperties;
@@ -144,6 +153,153 @@ public class OrderServiceImpl implements OrderService {
     }
 
     // ─────────────────────────────────────────
+    // Criação do pedido On Demand
+    // ─────────────────────────────────────────
+
+    @Override
+    public OrderResponse createOnDemandOrder(UUID clientId, CreateOnDemandOrderRequest request) {
+        ProfessionalOffering offering = offeringRepository.findById(request.serviceId())
+                .filter(o -> o.getDeletedAt() == null)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Serviço não encontrado: " + request.serviceId()));
+
+        if (!offering.isActive()) {
+            throw new IllegalArgumentException("Serviço não está ativo: " + request.serviceId());
+        }
+
+        Professional professional = professionalRepository.findByIdAndDeletedAtIsNull(offering.getProfessionalId())
+                .orElseThrow(() -> new IllegalArgumentException("Profissional do serviço não encontrado"));
+
+        if (professional.getVerificationStatus() != VerificationStatus.approved) {
+            throw new IllegalArgumentException("Profissional não está aprovado para receber pedidos");
+        }
+
+        SavedAddress address = addressRepository.findByIdAndUserId(request.addressId(), clientId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Endereço não encontrado: " + request.addressId()));
+
+        if (request.scheduledAt().isBefore(Instant.now())) {
+            throw new IllegalArgumentException("Data agendada deve ser no futuro");
+        }
+
+        UUID areaId = categoryRepository.findByIdAndDeletedAtIsNull(offering.getCategoryId())
+                .map(category -> category.getAreaId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Categoria do serviço não encontrada: " + offering.getCategoryId()));
+
+        JsonNode snapshot = serializeAddress(address);
+
+        BigDecimal price = resolveOfferingPrice(offering);
+        if (price == null) {
+            throw new IllegalArgumentException(
+                    "Serviço sem preço definido e sem valor/hora na especialidade vinculada");
+        }
+        BigDecimal fee = price.multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal total = price;
+
+        Order order = Order.builder()
+                .clientId(clientId)
+                .professionalId(offering.getProfessionalId())
+                .serviceId(offering.getId())
+                .areaId(areaId)
+                .categoryId(offering.getCategoryId())
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.pending)
+                .description(request.description())
+                .addressId(request.addressId())
+                .addressSnapshot(snapshot)
+                .scheduledAt(request.scheduledAt())
+                .expiresAt(request.scheduledAt().minus(4, ChronoUnit.HOURS))
+                .baseAmount(price)
+                .platformFee(fee)
+                .totalAmount(total)
+                .searchRadiusKm(BigDecimal.ZERO)
+                .searchAttempts((short) 0)
+                .build();
+
+        Order saved = orderRepository.save(order);
+        recordTransition(saved.getId(), null, OrderStatus.pending, "Pedido On Demand criado", null);
+
+        notifyProfessional(
+                offering.getProfessionalId(),
+                NotificationType.new_request,
+                "Novo pedido On Demand",
+                "Voce recebeu um novo pedido para o servico \"" + offering.getTitle() + "\".",
+                saved.getId()
+        );
+
+        log.info("event=on_demand_order_created orderId={} clientId={} professionalId={} serviceId={}",
+                saved.getId(), clientId, offering.getProfessionalId(), offering.getId());
+
+        return orderMapper.toResponse(saved);
+    }
+
+    // ─────────────────────────────────────────
+    // Resposta do profissional (On Demand)
+    // ─────────────────────────────────────────
+
+    @Override
+    public OrderResponse respondOnDemand(UUID orderId, UUID professionalId, boolean accepted) {
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        if (order.getMode() != OrderMode.on_demand) {
+            throw new OrderStatusTransitionException(order.getStatus(), "resposta on demand em pedido não on_demand");
+        }
+        if (order.getStatus() != OrderStatus.pending) {
+            throw new OrderStatusTransitionException(order.getStatus(), "resposta do profissional");
+        }
+        if (!professionalId.equals(order.getProfessionalId())) {
+            throw new OrderNotFoundException(orderId);
+        }
+
+        UUID professionalUserId = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
+                .map(Professional::getUserId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        if (!accepted) {
+            Instant now = Instant.now();
+            order.setCancelledAt(now);
+            order.setCancelReason("Profissional recusou o pedido");
+            order.setStatus(OrderStatus.cancelled);
+
+            Order saved = orderRepository.save(order);
+            recordTransition(orderId, OrderStatus.pending, OrderStatus.cancelled,
+                    "Profissional recusou o pedido On Demand", professionalUserId);
+
+            notifyClient(
+                    order.getClientId(),
+                    NotificationType.request_rejected,
+                    "Pedido recusado",
+                    "O profissional recusou o seu pedido. Voce pode tentar outro profissional.",
+                    orderId
+            );
+
+            log.info("event=on_demand_rejected orderId={} professionalId={}", orderId, professionalId);
+            return orderMapper.toResponse(saved);
+        }
+
+        order.setStatus(OrderStatus.accepted);
+        Order saved = orderRepository.save(order);
+        recordTransition(orderId, OrderStatus.pending, OrderStatus.accepted,
+                "Profissional aceitou o pedido On Demand", professionalUserId);
+
+        Conversation conv = conversationService.createForOrder(saved);
+        messageService.sendSystemMessage(conv.getId(), "Pedido aceito. Vocês podem conversar por aqui.");
+
+        notifyClient(
+                order.getClientId(),
+                NotificationType.request_accepted,
+                "Pedido aceito",
+                "O profissional aceitou o seu pedido.",
+                orderId
+        );
+
+        log.info("event=on_demand_accepted orderId={} professionalId={}", orderId, professionalId);
+        return orderMapper.toResponse(saved);
+    }
+
+    // ─────────────────────────────────────────
     // Leitura
     // ─────────────────────────────────────────
 
@@ -159,14 +315,15 @@ public class OrderServiceImpl implements OrderService {
         // com order.professionalId e com a fila express.
         boolean isPro    = false;
         boolean isInQueue = false;
+        ExpressQueueEntry queueEntry = null;
         if ("professional".equals(requesterRole)) {
             UUID proId = professionalRepository.findByUserIdAndDeletedAtIsNull(requesterId)
                     .map(p -> p.getId())
                     .orElse(null);
             if (proId != null) {
                 isPro    = proId.equals(order.getProfessionalId());
-                isInQueue = !isPro && queueRepository
-                        .findByOrderIdAndProfessionalId(orderId, proId).isPresent();
+                queueEntry = queueRepository.findByOrderIdAndProfessionalId(orderId, proId).orElse(null);
+                isInQueue = !isPro && queueEntry != null;
             }
         }
 
@@ -174,7 +331,7 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderNotFoundException(orderId);
         }
 
-        return orderMapper.toResponse(order, photoRepository.findAllByOrderId(orderId));
+        return orderMapper.toResponse(order, photoRepository.findAllByOrderId(orderId), queueEntry);
     }
 
     @Override
@@ -192,6 +349,27 @@ public class OrderServiceImpl implements OrderService {
                 ? orderRepository.findAllByClientIdAndStatusAndDeletedAtIsNull(userId, status, pageable)
                 : orderRepository.findAllByClientIdAndDeletedAtIsNull(userId, pageable))
                 .map(orderMapper::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> listProfessionalExpressInbox(UUID userId, OrderStatus status, Pageable pageable) {
+        if (status != null && status != OrderStatus.pending) {
+            return Page.empty(pageable);
+        }
+
+        return professionalRepository.findByUserIdAndDeletedAtIsNull(userId)
+                .map(pro -> orderRepository.findExpressInboxByProfessionalId(
+                        pro.getId(),
+                        OrderMode.express,
+                        OrderStatus.pending,
+                        pageable
+                ).map(order -> orderMapper.toResponse(
+                        order,
+                        queueRepository.findByOrderIdAndProfessionalId(order.getId(), pro.getId()).orElse(null)
+                )))
+                .orElse(Page.empty(pageable))
+                ;
     }
 
     @Override
@@ -236,6 +414,13 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderStatusTransitionException(order.getStatus(), "resposta do profissional");
         }
 
+        // Valida que o profissional ainda está aprovado
+        Professional professional = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
+                .orElseThrow(() -> new ExpressQueueViolationException("Profissional não encontrado"));
+        if (professional.getVerificationStatus() != VerificationStatus.approved) {
+            throw new ProfessionalNotApprovedException(professional.getVerificationStatus());
+        }
+
         // Valida que este profissional está na fila e ainda não respondeu
         ExpressQueueEntry entry = queueRepository
                 .findByOrderIdAndProfessionalIdForUpdate(orderId, professionalId)
@@ -263,7 +448,7 @@ public class OrderServiceImpl implements OrderService {
             );
 
             log.info("event=express_pro_rejected orderId={} professionalId={}", orderId, professionalId);
-            return orderMapper.toResponse(order);
+            return orderMapper.toResponse(order, entry);
         }
 
         // accepted — proposedAmount obrigatório
@@ -297,7 +482,10 @@ public class OrderServiceImpl implements OrderService {
 
         log.info("event=express_pro_accepted orderId={} professionalId={} amount={}",
                 orderId, professionalId, request.proposedAmount());
-        return orderMapper.toResponse(orderRepository.findByIdAndDeletedAtIsNull(orderId).orElseThrow());
+        return orderMapper.toResponse(
+                orderRepository.findByIdAndDeletedAtIsNull(orderId).orElseThrow(),
+                queueRepository.findByOrderIdAndProfessionalId(orderId, professionalId).orElse(entry)
+        );
     }
 
     // ─────────────────────────────────────────
@@ -531,7 +719,10 @@ public class OrderServiceImpl implements OrderService {
         Order order = findActive(orderId);
 
         boolean isClient = requesterId.equals(order.getClientId());
-        boolean isPro    = requesterId.equals(order.getProfessionalId());
+        boolean isPro    = professionalRepository.findByUserIdAndDeletedAtIsNull(requesterId)
+                .map(Professional::getId)
+                .map(professionalId -> professionalId.equals(order.getProfessionalId()))
+                .orElse(false);
 
         if (!isClient && !isPro) {
             throw new OrderNotFoundException(orderId);
@@ -716,6 +907,20 @@ public class OrderServiceImpl implements OrderService {
                 address.getComplement(), address.getDistrict(), address.getCity(),
                 address.getState(), address.getZipCode(), address.getLat(), address.getLng()
         ));
+    }
+
+    private BigDecimal resolveOfferingPrice(ProfessionalOffering offering) {
+        if (offering.getPrice() != null) {
+            return offering.getPrice();
+        }
+        if (offering.getPricingType() == PricingType.hourly) {
+            return specialtyRepository
+                    .findByProfessionalIdAndCategoryIdAndDeletedAtIsNull(
+                            offering.getProfessionalId(), offering.getCategoryId())
+                    .map(s -> s.getHourlyRate())
+                    .orElse(null);
+        }
+        return null;
     }
 
     private record AddressSnapshot(

@@ -35,12 +35,12 @@ resend-api-key: ${RESEND_API_KEY:}
 email-from: ${EMAIL_FROM:}
 
 # Express
-express-pro-timeout-minutes: ${EXPRESS_PRO_TIMEOUT_MINUTES:10}
+express-pro-timeout-minutes: ${EXPRESS_PRO_TIMEOUT_MINUTES:5}
 express-client-window-minutes: ${EXPRESS_CLIENT_WINDOW_MINUTES:30}
-express-search-radius-km: ${EXPRESS_SEARCH_RADIUS_KM:15}
+express-search-radius-km: ${EXPRESS_SEARCH_RADIUS_KM:0.1}
 express-max-queue-size: ${EXPRESS_MAX_QUEUE_SIZE:10}
 express-max-search-attempts: ${EXPRESS_MAX_SEARCH_ATTEMPTS:3}
-express-max-radius-km: ${EXPRESS_MAX_RADIUS_KM:50}
+express-max-radius-km: ${EXPRESS_MAX_RADIUS_KM:0.3}
 
 # CORS / Frontend
 frontend-url: ${FRONTEND_URL:*}
@@ -48,6 +48,10 @@ frontend-url: ${FRONTEND_URL:*}
 # Chat
 chat-message-max-length: ${CHAT_MESSAGE_MAX_LENGTH:4000}
 chat-message-page-size: ${CHAT_MESSAGE_PAGE_SIZE:50}
+
+# Seed
+seed:
+  enabled: ${SEED_ENABLED:false}
 
 # Storage / MinIO
 minio:

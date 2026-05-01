@@ -1,12 +1,15 @@
 package com.allset.api.document.service;
 
 import com.allset.api.document.domain.DocType;
+import com.allset.api.document.domain.DocumentSide;
 import com.allset.api.document.domain.ProfessionalDocument;
 import com.allset.api.document.dto.ProfessionalDocumentResponse;
 import com.allset.api.document.exception.ProfessionalDocumentNotFoundException;
 import com.allset.api.document.mapper.ProfessionalDocumentMapper;
 import com.allset.api.document.repository.ProfessionalDocumentRepository;
 import com.allset.api.professional.exception.ProfessionalNotFoundException;
+import com.allset.api.professional.domain.Professional;
+import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.repository.ProfessionalRepository;
 import com.allset.api.shared.storage.domain.StorageBucket;
 import com.allset.api.shared.storage.domain.StoredObject;
@@ -33,19 +36,38 @@ public class ProfessionalDocumentServiceImpl implements ProfessionalDocumentServ
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
-    public ProfessionalDocumentResponse create(UUID professionalId, DocType docType, MultipartFile file) {
-        professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
+    public ProfessionalDocumentResponse create(UUID professionalId, DocType docType, DocumentSide docSide, MultipartFile file) {
+        Professional professional = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
                 .orElseThrow(() -> new ProfessionalNotFoundException(professionalId));
 
         StoredObject stored = storageService.upload(StorageBucket.DOCUMENTS, professionalId.toString(), file);
 
+        String previousKey = null;
+        var existing = professionalDocumentRepository.findByProfessionalIdAndDocTypeAndDocSide(professionalId, docType, docSide);
+        if (existing.isPresent()) {
+            if (professional.getVerificationStatus() != VerificationStatus.rejected) {
+                throw new IllegalArgumentException("Documento ja enviado e bloqueado para alteracao enquanto a verificacao nao for rejeitada");
+            }
+            previousKey = existing.get().getFileKey();
+            professionalDocumentRepository.delete(existing.get());
+        }
+
         ProfessionalDocument document = ProfessionalDocument.builder()
                 .professionalId(professionalId)
                 .docType(docType)
+                .docSide(docSide)
                 .fileKey(stored.key())
                 .build();
 
-        return professionalDocumentMapper.toResponse(professionalDocumentRepository.save(document));
+        ProfessionalDocumentResponse response = professionalDocumentMapper.toResponse(
+                professionalDocumentRepository.save(document)
+        );
+
+        if (previousKey != null && !previousKey.isBlank() && !previousKey.equals(stored.key())) {
+            eventPublisher.publishEvent(new ObjectDeletionRequestedEvent(StorageBucket.DOCUMENTS, previousKey));
+        }
+
+        return response;
     }
 
     @Override
@@ -61,6 +83,14 @@ public class ProfessionalDocumentServiceImpl implements ProfessionalDocumentServ
 
     @Override
     public void delete(UUID professionalId, UUID id) {
+        Professional professional = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
+                .orElseThrow(() -> new ProfessionalNotFoundException(professionalId));
+
+        if (professional.getVerificationStatus() != VerificationStatus.rejected) {
+            throw new IllegalArgumentException(
+                    "Documento bloqueado para exclusão enquanto a verificação não for rejeitada");
+        }
+
         ProfessionalDocument document = professionalDocumentRepository.findByIdAndProfessionalId(id, professionalId)
                 .orElseThrow(() -> new ProfessionalDocumentNotFoundException(id));
 

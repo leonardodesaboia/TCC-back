@@ -60,6 +60,21 @@ Swagger UI disponível em `http://localhost:8080/swagger-ui.html` (apenas no per
 docker compose up --build
 ```
 
+## Seed de desenvolvimento
+
+Existe uma seed de startup para popular o backend com dados de demonstracao cobrindo usuarios, enderecos, catalogo, profissionais, documentos, ofertas, agenda, pedidos, chat, notificacoes, reviews e disputas.
+
+- Ativacao: `SEED_ENABLED=true`
+- `docker compose up --build` ja sobe com a seed ligada por padrao
+- Em execucao local manual: `SEED_ENABLED=true ./mvnw spring-boot:run`
+- A seed e idempotente: se `admin.seed@allset.local` ja existir, ela nao roda novamente
+
+Credenciais padrao:
+
+- Admin: `admin.seed@allset.local`
+- Cliente: `cliente.seed@allset.local`
+- Senha para todos os usuarios seed: `Senha@2025!`
+
 ---
 
 ## Variáveis de ambiente

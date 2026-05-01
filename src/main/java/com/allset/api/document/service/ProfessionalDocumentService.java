@@ -1,6 +1,7 @@
 package com.allset.api.document.service;
 
 import com.allset.api.document.domain.DocType;
+import com.allset.api.document.domain.DocumentSide;
 import com.allset.api.document.dto.ProfessionalDocumentResponse;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -9,7 +10,7 @@ import java.util.UUID;
 
 public interface ProfessionalDocumentService {
 
-    ProfessionalDocumentResponse create(UUID professionalId, DocType docType, MultipartFile file);
+    ProfessionalDocumentResponse create(UUID professionalId, DocType docType, DocumentSide docSide, MultipartFile file);
 
     List<ProfessionalDocumentResponse> findAllByProfessional(UUID professionalId);
 

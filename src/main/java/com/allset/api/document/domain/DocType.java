@@ -4,5 +4,7 @@ public enum DocType {
     rg,
     cnh,
     proof_of_address,
-    profile_photo
+    profile_photo,
+    document_front,
+    document_back
 }

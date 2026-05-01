@@ -29,4 +29,6 @@ public interface ProfessionalRepository extends JpaRepository<Professional, UUID
             VerificationStatus status, Pageable pageable);
 
     List<Professional> findAllBySubscriptionPlanIdIsNotNullAndSubscriptionExpiresAtLessThanEqualAndDeletedAtIsNull(Instant expiresAt);
+
+    List<Professional> findAllByIdInAndDeletedAtIsNull(List<UUID> ids);
 }

@@ -31,5 +31,8 @@ public record UpdateProfessionalOfferingRequest(
         Integer estimatedDurationMinutes,
 
         @Schema(description = "Serviço ativo")
-        Boolean active
+        Boolean active,
+
+        @Schema(description = "Quando true, remove o preço próprio e passa a usar o valor/hora da especialidade (apenas para hourly)")
+        Boolean clearPrice
 ) {}

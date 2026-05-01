@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record ProfessionalResponse(
@@ -14,6 +15,7 @@ public record ProfessionalResponse(
         @Schema(description = "Apresentacao do profissional") String bio,
         @Schema(description = "Anos de experiencia") Short yearsOfExperience,
         @Schema(description = "Taxa horaria base sugerida") BigDecimal baseHourlyRate,
+        @Schema(description = "Especialidades com experiência por categoria") List<ProfessionalSpecialtyResponse> specialties,
         @Schema(description = "Status de verificacao KYC") VerificationStatus verificationStatus,
         @Schema(description = "Motivo de rejeicao do KYC") String rejectionReason,
         @Schema(description = "Disponivel para pedidos Express") boolean geoActive,

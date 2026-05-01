@@ -10,7 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +36,44 @@ public class ReviewSummaryServiceImpl implements ReviewSummaryService {
                 .orElseThrow(() -> new ProfessionalNotFoundException(professionalId));
 
         return summarizeUser(professionalUserId);
+    }
+
+    @Override
+    public Map<UUID, ReviewRatingSummary> summarizeProfessionals(List<UUID> professionalIds) {
+        if (professionalIds == null || professionalIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<UUID, UUID> professionalToUserId = professionalRepository.findAllByIdInAndDeletedAtIsNull(professionalIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        professional -> professional.getId(),
+                        professional -> professional.getUserId()
+                ));
+
+        if (professionalToUserId.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<UUID, ReviewRatingSummary> summariesByUserId = reviewRepository
+                .summarizePublishedByRevieweeIds(professionalToUserId.values().stream().distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(
+                        ReviewRepository.RatingSummaryByRevieweeView::getRevieweeId,
+                        this::toSummary
+                ));
+
+        Map<UUID, ReviewRatingSummary> summariesByProfessionalId = new LinkedHashMap<>();
+        for (UUID professionalId : professionalIds) {
+            UUID userId = professionalToUserId.get(professionalId);
+            summariesByProfessionalId.put(
+                    professionalId,
+                    userId == null
+                            ? new ReviewRatingSummary(null, 0)
+                            : summariesByUserId.getOrDefault(userId, new ReviewRatingSummary(null, 0))
+            );
+        }
+        return summariesByProfessionalId;
     }
 
     @Override

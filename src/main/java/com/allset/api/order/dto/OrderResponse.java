@@ -2,6 +2,8 @@ package com.allset.api.order.dto;
 
 import com.allset.api.order.domain.OrderMode;
 import com.allset.api.order.domain.OrderStatus;
+import com.allset.api.order.domain.ProResponse;
+import com.allset.api.order.domain.ClientResponse;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -15,6 +17,9 @@ public record OrderResponse(
         UUID serviceId,
         UUID areaId,
         UUID categoryId,
+        ProResponse professionalProResponse,
+        ClientResponse professionalClientResponse,
+        BigDecimal professionalProposedAmount,
         OrderMode mode,
         OrderStatus status,
         String description,

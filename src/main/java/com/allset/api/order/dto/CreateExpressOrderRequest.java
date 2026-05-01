@@ -3,7 +3,7 @@ package com.allset.api.order.dto;
 import com.allset.api.shared.validation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
@@ -25,6 +25,6 @@ public record CreateExpressOrderRequest(
         @NotNull(message = "Endereço é obrigatório")
         UUID addressId,
 
-        @Positive(message = "Taxa de urgência deve ser positiva")
+        @PositiveOrZero(message = "Taxa de urgência deve ser zero ou positiva")
         BigDecimal urgencyFee
 ) {}

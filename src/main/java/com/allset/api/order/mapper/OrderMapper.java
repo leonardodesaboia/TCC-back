@@ -21,10 +21,18 @@ public class OrderMapper {
     private final StorageRefFactory storageRefFactory;
 
     public OrderResponse toResponse(Order order) {
-        return toResponse(order, Collections.emptyList());
+        return toResponse(order, Collections.emptyList(), null);
+    }
+
+    public OrderResponse toResponse(Order order, ExpressQueueEntry queueEntry) {
+        return toResponse(order, Collections.emptyList(), queueEntry);
     }
 
     public OrderResponse toResponse(Order order, List<OrderPhoto> photos) {
+        return toResponse(order, photos, null);
+    }
+
+    public OrderResponse toResponse(Order order, List<OrderPhoto> photos, ExpressQueueEntry queueEntry) {
         List<OrderPhotoResponse> photoResponses = photos == null ? List.of() : photos.stream()
                 .map(this::toPhotoResponse)
                 .toList();
@@ -36,6 +44,9 @@ public class OrderMapper {
                 order.getServiceId(),
                 order.getAreaId(),
                 order.getCategoryId(),
+                queueEntry == null ? null : queueEntry.getProResponse(),
+                queueEntry == null ? null : queueEntry.getClientResponse(),
+                queueEntry == null ? null : queueEntry.getProposedAmount(),
                 order.getMode(),
                 order.getStatus(),
                 order.getDescription(),

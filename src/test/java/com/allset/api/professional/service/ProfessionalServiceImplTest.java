@@ -1,13 +1,18 @@
 package com.allset.api.professional.service;
 
+import com.allset.api.catalog.repository.ServiceCategoryRepository;
+import com.allset.api.document.repository.ProfessionalDocumentRepository;
 import com.allset.api.professional.domain.Professional;
+import com.allset.api.professional.domain.ProfessionalSpecialty;
 import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.dto.CreateProfessionalRequest;
 import com.allset.api.professional.dto.ProfessionalResponse;
+import com.allset.api.professional.dto.ProfessionalSpecialtyRequest;
 import com.allset.api.professional.dto.VerifyProfessionalRequest;
 import com.allset.api.professional.exception.ProfessionalAlreadyExistsException;
 import com.allset.api.professional.mapper.ProfessionalMapper;
 import com.allset.api.professional.repository.ProfessionalRepository;
+import com.allset.api.professional.repository.ProfessionalSpecialtyRepository;
 import com.allset.api.user.domain.User;
 import com.allset.api.user.exception.UserNotFoundException;
 import com.allset.api.user.repository.UserRepository;
@@ -20,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,6 +41,15 @@ class ProfessionalServiceImplTest {
     private ProfessionalRepository professionalRepository;
 
     @Mock
+    private ProfessionalSpecialtyRepository professionalSpecialtyRepository;
+
+    @Mock
+    private ProfessionalDocumentRepository professionalDocumentRepository;
+
+    @Mock
+    private ServiceCategoryRepository serviceCategoryRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     @Mock
@@ -46,7 +61,13 @@ class ProfessionalServiceImplTest {
     @Test
     void createShouldRequireExistingUser() {
         UUID userId = UUID.randomUUID();
-        CreateProfessionalRequest request = new CreateProfessionalRequest(userId, "Bio", (short) 5, new BigDecimal("80.00"));
+        CreateProfessionalRequest request = new CreateProfessionalRequest(
+                userId,
+                "Bio",
+                (short) 5,
+                new BigDecimal("80.00"),
+                List.of(new ProfessionalSpecialtyRequest(UUID.randomUUID(), (short) 5, new BigDecimal("80.00")))
+        );
 
         when(userRepository.findByIdAndDeletedAtIsNull(userId)).thenReturn(Optional.empty());
 
@@ -58,7 +79,13 @@ class ProfessionalServiceImplTest {
     @Test
     void createShouldRejectSecondProfileForSameUser() {
         UUID userId = UUID.randomUUID();
-        CreateProfessionalRequest request = new CreateProfessionalRequest(userId, "Bio", (short) 5, new BigDecimal("80.00"));
+        CreateProfessionalRequest request = new CreateProfessionalRequest(
+                userId,
+                "Bio",
+                (short) 5,
+                new BigDecimal("80.00"),
+                List.of(new ProfessionalSpecialtyRequest(UUID.randomUUID(), (short) 5, new BigDecimal("80.00")))
+        );
 
         when(userRepository.findByIdAndDeletedAtIsNull(userId)).thenReturn(Optional.of(User.builder().build()));
         when(professionalRepository.existsByUserIdAndDeletedAtIsNull(userId)).thenReturn(true);
@@ -103,6 +130,7 @@ class ProfessionalServiceImplTest {
                 professional.getBio(),
                 professional.getYearsOfExperience(),
                 professional.getBaseHourlyRate(),
+                List.of(),
                 VerificationStatus.approved,
                 null,
                 professional.isGeoActive(),
@@ -115,6 +143,9 @@ class ProfessionalServiceImplTest {
         );
 
         when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId)).thenReturn(Optional.of(professional));
+        when(professionalDocumentRepository.countByProfessionalId(professionalId)).thenReturn(2L);
+        when(professionalSpecialtyRepository.findAllByProfessionalIdAndDeletedAtIsNullOrderByCreatedAtAsc(professionalId))
+                .thenReturn(List.of(ProfessionalSpecialty.builder().professionalId(professionalId).categoryId(UUID.randomUUID()).yearsOfExperience((short) 3).build()));
         when(professionalRepository.save(professional)).thenReturn(professional);
         when(professionalMapper.toResponse(professional)).thenReturn(response);
 

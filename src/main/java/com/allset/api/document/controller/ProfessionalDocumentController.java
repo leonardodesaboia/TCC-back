@@ -1,6 +1,7 @@
 package com.allset.api.document.controller;
 
 import com.allset.api.document.domain.DocType;
+import com.allset.api.document.domain.DocumentSide;
 import com.allset.api.document.dto.ProfessionalDocumentResponse;
 import com.allset.api.document.service.ProfessionalDocumentService;
 import com.allset.api.shared.exception.ApiError;
@@ -55,10 +56,11 @@ public class ProfessionalDocumentController {
     public ResponseEntity<ProfessionalDocumentResponse> create(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId,
             @Parameter(description = "Tipo do documento", required = true) @RequestParam("docType") DocType docType,
+            @Parameter(description = "Lado do documento", required = true) @RequestParam("docSide") DocumentSide docSide,
             @Parameter(description = "Arquivo do documento (JPEG/PNG/PDF)", required = true)
             @RequestPart("file") MultipartFile file
     ) {
-        ProfessionalDocumentResponse response = professionalDocumentService.create(professionalId, docType, file);
+        ProfessionalDocumentResponse response = professionalDocumentService.create(professionalId, docType, docSide, file);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")

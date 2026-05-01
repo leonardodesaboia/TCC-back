@@ -21,6 +21,10 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
         long getReviewCount();
     }
 
+    interface RatingSummaryByRevieweeView extends RatingSummaryView {
+        UUID getRevieweeId();
+    }
+
     Optional<Review> findByOrderIdAndReviewerId(UUID orderId, UUID reviewerId);
 
     List<Review> findAllByOrderIdOrderBySubmittedAtAsc(UUID orderId);
@@ -48,6 +52,17 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
            and r.publishedAt is not null
         """)
     RatingSummaryView summarizePublishedByRevieweeId(@Param("revieweeId") UUID revieweeId);
+
+    @Query("""
+        select r.revieweeId as revieweeId, avg(r.rating) as averageRating, count(r) as reviewCount
+          from Review r
+         where r.revieweeId in :revieweeIds
+           and r.publishedAt is not null
+         group by r.revieweeId
+        """)
+    List<RatingSummaryByRevieweeView> summarizePublishedByRevieweeIds(
+            @Param("revieweeIds") List<UUID> revieweeIds
+    );
 
     @Query("""
         select avg(r.rating) as averageRating, count(r) as reviewCount
