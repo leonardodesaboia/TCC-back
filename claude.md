@@ -64,12 +64,10 @@ Copiar `.env.example` → `.env` e preencher antes de subir. A aplicação falha
 | `REFRESH_TOKEN_TTL_DAYS` | Não | TTL do refresh token (padrão: `7`) |
 | `RESET_CODE_TTL_MINUTES` | Não | TTL do código de recuperação de senha (padrão: `10`) |
 | `SUBSCRIPTION_EXPIRATION_CRON` | Não | Cron do job de expiração de assinaturas (padrão: `0 */30 * * * *`) |
-| `EXPRESS_PRO_TIMEOUT_MINUTES` | Não | Prazo para profissional responder no Express (padrão: `10`) |
-| `EXPRESS_CLIENT_WINDOW_MINUTES` | Não | Janela para cliente escolher proposta após a primeira recebida (padrão: `30`) |
-| `EXPRESS_SEARCH_RADIUS_KM` | Não | Raio inicial de busca de profissionais no Express (padrão: `15`) |
-| `EXPRESS_MAX_QUEUE_SIZE` | Não | Máximo de profissionais notificados por rodada (padrão: `10`) |
-| `EXPRESS_MAX_SEARCH_ATTEMPTS` | Não | Máximo de expansões de raio antes de cancelar (padrão: `3`) |
-| `EXPRESS_MAX_RADIUS_KM` | Não | Raio máximo de busca após expansões (padrão: `50`) |
+| `EXPRESS_SEARCH_RADIUS_METERS` | Não | Raio único de busca Express, em metros (padrão: `300`) |
+| `EXPRESS_PROPOSAL_WINDOW_MINUTES` | Não | Janela em que profissionais podem propor no Express (padrão: `15`) |
+| `EXPRESS_CLIENT_WINDOW_MINUTES` | Não | Janela após o fim das propostas para o cliente escolher (padrão: `30`) |
+| `EXPRESS_MAX_QUEUE_SIZE` | Não | Máximo de profissionais notificados (padrão: `10`) |
 
 ---
 
@@ -113,9 +111,11 @@ src/main/java/com/allset/api/
     ├── domain/                              # Order, ExpressQueueEntry, OrderStatusHistory, OrderPhoto + enums
     ├── mapper/OrderMapper.java
     ├── dto/                                 # CreateExpressOrderRequest, ProRespondRequest,
-    │                                        # ClientRespondRequest, OrderResponse, ExpressProposalResponse, ...
+    │                                        # ClientRespondRequest, OrderResponse, ExpressProposalResponse,
+    │                                        # DistanceBand (faixa de distância por proposta), ...
     ├── exception/                           # OrderNotFoundException, OrderStatusTransitionException,
-    │                                        # ExpressQueueViolationException, NoProfessionalsAvailableException
+    │                                        # ExpressQueueViolationException, NoProfessionalsAvailableException,
+    │                                        # ProposalWindowExpiredException
     └── scheduler/ExpressTimeoutScheduler.java
 
 src/main/resources/
@@ -280,8 +280,8 @@ Clients para Asaas, IDwall, S3 e FCM ficam em `integration/`. Services nunca cha
 
 1. **Escrow obrigatório** — cliente paga ao criar o pedido; valor nunca vai direto ao profissional
 2. **Conclusão dupla** — pedido só fecha quando AMBOS confirmam; profissional obriga envio de foto comprobatória
-3. **Express — broadcast** — todos os profissionais aprovados no raio são notificados simultaneamente (Haversine); cada um propõe seu preço independentemente; cliente vê todas as propostas e escolhe uma — as demais são recusadas automaticamente. Se ninguém responde no prazo, o raio é expandido (15km → até 50km, máx. 3 tentativas por interpolação linear). Prioridade na fila: assinantes Pro primeiro, depois proximidade
-4. **Localização nunca exposta** — exibir apenas quantidade de profissionais no raio; nunca coordenadas exatas ao cliente
+3. **Express — broadcast hiper-local** — todos os profissionais aprovados em um raio fixo de **300 metros** (configurável em `EXPRESS_SEARCH_RADIUS_METERS`) são notificados simultaneamente via Haversine. Cada um envia sua proposta de preço **dentro de 15 minutos** (`EXPRESS_PROPOSAL_WINDOW_MINUTES`). Após esse prazo, novas propostas são bloqueadas; o cliente tem **mais 30 minutos** (`EXPRESS_CLIENT_WINDOW_MINUTES`) para escolher entre as propostas recebidas (45 min totais). Se ninguém propõe nos primeiros 15 min ou se o cliente não escolhe em 45 min, o pedido é cancelado automaticamente. **Não há expansão de raio.** Prioridade na fila: assinantes Pro primeiro, depois proximidade. O status permanece `pending` durante toda a janela de 45 min; a discriminação entre "fase de propostas" e "fase de escolha" é feita comparando `now()` com `proposalDeadline` e `expiresAt`.
+4. **Localização nunca exposta** — exibir apenas a quantidade de profissionais no raio e a **faixa de distância** (terço do raio configurado) por proposta; nunca coordenadas exatas nem distância numérica em metros ao cliente
 5. **Double-blind** — avaliações só ficam visíveis após ambas as partes submeterem ou 7 dias expirarem
 6. **Janela de disputa** — 24h após conclusão; resolvida exclusivamente por admin
 7. **Taxa de cancelamento** — 50% do valor cobrado se cancelado dentro de 24h da contratação

@@ -10,6 +10,7 @@ import com.allset.api.professional.repository.ProfessionalRepository;
 import com.allset.api.user.domain.User;
 import com.allset.api.user.domain.UserRole;
 import com.allset.api.user.dto.CreateUserRequest;
+import java.time.LocalDate;
 import com.allset.api.user.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -124,6 +125,7 @@ class SecurityHardeningIntegrationTest {
                                 "52998224725",
                                 "xss@example.com",
                                 "+5585999999999",
+                                LocalDate.of(1995, 9, 15),
                                 "Senha@2025!",
                                 UserRole.client
                         ))))

@@ -17,6 +17,7 @@ import com.allset.api.order.dto.OrderResponse;
 import com.allset.api.order.exception.NoProfessionalsAvailableException;
 import com.allset.api.order.mapper.OrderMapper;
 import com.allset.api.order.repository.*;
+import com.allset.api.order.repository.ExpressQueueRepository.NearbyProfessional;
 import com.allset.api.professional.domain.Professional;
 import com.allset.api.professional.repository.ProfessionalRepository;
 import com.allset.api.shared.storage.service.StorageService;
@@ -107,9 +108,9 @@ class OrderServiceImplTest {
                 .active(true)
                 .build()));
         when(addressRepository.findByIdAndUserId(address.getId(), clientId)).thenReturn(Optional.of(address));
-        when(appProperties.expressSearchRadiusKm()).thenReturn(15.0);
+        when(appProperties.expressSearchRadiusMeters()).thenReturn(300);
         when(appProperties.expressMaxQueueSize()).thenReturn(10);
-        when(queueRepository.findNearbyProfessionalIds(categoryId, -3.731862, -38.526669, 15.0, 10))
+        when(queueRepository.findNearbyProfessionals(categoryId, -3.731862, -38.526669, 300, 10))
                 .thenReturn(List.of());
 
         CreateExpressOrderRequest request = new CreateExpressOrderRequest(
@@ -142,11 +143,12 @@ class OrderServiceImplTest {
                 .active(true)
                 .build()));
         when(addressRepository.findByIdAndUserId(address.getId(), clientId)).thenReturn(Optional.of(address));
-        when(appProperties.expressSearchRadiusKm()).thenReturn(15.0);
+        when(appProperties.expressSearchRadiusMeters()).thenReturn(300);
         when(appProperties.expressMaxQueueSize()).thenReturn(10);
-        when(appProperties.expressProTimeoutMinutes()).thenReturn(10);
-        when(queueRepository.findNearbyProfessionalIds(categoryId, -3.731862, -38.526669, 15.0, 10))
-                .thenReturn(List.of(pro1, pro2));
+        when(appProperties.expressProposalWindowMinutes()).thenReturn(15);
+        when(appProperties.expressClientWindowMinutes()).thenReturn(30);
+        when(queueRepository.findNearbyProfessionals(categoryId, -3.731862, -38.526669, 300, 10))
+                .thenReturn(List.of(nearbyProfessional(pro1, 100), nearbyProfessional(pro2, 200)));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
             Order saved = invocation.getArgument(0);
             saved.setId(orderId);
@@ -340,6 +342,13 @@ class OrderServiceImplTest {
         return address;
     }
 
+    private NearbyProfessional nearbyProfessional(UUID professionalId, int distanceMeters) {
+        return new NearbyProfessional() {
+            @Override public UUID getProfessionalId() { return professionalId; }
+            @Override public int getDistanceMeters() { return distanceMeters; }
+        };
+    }
+
     private Professional professional(UUID professionalId, UUID userId) {
         Professional professional = Professional.builder()
                 .userId(userId)
@@ -366,12 +375,11 @@ class OrderServiceImplTest {
                 order.getAddressSnapshot() != null ? order.getAddressSnapshot().toString() : null,
                 order.getScheduledAt(),
                 order.getExpiresAt(),
+                order.getProposalDeadline(),
                 order.getUrgencyFee(),
                 order.getBaseAmount(),
                 order.getPlatformFee(),
                 order.getTotalAmount(),
-                order.getSearchRadiusKm(),
-                order.getSearchAttempts(),
                 order.getProCompletedAt(),
                 order.getDisputeDeadline(),
                 order.getCompletedAt(),
