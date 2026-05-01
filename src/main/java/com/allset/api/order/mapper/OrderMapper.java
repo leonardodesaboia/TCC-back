@@ -1,8 +1,11 @@
 package com.allset.api.order.mapper;
 
+import com.allset.api.config.AppProperties;
 import com.allset.api.order.domain.ExpressQueueEntry;
 import com.allset.api.order.domain.Order;
 import com.allset.api.order.domain.OrderPhoto;
+import com.allset.api.order.dto.DistanceBand;
+import com.allset.api.order.dto.ExpressProposalResponse;
 import com.allset.api.order.dto.ExpressQueueEntryResponse;
 import com.allset.api.order.dto.OrderPhotoResponse;
 import com.allset.api.order.dto.OrderResponse;
@@ -19,6 +22,7 @@ import java.util.List;
 public class OrderMapper {
 
     private final StorageRefFactory storageRefFactory;
+    private final AppProperties appProperties;
 
     public OrderResponse toResponse(Order order) {
         return toResponse(order, Collections.emptyList(), null);
@@ -54,12 +58,11 @@ public class OrderMapper {
                 order.getAddressSnapshot() == null ? null : order.getAddressSnapshot().toString(),
                 order.getScheduledAt(),
                 order.getExpiresAt(),
+                order.getProposalDeadline(),
                 order.getUrgencyFee(),
                 order.getBaseAmount(),
                 order.getPlatformFee(),
                 order.getTotalAmount(),
-                order.getSearchRadiusKm(),
-                order.getSearchAttempts(),
                 order.getProCompletedAt(),
                 order.getDisputeDeadline(),
                 order.getCompletedAt(),
@@ -95,5 +98,34 @@ public class OrderMapper {
                 entry.getClientResponse(),
                 entry.getClientRespondedAt()
         );
+    }
+
+    public ExpressProposalResponse toProposalResponse(ExpressQueueEntry entry) {
+        return new ExpressProposalResponse(
+                entry.getProfessionalId(),
+                entry.getProposedAmount(),
+                entry.getRespondedAt(),
+                entry.getQueuePosition(),
+                computeDistanceBand(entry.getDistanceMeters(), appProperties.expressSearchRadiusMeters())
+        );
+    }
+
+    /**
+     * Divide o raio configurado em 3 faixas iguais (arredondadas para cima ao inteiro).
+     * Garantia: qualquer distância no intervalo [0, radiusMeters] cai em exatamente uma faixa.
+     */
+    static DistanceBand computeDistanceBand(int distanceMeters, int radiusMeters) {
+        int bandSize = (int) Math.ceil(radiusMeters / 3.0);
+        int b1 = bandSize;
+        int b2 = bandSize * 2;
+        int top = radiusMeters;
+
+        if (distanceMeters < b1) {
+            return new DistanceBand("0-" + b1 + "m", 0, b1);
+        }
+        if (distanceMeters < b2) {
+            return new DistanceBand(b1 + "-" + b2 + "m", b1, b2);
+        }
+        return new DistanceBand(b2 + "-" + top + "m", b2, top);
     }
 }

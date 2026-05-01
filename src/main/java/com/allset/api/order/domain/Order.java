@@ -74,12 +74,21 @@ public class Order extends PostgresEntity {
     private Instant scheduledAt;
 
     /**
-     * Express — fase de propostas: NOW() + N minutos para a rodada atual de busca.
-     * Express — fase de escolha: NOW() + janela do cliente a partir da primeira proposta.
+     * Express: fixo na criação = created_at + 15 min (propostas) + 30 min (escolha) = 45 min totais.
      * On demand: scheduled_at - 4h.
+     * Nunca reescrito após a criação no fluxo Express.
      */
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
+
+    /**
+     * Express — instante até o qual profissionais podem enviar propostas.
+     * Imutável após criação. Igual a created_at + EXPRESS_PROPOSAL_WINDOW_MINUTES.
+     * Após esse marco, novas tentativas de proposta retornam ProposalWindowExpiredException;
+     * o cliente continua podendo escolher entre as propostas já recebidas até order.expiresAt.
+     */
+    @Column(name = "proposal_deadline", nullable = false, updatable = false)
+    private Instant proposalDeadline;
 
     @Column(name = "urgency_fee", precision = 10, scale = 2)
     private BigDecimal urgencyFee;
@@ -92,16 +101,6 @@ public class Order extends PostgresEntity {
 
     @Column(name = "total_amount", precision = 10, scale = 2)
     private BigDecimal totalAmount;
-
-    /** Raio de busca atual em km — aumentado a cada rodada sem propostas. */
-    @Column(name = "search_radius_km", nullable = false, precision = 5, scale = 2)
-    @Builder.Default
-    private BigDecimal searchRadiusKm = BigDecimal.valueOf(0.1);
-
-    /** Número de rodadas de busca realizadas. Máximo em AppProperties. */
-    @Column(name = "search_attempts", nullable = false)
-    @Builder.Default
-    private short searchAttempts = 1;
 
     @Column(name = "pro_completed_at")
     private Instant proCompletedAt;

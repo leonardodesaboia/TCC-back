@@ -33,32 +33,12 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
 
     boolean existsByOrderIdAndProResponse(UUID orderId, ProResponse proResponse);
 
-    /** Verifica se ainda há profissionais sem resposta na fila (fase de propostas em aberto). */
     boolean existsByOrderIdAndProResponseIsNull(UUID orderId);
 
     long countByOrderIdAndProResponse(UUID orderId, ProResponse proResponse);
 
-    /** IDs dos profissionais já presentes na fila de um pedido (para exclusão na expansão do raio). */
-    @Query("SELECT e.professionalId FROM ExpressQueueEntry e WHERE e.orderId = :orderId")
-    List<UUID> findProfessionalIdsByOrderId(@Param("orderId") UUID orderId);
-
-    /**
-     * Entries com timeout do profissional: notificados antes do cutoff sem ter respondido.
-     * Usados pelo scheduler de timeout.
-     */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))
-    @Query("""
-        SELECT e FROM ExpressQueueEntry e
-        WHERE e.proResponse IS NULL
-          AND e.respondedAt IS NULL
-          AND e.notifiedAt <= :cutoff
-        """)
-    List<ExpressQueueEntry> findTimedOutProEntries(@Param("cutoff") Instant cutoff);
-
     /**
      * Rejeita em lote todas as propostas aceitas de um pedido, exceto a escolhida pelo cliente.
-     * Chamado após o cliente selecionar uma proposta para invalidar as demais.
      */
     @Modifying
     @Query("""
@@ -78,12 +58,22 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
     );
 
     /**
-     * Busca profissionais próximos via fórmula de Haversine.
-     * Retorna IDs de profissionais aprovados, com geo ativo, que possuem
-     * a especialidade/categoria solicitada, ordenados por: express_priority DESC, distância ASC.
+     * Profissionais próximos via Haversine, em metros, com snapshot da distância.
+     * Retorna pares (professionalId, distanceMeters) ordenados por: assinantes Pro primeiro,
+     * depois proximidade. Limitado a maxSize.
+     * Filtra por professional_specialties — elegibilidade independente de ofertas publicadas.
      */
     @Query(value = """
-        SELECT p.id FROM professionals p
+        SELECT p.id AS professional_id, ROUND(
+            6371000 * acos(
+                GREATEST(-1.0, LEAST(1.0,
+                    cos(radians(:lat)) * cos(radians(p.geo_lat))
+                    * cos(radians(p.geo_lng) - radians(:lng))
+                    + sin(radians(:lat)) * sin(radians(p.geo_lat))
+                ))
+            )
+        )::int AS distance_meters
+        FROM professionals p
         WHERE p.geo_active = TRUE
           AND p.verification_status = 'approved'
           AND p.deleted_at IS NULL
@@ -94,14 +84,14 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
                 AND ps.deleted_at IS NULL
           )
           AND (
-              6371 * acos(
+              6371000 * acos(
                   GREATEST(-1.0, LEAST(1.0,
                       cos(radians(:lat)) * cos(radians(p.geo_lat))
                       * cos(radians(p.geo_lng) - radians(:lng))
                       + sin(radians(:lat)) * sin(radians(p.geo_lat))
                   ))
               )
-          ) <= :radiusKm
+          ) <= :radiusMeters
         ORDER BY
           COALESCE((
               SELECT sp.express_priority
@@ -110,75 +100,29 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
                 AND sp.deleted_at IS NULL
                 AND p.subscription_expires_at > NOW()
           ), FALSE) DESC,
-          (
-              6371 * acos(
-                  GREATEST(-1.0, LEAST(1.0,
-                      cos(radians(:lat)) * cos(radians(p.geo_lat))
-                      * cos(radians(p.geo_lng) - radians(:lng))
-                      + sin(radians(:lat)) * sin(radians(p.geo_lat))
-                  ))
-              )
-          ) ASC
+          distance_meters ASC
         LIMIT :maxSize
         """, nativeQuery = true)
-    List<UUID> findNearbyProfessionalIds(
+    List<NearbyProfessional> findNearbyProfessionals(
             @Param("categoryId") UUID categoryId,
             @Param("lat") double lat,
             @Param("lng") double lng,
-            @Param("radiusKm") double radiusKm,
+            @Param("radiusMeters") int radiusMeters,
             @Param("maxSize") int maxSize
     );
 
-    /**
-     * Igual ao anterior, mas exclui profissionais já presentes na fila.
-     * Usado na expansão de raio para evitar notificar o mesmo profissional duas vezes.
-     */
+    interface NearbyProfessional {
+        UUID getProfessionalId();
+        int getDistanceMeters();
+    }
+
+    @Modifying
     @Query(value = """
-        SELECT p.id FROM professionals p
-        WHERE p.geo_active = TRUE
-          AND p.verification_status = 'approved'
-          AND p.deleted_at IS NULL
-          AND p.id NOT IN :excludeIds
-          AND EXISTS (
-              SELECT 1 FROM professional_specialties ps
-              WHERE ps.professional_id = p.id
-                AND ps.category_id = :categoryId
-                AND ps.deleted_at IS NULL
-          )
-          AND (
-              6371 * acos(
-                  GREATEST(-1.0, LEAST(1.0,
-                      cos(radians(:lat)) * cos(radians(p.geo_lat))
-                      * cos(radians(p.geo_lng) - radians(:lng))
-                      + sin(radians(:lat)) * sin(radians(p.geo_lat))
-                  ))
-              )
-          ) <= :radiusKm
-        ORDER BY
-          COALESCE((
-              SELECT sp.express_priority
-              FROM subscription_plans sp
-              WHERE sp.id = p.subscription_plan_id
-                AND sp.deleted_at IS NULL
-                AND p.subscription_expires_at > NOW()
-          ), FALSE) DESC,
-          (
-              6371 * acos(
-                  GREATEST(-1.0, LEAST(1.0,
-                      cos(radians(:lat)) * cos(radians(p.geo_lat))
-                      * cos(radians(p.geo_lng) - radians(:lng))
-                      + sin(radians(:lat)) * sin(radians(p.geo_lat))
-                  ))
-              )
-          ) ASC
-        LIMIT :maxSize
+        UPDATE express_queue
+        SET pro_response = 'timeout',
+            responded_at = :now
+        WHERE order_id = :orderId
+          AND pro_response IS NULL
         """, nativeQuery = true)
-    List<UUID> findNearbyProfessionalIdsExcluding(
-            @Param("categoryId") UUID categoryId,
-            @Param("lat") double lat,
-            @Param("lng") double lng,
-            @Param("radiusKm") double radiusKm,
-            @Param("maxSize") int maxSize,
-            @Param("excludeIds") List<UUID> excludeIds
-    );
+    int markPendingEntriesAsTimeout(@Param("orderId") UUID orderId, @Param("now") Instant now);
 }
