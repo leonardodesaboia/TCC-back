@@ -431,6 +431,7 @@ public class StartupSeedService {
                 .addressSnapshot(addressSnapshot(clientOffice))
                 .scheduledAt(now.minus(10, ChronoUnit.DAYS))
                 .expiresAt(now.minus(11, ChronoUnit.DAYS))
+                .proposalDeadline(now.minus(10, ChronoUnit.DAYS).minus(4, ChronoUnit.HOURS))
                 .baseAmount(new BigDecimal("220.00"))
                 .platformFee(new BigDecimal("44.00"))
                 .totalAmount(new BigDecimal("220.00"))
@@ -503,12 +504,11 @@ public class StartupSeedService {
                 .addressId(clientHome.getId())
                 .addressSnapshot(addressSnapshot(clientHome))
                 .expiresAt(now.minus(3, ChronoUnit.DAYS).plus(40, ChronoUnit.MINUTES))
+                .proposalDeadline(now.minus(3, ChronoUnit.DAYS).plus(15, ChronoUnit.MINUTES))
                 .urgencyFee(new BigDecimal("20.00"))
                 .baseAmount(new BigDecimal("180.00"))
                 .platformFee(new BigDecimal("36.00"))
                 .totalAmount(new BigDecimal("200.00"))
-                .searchRadiusKm(new BigDecimal("15.00"))
-                .searchAttempts((short) 1)
                 .proCompletedAt(now.minus(2, ChronoUnit.DAYS))
                 .disputeDeadline(now.plus(6, ChronoUnit.HOURS))
                 .build());
@@ -528,6 +528,7 @@ public class StartupSeedService {
                 .clientResponse(ClientResponse.accepted)
                 .clientRespondedAt(now.minus(3, ChronoUnit.DAYS).plus(35, ChronoUnit.MINUTES))
                 .queuePosition((short) 1)
+                .distanceMeters(85)
                 .build());
         expressQueueRepository.save(ExpressQueueEntry.builder()
                 .orderId(disputedOrder.getId())
@@ -539,6 +540,7 @@ public class StartupSeedService {
                 .clientResponse(ClientResponse.rejected)
                 .clientRespondedAt(now.minus(3, ChronoUnit.DAYS).plus(35, ChronoUnit.MINUTES))
                 .queuePosition((short) 2)
+                .distanceMeters(210)
                 .build());
 
         orderPhotoRepository.save(OrderPhoto.builder()
@@ -619,9 +621,8 @@ public class StartupSeedService {
                 .addressId(clientHome.getId())
                 .addressSnapshot(addressSnapshot(clientHome))
                 .expiresAt(now.plus(20, ChronoUnit.MINUTES))
+                .proposalDeadline(now.minus(5, ChronoUnit.MINUTES))
                 .urgencyFee(new BigDecimal("15.00"))
-                .searchRadiusKm(new BigDecimal("15.00"))
-                .searchAttempts((short) 1)
                 .build());
 
         saveOrderHistory(pendingExpressOrder, null, OrderStatus.pending, "Pedido Express aguardando propostas", clientUser.getId(), now.minus(10, ChronoUnit.MINUTES));
@@ -633,12 +634,14 @@ public class StartupSeedService {
                 .respondedAt(now.minus(6, ChronoUnit.MINUTES))
                 .proResponse(ProResponse.accepted)
                 .queuePosition((short) 1)
+                .distanceMeters(120)
                 .build());
         expressQueueRepository.save(ExpressQueueEntry.builder()
                 .orderId(pendingExpressOrder.getId())
                 .professionalId(backupElectricianProfessional.getId())
                 .notifiedAt(now.minus(10, ChronoUnit.MINUTES))
                 .queuePosition((short) 2)
+                .distanceMeters(275)
                 .build());
 
         notificationRepository.save(Notification.builder()

@@ -12,6 +12,7 @@ import com.allset.api.order.exception.ExpressQueueViolationException;
 import com.allset.api.order.exception.NoProfessionalsAvailableException;
 import com.allset.api.order.exception.OrderNotFoundException;
 import com.allset.api.order.exception.OrderStatusTransitionException;
+import com.allset.api.order.exception.ProposalWindowExpiredException;
 import com.allset.api.calendar.exception.BlockedPeriodNotFoundException;
 import com.allset.api.catalog.exception.ServiceAreaNameAlreadyExistsException;
 import com.allset.api.catalog.exception.ServiceAreaNotFoundException;
@@ -243,6 +244,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest().body(new ApiError(
             HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(ProposalWindowExpiredException.class)
+    public ResponseEntity<ApiError> handleProposalWindowExpired(ProposalWindowExpiredException ex,
+                                                                HttpServletRequest request) {
+        log.warn("status=409 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(
+            HttpStatus.CONFLICT.value(),
             ex.getMessage(),
             null,
             Instant.now()

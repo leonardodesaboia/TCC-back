@@ -1,6 +1,5 @@
 package com.allset.api.config;
 
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -91,29 +90,22 @@ public record AppProperties(
 
         // --- Express ---
 
-        @DefaultValue("5")
-        @Min(value = 1, message = "EXPRESS_PRO_TIMEOUT_MINUTES deve ser maior que 0")
-        Integer expressProTimeoutMinutes,
+        @DefaultValue("15")
+        @Min(value = 1, message = "EXPRESS_PROPOSAL_WINDOW_MINUTES deve ser maior que 0")
+        Integer expressProposalWindowMinutes,
 
         @DefaultValue("30")
         @Min(value = 1, message = "EXPRESS_CLIENT_WINDOW_MINUTES deve ser maior que 0")
         Integer expressClientWindowMinutes,
 
-        @DefaultValue("0.1")
-        @DecimalMin(value = "0.001", message = "EXPRESS_SEARCH_RADIUS_KM deve ser maior que 0")
-        Double expressSearchRadiusKm,
+        @DefaultValue("300")
+        @Min(value = 1, message = "EXPRESS_SEARCH_RADIUS_METERS deve ser maior que 0")
+        @Max(value = 5000, message = "EXPRESS_SEARCH_RADIUS_METERS não pode exceder 5000")
+        Integer expressSearchRadiusMeters,
 
         @DefaultValue("10")
         @Min(value = 1, message = "EXPRESS_MAX_QUEUE_SIZE deve ser maior que 0")
         Integer expressMaxQueueSize,
-
-        @DefaultValue("3")
-        @Min(value = 1, message = "EXPRESS_MAX_SEARCH_ATTEMPTS deve ser maior que 0")
-        Integer expressMaxSearchAttempts,
-
-        @DefaultValue("0.3")
-        @DecimalMin(value = "0.001", message = "EXPRESS_MAX_RADIUS_KM deve ser maior que 0")
-        Double expressMaxRadiusKm,
 
         // --- CORS / Frontend ---
 

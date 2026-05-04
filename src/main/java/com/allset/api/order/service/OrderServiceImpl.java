@@ -12,6 +12,7 @@ import com.allset.api.notification.service.NotificationService;
 import com.allset.api.order.domain.*;
 import com.allset.api.order.dto.*;
 import com.allset.api.order.exception.*;
+import com.allset.api.order.repository.ExpressQueueRepository.NearbyProfessional;
 import com.allset.api.order.mapper.OrderMapper;
 import com.allset.api.order.repository.*;
 import com.allset.api.offering.domain.PricingType;
@@ -41,9 +42,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -95,18 +94,20 @@ public class OrderServiceImpl implements OrderService {
 
         double lat    = address.getLat().doubleValue();
         double lng    = address.getLng().doubleValue();
-        double radius = appProperties.expressSearchRadiusKm();
+        int radius    = appProperties.expressSearchRadiusMeters();
 
-        // Busca profissionais próximos (todos notificados ao mesmo tempo)
-        List<UUID> nearbyIds = queueRepository.findNearbyProfessionalIds(
+        // Busca profissionais próximos com snapshot da distância (todos notificados ao mesmo tempo)
+        List<NearbyProfessional> nearby = queueRepository.findNearbyProfessionals(
                 request.categoryId(), lat, lng, radius, appProperties.expressMaxQueueSize());
 
-        if (nearbyIds.isEmpty()) {
+        if (nearby.isEmpty()) {
             throw new NoProfessionalsAvailableException();
         }
 
-        Instant now      = Instant.now();
-        JsonNode snapshot = serializeAddress(address);
+        Instant now              = Instant.now();
+        Instant proposalDeadline = now.plus(appProperties.expressProposalWindowMinutes(), ChronoUnit.MINUTES);
+        Instant orderExpires     = proposalDeadline.plus(appProperties.expressClientWindowMinutes(), ChronoUnit.MINUTES);
+        JsonNode snapshot        = serializeAddress(address);
 
         Order order = Order.builder()
                 .clientId(clientId)
@@ -118,20 +119,21 @@ public class OrderServiceImpl implements OrderService {
                 .addressId(request.addressId())
                 .addressSnapshot(snapshot)
                 .urgencyFee(request.urgencyFee())
-                .expiresAt(now.plus(appProperties.expressProTimeoutMinutes(), ChronoUnit.MINUTES))
-                .searchRadiusKm(BigDecimal.valueOf(radius))
-                .searchAttempts((short) 1)
+                .proposalDeadline(proposalDeadline)
+                .expiresAt(orderExpires)
                 .build();
 
         Order saved = orderRepository.save(order);
         recordTransition(saved.getId(), null, OrderStatus.pending, "Pedido Express criado", null);
 
-        // Cria entries para todos — notificados simultaneamente
+        // Cria entries para todos com distância snapshot — notificados simultaneamente
         List<ExpressQueueEntry> entries = new ArrayList<>();
-        for (int i = 0; i < nearbyIds.size(); i++) {
+        for (int i = 0; i < nearby.size(); i++) {
+            NearbyProfessional n = nearby.get(i);
             entries.add(ExpressQueueEntry.builder()
                     .orderId(saved.getId())
-                    .professionalId(nearbyIds.get(i))
+                    .professionalId(n.getProfessionalId())
+                    .distanceMeters(n.getDistanceMeters())
                     .queuePosition((short) (i + 1))
                     .notifiedAt(now)
                     .build());
@@ -139,15 +141,15 @@ public class OrderServiceImpl implements OrderService {
         queueRepository.saveAll(entries);
 
         notifyProfessionals(
-                nearbyIds,
+                nearby.stream().map(NearbyProfessional::getProfessionalId).toList(),
                 NotificationType.new_request,
                 "Nova solicitacao Express",
                 "Ha um novo pedido Express disponivel para a sua categoria.",
                 saved.getId()
         );
 
-        log.info("event=express_order_created orderId={} clientId={} professionals={}",
-                saved.getId(), clientId, nearbyIds.size());
+        log.info("event=express_order_created orderId={} clientId={} professionals={} radiusMeters={}",
+                saved.getId(), clientId, nearby.size(), radius);
 
         return orderMapper.toResponse(saved);
     }
@@ -210,11 +212,10 @@ public class OrderServiceImpl implements OrderService {
                 .addressSnapshot(snapshot)
                 .scheduledAt(request.scheduledAt())
                 .expiresAt(request.scheduledAt().minus(4, ChronoUnit.HOURS))
+                .proposalDeadline(request.scheduledAt().minus(4, ChronoUnit.HOURS))
                 .baseAmount(price)
                 .platformFee(fee)
                 .totalAmount(total)
-                .searchRadiusKm(BigDecimal.ZERO)
-                .searchAttempts((short) 0)
                 .build();
 
         Order saved = orderRepository.save(order);
@@ -390,11 +391,7 @@ public class OrderServiceImpl implements OrderService {
         return queueRepository.findAllByOrderIdAndProResponse(orderId, ProResponse.accepted)
                 .stream()
                 .filter(e -> e.getClientResponse() == null)
-                .map(e -> new ExpressProposalResponse(
-                        e.getProfessionalId(),
-                        e.getProposedAmount(),
-                        e.getRespondedAt(),
-                        e.getQueuePosition()))
+                .map(orderMapper::toProposalResponse)
                 .toList();
     }
 
@@ -414,6 +411,11 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderStatusTransitionException(order.getStatus(), "resposta do profissional");
         }
 
+        Instant now = Instant.now();
+        if (now.isAfter(order.getProposalDeadline())) {
+            throw new ProposalWindowExpiredException(orderId);
+        }
+
         // Valida que o profissional ainda está aprovado
         Professional professional = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
                 .orElseThrow(() -> new ExpressQueueViolationException("Profissional não encontrado"));
@@ -431,7 +433,6 @@ public class OrderServiceImpl implements OrderService {
             throw new ExpressQueueViolationException("Você já respondeu a este pedido");
         }
 
-        Instant now = Instant.now();
         entry.setRespondedAt(now);
 
         if (request.response() == ProResponse.rejected) {
@@ -459,17 +460,6 @@ public class OrderServiceImpl implements OrderService {
         entry.setProResponse(ProResponse.accepted);
         entry.setProposedAmount(request.proposedAmount());
         queueRepository.save(entry);
-
-        // Se for a primeira proposta: inicia a janela de escolha do cliente
-        long totalAccepted = queueRepository.countByOrderIdAndProResponse(orderId, ProResponse.accepted);
-        if (totalAccepted == 1) {
-            order.setExpiresAt(now.plus(appProperties.expressClientWindowMinutes(), ChronoUnit.MINUTES));
-            orderRepository.save(order);
-            log.info("event=express_first_proposal orderId={} clientWindowMinutes={}",
-                    orderId, appProperties.expressClientWindowMinutes());
-        }
-
-        // TODO: push notification para o cliente avisando que há uma nova proposta
 
         notifyClient(
                 order.getClientId(),
@@ -559,7 +549,6 @@ public class OrderServiceImpl implements OrderService {
         order.setPlatformFee(fee);
         order.setTotalAmount(total);
         order.setStatus(OrderStatus.accepted);
-        order.setExpiresAt(now); // janela encerrada
 
         Order saved = orderRepository.save(order);
         recordTransition(orderId, OrderStatus.pending, OrderStatus.accepted,
@@ -789,45 +778,26 @@ public class OrderServiceImpl implements OrderService {
     public void processExpiredWindows() {
         Instant now = Instant.now();
 
-        // 1. Marca timeout em profissionais que não responderam no prazo
-        Instant proCutoff = now.minus(appProperties.expressProTimeoutMinutes(), ChronoUnit.MINUTES);
-        List<ExpressQueueEntry> timedOutEntries = queueRepository.findTimedOutProEntries(proCutoff);
+        // Fase 1 → 2: marca timeouts em pedidos cuja janela de propostas venceu
+        List<UUID> ordersToCloseProposalWindow = orderRepository
+                .findExpressIdsWithExpiredProposalWindow(now);
 
-        Set<UUID> affectedOrderIds = timedOutEntries.stream()
-                .map(ExpressQueueEntry::getOrderId)
-                .collect(Collectors.toSet());
-
-        for (ExpressQueueEntry entry : timedOutEntries) {
+        for (UUID orderId : ordersToCloseProposalWindow) {
             try {
-                expressWindowProcessor.markTimeout(entry, now);
+                expressWindowProcessor.closeProposalWindow(orderId, now);
             } catch (Exception e) {
-                log.error("event=express_pro_timeout_error orderId={} error={}",
-                        entry.getOrderId(), e.getMessage(), e);
+                log.error("event=express_close_window_error orderId={} error={}", orderId, e.getMessage(), e);
             }
         }
 
-        // 2. Para cada pedido afetado, decide se expande raio ou aguarda
-        for (UUID orderId : affectedOrderIds) {
-            try {
-                expressWindowProcessor.processAffectedOrder(orderId, now);
-            } catch (Exception e) {
-                log.error("event=express_expand_error orderId={} error={}", orderId, e.getMessage(), e);
-            }
-        }
+        // Janela total expirada → cancela
+        List<UUID> expiredIds = orderRepository.findExpressIdsToExpire(now);
 
-        // 3. Pedidos Express pending com expires_at expirado
-        List<Order> expired = orderRepository.findAllByStatusAndModeAndExpiresAtBeforeAndDeletedAtIsNull(
-                OrderStatus.pending, OrderMode.express, now);
-
-        for (Order order : expired) {
-            if (affectedOrderIds.contains(order.getId())) {
-                continue; // já processado no loop de timeouts acima
-            }
+        for (UUID orderId : expiredIds) {
             try {
-                expressWindowProcessor.processExpiredOrder(order, now);
+                expressWindowProcessor.cancelExpiredOrder(orderId, now);
             } catch (Exception e) {
-                log.error("event=express_expired_order_error orderId={} error={}",
-                        order.getId(), e.getMessage(), e);
+                log.error("event=express_cancel_expired_error orderId={} error={}", orderId, e.getMessage(), e);
             }
         }
     }

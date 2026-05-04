@@ -58,11 +58,25 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             Pageable pageable
     );
 
-    /**
-     * Pedidos Express pendentes cujo prazo expirou.
-     * O scheduler usa esta query para processar tanto o fim da janela de propostas
-     * quanto o fim da janela de escolha do cliente.
-     */
-    List<Order> findAllByStatusAndModeAndExpiresAtBeforeAndDeletedAtIsNull(
-            OrderStatus status, OrderMode mode, Instant expiresAt);
+    @Query(value = """
+        SELECT o.id FROM orders o
+        WHERE o.mode = 'express'
+          AND o.status = 'pending'
+          AND o.deleted_at IS NULL
+          AND o.proposal_deadline <= :now
+          AND EXISTS (
+              SELECT 1 FROM express_queue eq
+              WHERE eq.order_id = o.id AND eq.pro_response IS NULL
+          )
+        """, nativeQuery = true)
+    List<UUID> findExpressIdsWithExpiredProposalWindow(@Param("now") Instant now);
+
+    @Query(value = """
+        SELECT o.id FROM orders o
+        WHERE o.mode = 'express'
+          AND o.status = 'pending'
+          AND o.deleted_at IS NULL
+          AND o.expires_at <= :now
+        """, nativeQuery = true)
+    List<UUID> findExpressIdsToExpire(@Param("now") Instant now);
 }

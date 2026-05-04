@@ -63,6 +63,14 @@ public class ExpressQueueEntry {
     @Column(name = "queue_position", nullable = false)
     private short queuePosition;
 
+    /**
+     * Distância, em metros, entre o endereço do pedido e a localização do profissional
+     * no momento da notificação. Snapshot — não muda se o profissional se mover depois.
+     * Calculado pelo Haversine em ExpressQueueRepository.findNearbyProfessionals.
+     */
+    @Column(name = "distance_meters", nullable = false, updatable = false)
+    private int distanceMeters;
+
     // Sem @PrePersist — notifiedAt é definido explicitamente no service.
     // Todos os profissionais da rodada recebem notifiedAt = NOW() (broadcast simultâneo).
 }
