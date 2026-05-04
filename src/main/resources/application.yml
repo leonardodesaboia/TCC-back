@@ -37,7 +37,7 @@ email-from: ${EMAIL_FROM:}
 # Express
 express-proposal-window-minutes: ${EXPRESS_PROPOSAL_WINDOW_MINUTES:15}
 express-client-window-minutes: ${EXPRESS_CLIENT_WINDOW_MINUTES:30}
-express-search-radius-meters: ${EXPRESS_SEARCH_RADIUS_METERS:300}
+express-search-radius-meters: ${EXPRESS_SEARCH_RADIUS_METERS:5000}
 express-max-queue-size: ${EXPRESS_MAX_QUEUE_SIZE:10}
 
 # CORS / Frontend

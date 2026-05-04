@@ -3,6 +3,7 @@ package com.allset.api.order.repository;
 import com.allset.api.order.domain.Order;
 import com.allset.api.order.domain.OrderMode;
 import com.allset.api.order.domain.OrderStatus;
+import com.allset.api.order.domain.ProResponse;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.QueryHint;
 import org.springframework.data.domain.Page;
@@ -47,7 +48,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
                 AND e.professionalId = :professionalId
                 AND (
                     e.proResponse IS NULL
-                    OR (e.proResponse = com.allset.api.order.domain.ProResponse.accepted AND e.clientResponse IS NULL)
+                    OR (e.proResponse = :acceptedResponse AND e.clientResponse IS NULL)
                 )
           )
         """)
@@ -55,6 +56,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             @Param("professionalId") UUID professionalId,
             @Param("mode") OrderMode mode,
             @Param("status") OrderStatus status,
+            @Param("acceptedResponse") ProResponse acceptedResponse,
             Pageable pageable
     );
 

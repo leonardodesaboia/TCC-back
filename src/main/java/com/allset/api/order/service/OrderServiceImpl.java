@@ -364,6 +364,7 @@ public class OrderServiceImpl implements OrderService {
                         pro.getId(),
                         OrderMode.express,
                         OrderStatus.pending,
+                        ProResponse.accepted,
                         pageable
                 ).map(order -> orderMapper.toResponse(
                         order,
