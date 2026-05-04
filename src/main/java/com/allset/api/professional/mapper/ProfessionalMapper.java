@@ -42,6 +42,8 @@ public class ProfessionalMapper {
                 professional.getVerificationStatus(),
                 professional.getRejectionReason(),
                 professional.isGeoActive(),
+                professional.getGeoCapturedAt(),
+                professional.getGeoAccuracyMeters(),
                 professional.getSubscriptionPlanId(),
                 professional.getSubscriptionExpiresAt(),
                 ratingSummary.averageRating(),

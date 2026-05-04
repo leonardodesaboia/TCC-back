@@ -84,6 +84,8 @@ class ConversationServiceImplTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 0L,
                 Instant.now(),
                 Instant.now()
@@ -137,6 +139,8 @@ class ConversationServiceImplTest {
                 VerificationStatus.approved,
                 null,
                 true,
+                null,
+                null,
                 null,
                 null,
                 null,

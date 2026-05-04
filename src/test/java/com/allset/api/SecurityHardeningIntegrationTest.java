@@ -111,7 +111,10 @@ class SecurityHardeningIntegrationTest {
                         .content(objectMapper.writeValueAsString(new UpdateGeoRequest(
                                 true,
                                 new BigDecimal("-3.731862"),
-                                new BigDecimal("-38.526669")
+                                new BigDecimal("-38.526669"),
+                                null,
+                                null,
+                                null
                         ))))
                 .andExpect(status().isForbidden());
     }

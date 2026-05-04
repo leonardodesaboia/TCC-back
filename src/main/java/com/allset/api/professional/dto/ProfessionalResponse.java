@@ -19,6 +19,8 @@ public record ProfessionalResponse(
         @Schema(description = "Status de verificacao KYC") VerificationStatus verificationStatus,
         @Schema(description = "Motivo de rejeicao do KYC") String rejectionReason,
         @Schema(description = "Disponivel para pedidos Express") boolean geoActive,
+        @Schema(description = "Timestamp da última captura de localização", nullable = true) Instant geoCapturedAt,
+        @Schema(description = "Acurácia da última captura em metros", nullable = true) BigDecimal geoAccuracyMeters,
         @Schema(description = "ID do plano de assinatura") UUID subscriptionPlanId,
         @Schema(description = "Expiracao do plano de assinatura") Instant subscriptionExpiresAt,
         @Schema(description = "Media das avaliacoes publicadas recebidas", nullable = true) BigDecimal averageRating,

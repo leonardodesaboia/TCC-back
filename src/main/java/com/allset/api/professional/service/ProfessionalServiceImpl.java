@@ -15,6 +15,7 @@ import com.allset.api.professional.repository.ProfessionalSpecialtyRepository;
 import com.allset.api.user.exception.UserNotFoundException;
 import com.allset.api.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.allset.api.professional.exception.ProfessionalNotApprovedException;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
@@ -33,7 +35,13 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class ProfessionalServiceImpl implements ProfessionalService {
+
+    /** Tolerância de relógio adiantado: capturedAt até este valor no futuro é aceito tal qual. */
+    static final Duration GEO_FUTURE_SKEW_TOLERANCE = Duration.ofSeconds(30);
+    /** Tolerância de relógio atrasado: capturedAt até este valor no passado é aceito tal qual. */
+    static final Duration GEO_PAST_SKEW_TOLERANCE = Duration.ofHours(1);
 
     private final ProfessionalRepository professionalRepository;
     private final ProfessionalSpecialtyRepository professionalSpecialtyRepository;
@@ -124,11 +132,38 @@ public class ProfessionalServiceImpl implements ProfessionalService {
             }
         }
 
+        boolean previouslyActive = professional.isGeoActive();
         professional.setGeoActive(request.geoActive());
         if (request.geoLat() != null) professional.setGeoLat(request.geoLat());
         if (request.geoLng() != null) professional.setGeoLng(request.geoLng());
 
+        if (Boolean.TRUE.equals(request.geoActive())) {
+            professional.setGeoCapturedAt(resolveCapturedAt(request.capturedAt(), id));
+            if (request.accuracyMeters() != null) professional.setGeoAccuracyMeters(request.accuracyMeters());
+            if (request.source() != null) professional.setGeoSource(request.source());
+        } else {
+            professional.setGeoCapturedAt(null);
+            professional.setGeoAccuracyMeters(null);
+            professional.setGeoSource(null);
+        }
+
+        if (previouslyActive != professional.isGeoActive()) {
+            log.info("event=professional_geo_active_changed professionalId={} active={}", id, professional.isGeoActive());
+        }
+
         return professionalMapper.toResponse(professionalRepository.save(professional));
+    }
+
+    private Instant resolveCapturedAt(Instant requested, UUID id) {
+        Instant now = Instant.now();
+        if (requested == null) return now;
+        Instant futureLimit = now.plus(GEO_FUTURE_SKEW_TOLERANCE);
+        Instant pastLimit   = now.minus(GEO_PAST_SKEW_TOLERANCE);
+        if (requested.isAfter(futureLimit) || requested.isBefore(pastLimit)) {
+            log.warn("event=professional_geo_clock_skew professionalId={} requested={} now={}", id, requested, now);
+            return now;
+        }
+        return requested;
     }
 
     @Override
