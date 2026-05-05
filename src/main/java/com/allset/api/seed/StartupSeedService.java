@@ -84,9 +84,9 @@ import java.util.UUID;
 @Slf4j
 public class StartupSeedService {
 
-    private static final String DEFAULT_PASSWORD = "Senha@2025!";
+    private static final String DEFAULT_PASSWORD = "Password123!";
     private static final String ADMIN_EMAIL = "admin.seed@allset.local";
-    private static final String CLIENT_EMAIL = "cliente.seed@allset.local";
+    private static final String CLIENT_EMAIL = "cliente@email.com";
 
     private final UserRepository userRepository;
     private final SavedAddressRepository savedAddressRepository;
@@ -147,7 +147,7 @@ public class StartupSeedService {
         SubscriptionPlan destaquePlan = saveSubscriptionPlan("Plano Destaque", new BigDecimal("79.90"), true, true, "Destaque", true);
 
         User clientUser = saveUser("Cliente Seed", "52998224725", CLIENT_EMAIL, "+5585999990001", LocalDate.of(1995, 9, 15), UserRole.client, true, null, "avatars/client-seed.jpg");
-        User electricianUser = saveUser("Profissional Eletrica Seed", "11144477735", "profissional.eletrica.seed@allset.local", "+5585999990002", LocalDate.of(1990, 4, 20), UserRole.professional, true, null, "avatars/electrician-seed.jpg");
+        User electricianUser = saveUser("Profissional Eletrica Seed", "11144477735", "eletrica@email", "+5585999990002", LocalDate.of(1990, 4, 20), UserRole.professional, true, null, "avatars/electrician-seed.jpg");
         User backupElectricianUser = saveUser("Profissional Backup Seed", "12345678909", "profissional.backup.seed@allset.local", "+5585999990003", LocalDate.of(1993, 8, 11), UserRole.professional, true, null, "avatars/backup-electrician-seed.jpg");
         User cleanerUser = saveUser("Profissional Limpeza Seed", "98765432100", "profissional.limpeza.seed@allset.local", "+5585999990004", LocalDate.of(1992, 1, 8), UserRole.professional, true, null, "avatars/cleaner-seed.jpg");
         User adminUser = saveUser("Admin Seed", "22233344455", ADMIN_EMAIL, "+5585999990005", LocalDate.of(1988, 12, 3), UserRole.admin, true, null, "avatars/admin-seed.jpg");
