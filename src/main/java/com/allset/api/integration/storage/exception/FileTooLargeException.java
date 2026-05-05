@@ -1,4 +1,4 @@
-package com.allset.api.shared.storage.exception;
+package com.allset.api.integration.storage.exception;
 
 public class FileTooLargeException extends RuntimeException {
 

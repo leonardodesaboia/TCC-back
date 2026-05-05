@@ -10,7 +10,7 @@ import com.allset.api.auth.exception.InvalidResetCodeException;
 import com.allset.api.auth.exception.InvalidTokenException;
 import com.allset.api.config.AppProperties;
 import com.allset.api.shared.cache.CacheService;
-import com.allset.api.shared.email.EmailService;
+import com.allset.api.integration.email.EmailService;
 import com.allset.api.shared.token.TokenParseException;
 import com.allset.api.shared.token.TokenService;
 import com.allset.api.user.domain.User;

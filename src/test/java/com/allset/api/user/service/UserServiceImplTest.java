@@ -1,6 +1,6 @@
 package com.allset.api.user.service;
 
-import com.allset.api.shared.storage.service.StorageService;
+import com.allset.api.integration.storage.service.StorageService;
 import com.allset.api.user.domain.User;
 import com.allset.api.user.domain.UserRole;
 import com.allset.api.user.dto.BanUserRequest;

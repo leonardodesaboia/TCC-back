@@ -7,7 +7,7 @@ import com.allset.api.auth.dto.ResetPasswordRequest;
 import com.allset.api.auth.dto.TokenResponse;
 import com.allset.api.config.AppProperties;
 import com.allset.api.shared.cache.CacheService;
-import com.allset.api.shared.email.EmailService;
+import com.allset.api.integration.email.EmailService;
 import com.allset.api.shared.token.TokenService;
 import com.allset.api.user.domain.User;
 import com.allset.api.user.domain.UserRole;

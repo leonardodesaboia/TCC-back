@@ -1,4 +1,4 @@
-package com.allset.api.shared.email;
+package com.allset.api.integration.email;
 
 /**
  * Lançada quando o envio de e-mail falha por erro de infraestrutura (SMTP indisponível, etc.).

@@ -1,6 +1,6 @@
-package com.allset.api.shared.storage.exception;
+package com.allset.api.integration.storage.exception;
 
-import com.allset.api.shared.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.domain.StorageBucket;
 
 public class StorageObjectNotFoundException extends RuntimeException {
 

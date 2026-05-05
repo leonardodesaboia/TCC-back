@@ -1,8 +1,8 @@
-package com.allset.api.shared.storage.service;
+package com.allset.api.integration.storage.service;
 
-import com.allset.api.shared.storage.config.MinioProperties;
-import com.allset.api.shared.storage.domain.StorageBucket;
-import com.allset.api.shared.storage.dto.StorageRefResponse;
+import com.allset.api.integration.storage.config.MinioProperties;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.dto.StorageRefResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

@@ -1,6 +1,6 @@
-package com.allset.api.shared.storage.event;
+package com.allset.api.integration.storage.event;
 
-import com.allset.api.shared.storage.service.StorageService;
+import com.allset.api.integration.storage.service.StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

@@ -2,8 +2,8 @@ package com.allset.api.chat.mapper;
 
 import com.allset.api.chat.domain.Message;
 import com.allset.api.chat.dto.MessageResponse;
-import com.allset.api.shared.storage.domain.StorageBucket;
-import com.allset.api.shared.storage.service.StorageRefFactory;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.service.StorageRefFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

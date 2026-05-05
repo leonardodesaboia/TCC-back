@@ -8,7 +8,7 @@ import com.allset.api.catalog.exception.ServiceAreaNotFoundException;
 import com.allset.api.catalog.mapper.ServiceCategoryMapper;
 import com.allset.api.catalog.repository.ServiceAreaRepository;
 import com.allset.api.catalog.repository.ServiceCategoryRepository;
-import com.allset.api.shared.storage.service.StorageService;
+import com.allset.api.integration.storage.service.StorageService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;

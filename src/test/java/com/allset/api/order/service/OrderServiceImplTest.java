@@ -20,7 +20,7 @@ import com.allset.api.order.repository.*;
 import com.allset.api.order.repository.ExpressQueueRepository.NearbyProfessional;
 import com.allset.api.professional.domain.Professional;
 import com.allset.api.professional.repository.ProfessionalRepository;
-import com.allset.api.shared.storage.service.StorageService;
+import com.allset.api.integration.storage.service.StorageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

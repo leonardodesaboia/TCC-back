@@ -9,7 +9,7 @@ import com.allset.api.chat.mapper.MessageMapper;
 import com.allset.api.chat.repository.MessageRepository;
 import com.allset.api.notification.domain.NotificationType;
 import com.allset.api.notification.service.NotificationService;
-import com.allset.api.shared.storage.service.StorageService;
+import com.allset.api.integration.storage.service.StorageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

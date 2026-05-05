@@ -1,4 +1,4 @@
-package com.allset.api.shared.storage.config;
+package com.allset.api.integration.storage.config;
 
 import io.minio.MinioClient;
 import org.springframework.beans.factory.annotation.Qualifier;

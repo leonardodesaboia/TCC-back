@@ -1,4 +1,4 @@
-package com.allset.api.shared.storage.config;
+package com.allset.api.integration.storage.config;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
