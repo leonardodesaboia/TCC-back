@@ -20,7 +20,7 @@ Modelo de negócio: taxa de 20% descontada no momento da liberação do escrow. 
 | Auth | JWT HS256 via Spring OAuth2 Resource Server (`NimbusJwtDecoder`) |
 | Docs | SpringDoc OpenAPI 2.8 / Swagger UI |
 | Container | Docker + Docker Compose (multi-stage build) |
-| Integrações | Asaas (pagamentos/escrow), IDwall SDK (KYC), AWS S3, FCM (push), WebSocket (chat) |
+| Integrações | Asaas (pagamentos/escrow), IDwall SDK (KYC), MinIO (S3-compatible), FCM (push), WebSocket (chat) |
 
 ---
 
@@ -83,23 +83,32 @@ src/main/java/com/allset/api/
 │   ├── SecurityConfig.java                  # JWT, BCrypt, CORS, regras de acesso
 │   ├── OpenApiConfig.java                   # bearerAuth no Swagger
 │   └── StartupLogger.java
-├── shared/
+├── shared/                                  # Utilitários transversais (não-domínio, não-integração externa)
+│   ├── annotation/                          # @CurrentUser, @RequiresAnyRole + aspect
+│   ├── cache/                               # CacheService + RedisCacheService
 │   ├── crypto/CpfConverter.java             # AttributeConverter AES-256/CBC transparente
-│   ├── validation/ValidCPF.java + CpfValidator.java
-│   └── exception/
-│       ├── ApiError.java                    # Contrato de resposta de erro
-│       └── GlobalExceptionHandler.java      # @RestControllerAdvice centralizado
-├── auth/                                    # Login, JWT, refresh token, recuperação de senha
+│   ├── exception/
+│   │   ├── ApiError.java                    # Contrato de resposta de erro
+│   │   └── GlobalExceptionHandler.java      # @RestControllerAdvice centralizado
+│   ├── resolver/CurrentUserArgumentResolver.java
+│   ├── token/                               # TokenService + JwtTokenService (JWT interno)
+│   └── validation/                          # ValidCPF, ValidPassword, NoHtml + validators
+├── integration/                             # Adapters para serviços externos (regra: services nunca chamam APIs externas direto)
+│   ├── storage/                             # MinIO (S3-compatible) — config, service, eventos de deleção
+│   └── email/                               # Resend — EmailService + ResendEmailService
+├── auth/                                    # Login, JWT, refresh token, recuperação de senha (ver Exceções ao padrão)
+├── seed/                                    # StartupSeedRunner + StartupSeedService — bootstrap dev (ver Exceções ao padrão)
 ├── user/                                    # Módulo de usuários (clientes, profissionais, admins)
 │   └── scheduler/UserPurgeScheduler.java
 ├── address/                                 # Endereços salvos por usuário
 ├── professional/                            # Perfil profissional, KYC, geolocalização
-├── document/                                # Documentos do profissional (S3 + IDwall)
+├── document/                                # Documentos do profissional (MinIO + IDwall)
 ├── offering/                                # Serviços oferecidos pelo profissional
 ├── catalog/                                 # Áreas e categorias de serviço (admin)
 ├── subscription/                            # Planos de assinatura para profissionais
 │   └── scheduler/SubscriptionExpirationScheduler.java
 ├── calendar/                                # Calendário de disponibilidade do profissional
+├── favorite/                                # Profissionais favoritos do cliente
 └── order/                                   # Pedidos Express — ciclo completo
     ├── controller/OrderController.java
     ├── service/OrderServiceImpl.java
@@ -136,6 +145,14 @@ src/main/resources/
 ```
 
 Cada módulo futuro **deve** seguir essa estrutura: `controller / service / repository / domain / mapper / dto / exception`.
+
+### Exceções ao padrão de módulo
+
+Os módulos abaixo divergem do template canônico por motivos justificados — **não tomar como referência ao criar novos módulos**.
+
+- **`auth/`** — possui apenas `controller / dto / exception / service`. Não há `domain`, `mapper` nem `repository` porque o módulo não persiste entidade JPA própria: usuários moram em `user/`, refresh tokens vivem no Redis (TTL), códigos de recuperação de senha também são keys efêmeras. A emissão de JWT delega ao `shared/token/`.
+- **`seed/`** — dois arquivos planos (`StartupSeedRunner`, `StartupSeedService`) na raiz do pacote. Roda na inicialização do `dev` para popular catálogo (áreas, categorias, planos). Não expõe endpoints, não tem entidade própria, não deve ser portado para `prod`.
+- **`shared/storage/`** e **`shared/email/`** **não existem mais** — foram movidos para `integration/storage/` e `integration/email/` respeitando a regra de integrações externas.
 
 ---
 
@@ -230,6 +247,22 @@ Ao criar exceções novas em módulos futuros, **sempre** registrá-las no `Glob
 
 Deleção é **física** — não usa soft delete, diferente das entidades principais.
 
+### Profissionais Favoritos (`/api/v1/professionals/{professionalId}/favorite` e `/api/v1/favorite-professionals`)
+
+Apenas clientes (`hasAuthority('client')`) gerenciam seus próprios favoritos. O serviço opera sempre com o `currentUserId` extraído do JWT — nunca aceitar `userId` por path/body.
+
+| Método | Caminho | Comportamento |
+|---|---|---|
+| `POST /api/v1/professionals/{professionalId}/favorite` | Favoritar — 201 + Location |
+| `GET /api/v1/professionals/{professionalId}/favorite` | Status (favoritado ou não) |
+| `DELETE /api/v1/professionals/{professionalId}/favorite` | Remover — 204 |
+| `GET /api/v1/favorite-professionals` | Listar paginado (20/página, ordenado por `createdAt desc`) |
+
+**Regras:**
+- Unicidade por `(user_id, professional_id)` — duplicidade retorna `FavoriteProfessionalAlreadyExistsException` (409)
+- Profissional inexistente retorna 404 via `FavoriteProfessionalNotFoundException`
+- Deleção é **física** (mesma decisão dos endereços salvos)
+
 ---
 
 ## Domínios a implementar
@@ -272,7 +305,7 @@ Deleção é **física** — não usa soft delete, diferente das entidades princ
 - Não diferenciar "não encontrado" de "sem permissão" em queries de ownership — sempre 404
 
 ### Integrações externas
-Clients para Asaas, IDwall, S3 e FCM ficam em `integration/`. Services nunca chamam APIs externas diretamente. Tratar falhas com retry + fallback. Webhooks externos (ex: Asaas) validar assinatura antes de processar.
+Clients para Asaas, IDwall, MinIO (S3-compatible), FCM e Resend ficam em `integration/`. Services nunca chamam APIs externas diretamente. Tratar falhas com retry + fallback. Webhooks externos (ex: Asaas) validar assinatura antes de processar.
 
 ---
 
