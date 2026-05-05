@@ -47,6 +47,13 @@ frontend-url: ${FRONTEND_URL:*}
 chat-message-max-length: ${CHAT_MESSAGE_MAX_LENGTH:4000}
 chat-message-page-size: ${CHAT_MESSAGE_PAGE_SIZE:50}
 
+# Geocoding
+geocoding-base-url: ${GEOCODING_BASE_URL:https://nominatim.openstreetmap.org}
+geocoding-user-agent: ${GEOCODING_USER_AGENT:}
+geocoding-cache-ttl-seconds: ${GEOCODING_CACHE_TTL_SECONDS:2592000}
+geocoding-negative-cache-ttl-seconds: ${GEOCODING_NEGATIVE_CACHE_TTL_SECONDS:300}
+geocoding-enabled: ${GEOCODING_ENABLED:true}
+
 # Seed
 seed:
   enabled: ${SEED_ENABLED:false}
