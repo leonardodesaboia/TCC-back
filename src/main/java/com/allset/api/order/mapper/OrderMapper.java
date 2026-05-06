@@ -63,6 +63,7 @@ public class OrderMapper {
                 order.getBaseAmount(),
                 order.getPlatformFee(),
                 order.getTotalAmount(),
+                order.getEstimatedDurationMinutes(),
                 order.getProCompletedAt(),
                 order.getDisputeDeadline(),
                 order.getCompletedAt(),

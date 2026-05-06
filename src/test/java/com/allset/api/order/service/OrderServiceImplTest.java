@@ -10,16 +10,23 @@ import com.allset.api.chat.service.MessageService;
 import com.allset.api.config.AppProperties;
 import com.allset.api.notification.domain.NotificationType;
 import com.allset.api.notification.service.NotificationService;
+import com.allset.api.offering.domain.PricingType;
+import com.allset.api.offering.domain.ProfessionalOffering;
+import com.allset.api.offering.repository.ProfessionalOfferingRepository;
 import com.allset.api.order.domain.*;
 import com.allset.api.order.dto.ClientRespondRequest;
 import com.allset.api.order.dto.CreateExpressOrderRequest;
+import com.allset.api.order.dto.CreateOnDemandOrderRequest;
 import com.allset.api.order.dto.OrderResponse;
 import com.allset.api.order.exception.NoProfessionalsAvailableException;
 import com.allset.api.order.mapper.OrderMapper;
 import com.allset.api.order.repository.*;
 import com.allset.api.order.repository.ExpressQueueRepository.NearbyProfessional;
 import com.allset.api.professional.domain.Professional;
+import com.allset.api.professional.domain.ProfessionalSpecialty;
+import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.repository.ProfessionalRepository;
+import com.allset.api.professional.repository.ProfessionalSpecialtyRepository;
 import com.allset.api.integration.storage.service.StorageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -89,6 +96,12 @@ class OrderServiceImplTest {
 
     @Mock
     private StorageService storageService;
+
+    @Mock
+    private com.allset.api.offering.repository.ProfessionalOfferingRepository offeringRepository;
+
+    @Mock
+    private com.allset.api.professional.repository.ProfessionalSpecialtyRepository specialtyRepository;
 
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
@@ -324,6 +337,188 @@ class OrderServiceImplTest {
         );
     }
 
+    @Test
+    void createOnDemandOrderShouldThrowWhenHourlyWithNoDurationOnOfferingAndNoRequestDuration() {
+        UUID clientId = UUID.randomUUID();
+        UUID proId    = UUID.randomUUID();
+        UUID serviceId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+        SavedAddress address = address(clientId);
+
+        ProfessionalOffering offering = ProfessionalOffering.builder()
+                .professionalId(proId)
+                .categoryId(categoryId)
+                .title("Consultoria")
+                .pricingType(PricingType.hourly)
+                .price(null)
+                .estimatedDurationMinutes(null)
+                .active(true)
+                .build();
+        offering.setId(serviceId);
+
+        Professional pro = professional(proId, UUID.randomUUID());
+        pro.setVerificationStatus(VerificationStatus.approved);
+
+        ServiceCategory category = ServiceCategory.builder()
+                .areaId(UUID.randomUUID()).name("TI").active(true).build();
+
+        when(offeringRepository.findById(serviceId)).thenReturn(Optional.of(offering));
+        when(professionalRepository.findByIdAndDeletedAtIsNull(proId)).thenReturn(Optional.of(pro));
+        when(addressRepository.findByIdAndUserId(address.getId(), clientId)).thenReturn(Optional.of(address));
+        when(categoryRepository.findByIdAndDeletedAtIsNull(categoryId)).thenReturn(Optional.of(category));
+        when(specialtyRepository.findByProfessionalIdAndCategoryIdAndDeletedAtIsNull(proId, categoryId))
+                .thenReturn(Optional.of(ProfessionalSpecialty.builder()
+                        .professionalId(proId).categoryId(categoryId)
+                        .hourlyRate(new BigDecimal("80.00")).yearsOfExperience((short) 3).build()));
+
+        CreateOnDemandOrderRequest request = new CreateOnDemandOrderRequest(
+                serviceId, "Preciso de ajuda", address.getId(),
+                Instant.now().plus(1, java.time.temporal.ChronoUnit.DAYS), null);
+
+        assertThatThrownBy(() -> orderService.createOnDemandOrder(clientId, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Duração é obrigatória");
+    }
+
+    @Test
+    void createOnDemandOrderShouldThrowWhenDurationIsNotMultipleOf30() {
+        UUID clientId = UUID.randomUUID();
+        UUID proId    = UUID.randomUUID();
+        UUID serviceId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+        SavedAddress address = address(clientId);
+
+        ProfessionalOffering offering = ProfessionalOffering.builder()
+                .professionalId(proId).categoryId(categoryId).title("Consultoria")
+                .pricingType(PricingType.hourly).price(null).estimatedDurationMinutes(null).active(true).build();
+        offering.setId(serviceId);
+
+        Professional pro = professional(proId, UUID.randomUUID());
+        pro.setVerificationStatus(VerificationStatus.approved);
+
+        ServiceCategory category = ServiceCategory.builder()
+                .areaId(UUID.randomUUID()).name("TI").active(true).build();
+
+        when(offeringRepository.findById(serviceId)).thenReturn(Optional.of(offering));
+        when(professionalRepository.findByIdAndDeletedAtIsNull(proId)).thenReturn(Optional.of(pro));
+        when(addressRepository.findByIdAndUserId(address.getId(), clientId)).thenReturn(Optional.of(address));
+        when(categoryRepository.findByIdAndDeletedAtIsNull(categoryId)).thenReturn(Optional.of(category));
+        when(specialtyRepository.findByProfessionalIdAndCategoryIdAndDeletedAtIsNull(proId, categoryId))
+                .thenReturn(Optional.of(ProfessionalSpecialty.builder()
+                        .professionalId(proId).categoryId(categoryId)
+                        .hourlyRate(new BigDecimal("80.00")).yearsOfExperience((short) 3).build()));
+
+        CreateOnDemandOrderRequest request = new CreateOnDemandOrderRequest(
+                serviceId, "Preciso de ajuda", address.getId(),
+                Instant.now().plus(1, java.time.temporal.ChronoUnit.DAYS), 75);
+
+        assertThatThrownBy(() -> orderService.createOnDemandOrder(clientId, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("múltiplo de 30");
+    }
+
+    @Test
+    void createOnDemandOrderShouldComputePriceFromHourlyRateAndRequestedDuration() {
+        UUID clientId   = UUID.randomUUID();
+        UUID proId      = UUID.randomUUID();
+        UUID proUserId  = UUID.randomUUID();
+        UUID serviceId  = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+        UUID orderId    = UUID.randomUUID();
+        SavedAddress address = address(clientId);
+
+        ProfessionalOffering offering = ProfessionalOffering.builder()
+                .professionalId(proId).categoryId(categoryId).title("Consultoria")
+                .pricingType(PricingType.hourly).price(null).estimatedDurationMinutes(null).active(true).build();
+        offering.setId(serviceId);
+
+        Professional pro = professional(proId, proUserId);
+        pro.setVerificationStatus(VerificationStatus.approved);
+
+        ServiceCategory category = ServiceCategory.builder()
+                .areaId(UUID.randomUUID()).name("TI").active(true).build();
+
+        when(offeringRepository.findById(serviceId)).thenReturn(Optional.of(offering));
+        when(professionalRepository.findByIdAndDeletedAtIsNull(proId)).thenReturn(Optional.of(pro));
+        when(addressRepository.findByIdAndUserId(address.getId(), clientId)).thenReturn(Optional.of(address));
+        when(categoryRepository.findByIdAndDeletedAtIsNull(categoryId)).thenReturn(Optional.of(category));
+        when(specialtyRepository.findByProfessionalIdAndCategoryIdAndDeletedAtIsNull(proId, categoryId))
+                .thenReturn(Optional.of(ProfessionalSpecialty.builder()
+                        .professionalId(proId).categoryId(categoryId)
+                        .hourlyRate(new BigDecimal("80.00")).yearsOfExperience((short) 3).build()));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
+            Order saved = inv.getArgument(0);
+            saved.setId(orderId);
+            saved.setCreatedAt(Instant.now());
+            saved.setUpdatedAt(Instant.now());
+            return saved;
+        });
+        when(orderMapper.toResponse(any(Order.class))).thenAnswer(inv -> toResponse(inv.getArgument(0)));
+
+        // 90 minutos = 1.5h → 80 * 1.5 = 120.00
+        CreateOnDemandOrderRequest request = new CreateOnDemandOrderRequest(
+                serviceId, "Preciso de ajuda", address.getId(),
+                Instant.now().plus(1, java.time.temporal.ChronoUnit.DAYS), 90);
+
+        OrderResponse response = orderService.createOnDemandOrder(clientId, request);
+
+        assertThat(response.baseAmount()).isEqualByComparingTo("120.00");
+        assertThat(response.platformFee()).isEqualByComparingTo("24.00");
+        assertThat(response.totalAmount()).isEqualByComparingTo("120.00");
+        assertThat(response.estimatedDurationMinutes()).isEqualTo(90);
+    }
+
+    @Test
+    void createOnDemandOrderShouldUseOfferingDurationWhenDefinedForHourlyService() {
+        UUID clientId   = UUID.randomUUID();
+        UUID proId      = UUID.randomUUID();
+        UUID proUserId  = UUID.randomUUID();
+        UUID serviceId  = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+        UUID orderId    = UUID.randomUUID();
+        SavedAddress address = address(clientId);
+
+        // Offering já tem 120 min definidos
+        ProfessionalOffering offering = ProfessionalOffering.builder()
+                .professionalId(proId).categoryId(categoryId).title("Consultoria")
+                .pricingType(PricingType.hourly).price(null).estimatedDurationMinutes(120).active(true).build();
+        offering.setId(serviceId);
+
+        Professional pro = professional(proId, proUserId);
+        pro.setVerificationStatus(VerificationStatus.approved);
+
+        ServiceCategory category = ServiceCategory.builder()
+                .areaId(UUID.randomUUID()).name("TI").active(true).build();
+
+        when(offeringRepository.findById(serviceId)).thenReturn(Optional.of(offering));
+        when(professionalRepository.findByIdAndDeletedAtIsNull(proId)).thenReturn(Optional.of(pro));
+        when(addressRepository.findByIdAndUserId(address.getId(), clientId)).thenReturn(Optional.of(address));
+        when(categoryRepository.findByIdAndDeletedAtIsNull(categoryId)).thenReturn(Optional.of(category));
+        when(specialtyRepository.findByProfessionalIdAndCategoryIdAndDeletedAtIsNull(proId, categoryId))
+                .thenReturn(Optional.of(ProfessionalSpecialty.builder()
+                        .professionalId(proId).categoryId(categoryId)
+                        .hourlyRate(new BigDecimal("80.00")).yearsOfExperience((short) 3).build()));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
+            Order saved = inv.getArgument(0);
+            saved.setId(orderId);
+            saved.setCreatedAt(Instant.now());
+            saved.setUpdatedAt(Instant.now());
+            return saved;
+        });
+        when(orderMapper.toResponse(any(Order.class))).thenAnswer(inv -> toResponse(inv.getArgument(0)));
+
+        // Request manda 60 min, mas offering tem 120 → deve usar 120
+        CreateOnDemandOrderRequest request = new CreateOnDemandOrderRequest(
+                serviceId, "Preciso de ajuda", address.getId(),
+                Instant.now().plus(1, java.time.temporal.ChronoUnit.DAYS), 60);
+
+        OrderResponse response = orderService.createOnDemandOrder(clientId, request);
+
+        // 120 minutos = 2h → 80 * 2 = 160.00
+        assertThat(response.baseAmount()).isEqualByComparingTo("160.00");
+        assertThat(response.estimatedDurationMinutes()).isEqualTo(120);
+    }
+
     private SavedAddress address(UUID userId) {
         SavedAddress address = SavedAddress.builder()
                 .userId(userId)
@@ -380,6 +575,7 @@ class OrderServiceImplTest {
                 order.getBaseAmount(),
                 order.getPlatformFee(),
                 order.getTotalAmount(),
+                order.getEstimatedDurationMinutes(),
                 order.getProCompletedAt(),
                 order.getDisputeDeadline(),
                 order.getCompletedAt(),

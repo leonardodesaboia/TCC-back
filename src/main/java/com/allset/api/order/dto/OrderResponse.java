@@ -32,6 +32,7 @@ public record OrderResponse(
         BigDecimal baseAmount,
         BigDecimal platformFee,
         BigDecimal totalAmount,
+        Integer estimatedDurationMinutes,
         Instant proCompletedAt,
         Instant disputeDeadline,
         Instant completedAt,
