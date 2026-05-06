@@ -21,6 +21,9 @@ public record ConversationResponse(
         UUID professionalUserId,
 
         @Schema(description = "Momento de criação da conversa")
-        Instant createdAt
+        Instant createdAt,
+
+        @Schema(description = "Status atual do pedido associado", nullable = true)
+        String orderStatus
 
 ) {}

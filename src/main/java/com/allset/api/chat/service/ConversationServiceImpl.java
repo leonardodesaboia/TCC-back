@@ -11,6 +11,7 @@ import com.allset.api.chat.repository.ConversationRepository;
 import com.allset.api.chat.repository.MessageRepository;
 import com.allset.api.order.domain.Order;
 import com.allset.api.order.domain.OrderStatus;
+import com.allset.api.order.repository.OrderRepository;
 import com.allset.api.professional.service.ProfessionalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,7 @@ public class ConversationServiceImpl implements ConversationService {
     private final ConversationMapper conversationMapper;
     private final MessageMapper messageMapper;
     private final ProfessionalService professionalService;
+    private final OrderRepository orderRepository;
 
     @Override
     public Conversation createForOrder(Order order) {
@@ -77,7 +79,10 @@ public class ConversationServiceImpl implements ConversationService {
     @Transactional(readOnly = true)
     public ConversationResponse getById(UUID id, UUID currentUserId) {
         Conversation conversation = requireParticipant(id, currentUserId);
-        return conversationMapper.toResponse(conversation);
+        String orderStatus = orderRepository.findByIdAndDeletedAtIsNull(conversation.getOrderId())
+                .map(order -> order.getStatus().name())
+                .orElse(null);
+        return conversationMapper.toResponse(conversation, orderStatus);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.allset.api.shared.exception;
 
 import com.allset.api.auth.exception.InvalidCredentialsException;
+import com.allset.api.chat.exception.ConversationClosedException;
 import com.allset.api.chat.exception.ConversationNotFoundException;
 import com.allset.api.chat.exception.MessageContentInvalidException;
 import com.allset.api.auth.exception.InvalidResetCodeException;
@@ -121,7 +122,8 @@ public class GlobalExceptionHandler {
             SubscriptionPlanAlreadyActiveException.class,
             ReviewAlreadyExistsException.class,
             DisputeAlreadyExistsException.class,
-            FavoriteProfessionalAlreadyExistsException.class
+            FavoriteProfessionalAlreadyExistsException.class,
+            ConversationClosedException.class
     })
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
                                                     HttpServletRequest request) {
