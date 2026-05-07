@@ -129,6 +129,8 @@ class ProfessionalServiceImplTest {
         ProfessionalResponse response = new ProfessionalResponse(
                 professionalId,
                 userId,
+                "Profissional",
+                null,
                 professional.getBio(),
                 professional.getYearsOfExperience(),
                 professional.getBaseHourlyRate(),

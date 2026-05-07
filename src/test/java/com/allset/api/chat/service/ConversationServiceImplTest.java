@@ -74,6 +74,8 @@ class ConversationServiceImplTest {
         when(professionalService.findById(professionalId)).thenReturn(new ProfessionalResponse(
                 professionalId,
                 professionalUserId,
+                "Profissional",
+                null,
                 "Bio",
                 (short) 5,
                 new BigDecimal("80.00"),
@@ -132,6 +134,8 @@ class ConversationServiceImplTest {
         when(professionalService.findById(professionalId)).thenReturn(new ProfessionalResponse(
                 professionalId,
                 existing.getProfessionalUserId(),
+                "Profissional",
+                null,
                 "Bio",
                 (short) 5,
                 new BigDecimal("80.00"),
