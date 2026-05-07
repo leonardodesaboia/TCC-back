@@ -68,6 +68,11 @@ Copiar `.env.example` → `.env` e preencher antes de subir. A aplicação falha
 | `EXPRESS_PROPOSAL_WINDOW_MINUTES` | Não | Janela em que profissionais podem propor no Express (padrão: `15`) |
 | `EXPRESS_CLIENT_WINDOW_MINUTES` | Não | Janela após o fim das propostas para o cliente escolher (padrão: `30`) |
 | `EXPRESS_MAX_QUEUE_SIZE` | Não | Máximo de profissionais notificados (padrão: `10`) |
+| `GEOCODING_BASE_URL` | Não | Base URL do provider (padrão: `https://nominatim.openstreetmap.org`) |
+| `GEOCODING_USER_AGENT` | Sim | User-Agent identificador exigido pela política do Nominatim (ex: `AllSet-API/1.0 (contato@allset.com.br)`) |
+| `GEOCODING_CACHE_TTL_SECONDS` | Não | TTL do cache de resultados positivos (padrão: `2592000` = 30 dias) |
+| `GEOCODING_NEGATIVE_CACHE_TTL_SECONDS` | Não | TTL do cache de "não localizado" (padrão: `300` = 5min) |
+| `GEOCODING_ENABLED` | Não | Kill-switch — `false` desabilita lookup e enriquecimento (padrão: `true`) |
 
 ---
 
@@ -270,6 +275,7 @@ Apenas clientes (`hasAuthority('client')`) gerenciam seus próprios favoritos. O
 | Módulo | Responsabilidade |
 |---|---|
 | `payment` | Asaas — criação de cobrança, escrow, liberação com fee 20%, reembolso, webhook Asaas |
+| ~~`geocoding`~~ | ~~Conversão de endereço escrito em coordenadas via provider externo (Nominatim/OSM) com cache Redis~~ — implementado |
 | `chat` | WebSocket em tempo real, persistência de mensagens, histórico acessível pós-conclusão |
 | `review` | Avaliação bilateral double-blind — publica quando ambos submetem ou 7 dias expiram |
 | `dispute` | Abertura em até 24h pós-conclusão, evidências (S3), resolução exclusiva por admin |
@@ -321,6 +327,7 @@ Clients para Asaas, IDwall, MinIO (S3-compatible), FCM e Resend ficam em `integr
 8. **Fee da plataforma** — 20% descontado na liberação do escrow, não no pagamento inicial
 9. **KYC automático** — verificação de documentos via IDwall SDK no cadastro do profissional, sem aprovação manual
 10. **Uploads** — máx. 5MB, formatos JPG/JPEG/PNG (fotos de conclusão, evidências de disputa, avatar)
+11. **Geocoding de endereços** — endereços salvos sem `lat`/`lng` são geocodificados automaticamente via Nominatim no `POST /api/users/{userId}/addresses`. Falha do provider (timeout, 5xx, kill-switch) **não bloqueia** o cadastro — endereço é gravado com coordenadas nulas e o front pode reexecutar lookup via `POST /api/v1/geocoding/lookup` e atualizar via `PUT`. Endereço não localizável (provider devolve vazio) retorna 422.
 
 ---
 

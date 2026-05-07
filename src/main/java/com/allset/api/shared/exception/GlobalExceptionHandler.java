@@ -25,6 +25,9 @@ import com.allset.api.dispute.exception.DisputeWindowExpiredException;
 import com.allset.api.document.exception.ProfessionalDocumentNotFoundException;
 import com.allset.api.favorite.exception.FavoriteProfessionalAlreadyExistsException;
 import com.allset.api.favorite.exception.FavoriteProfessionalNotFoundException;
+import com.allset.api.geocoding.exception.AddressNotGeocodableException;
+import com.allset.api.geocoding.exception.GeocodingProviderUnavailableException;
+import com.allset.api.geocoding.exception.GeocodingRateLimitException;
 import com.allset.api.offering.exception.ProfessionalOfferingNotFoundException;
 import com.allset.api.professional.exception.ProfessionalAlreadyExistsException;
 import com.allset.api.professional.exception.ProfessionalNotApprovedException;
@@ -50,6 +53,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -64,6 +68,20 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableMessage(HttpMessageNotReadableException ex,
+                                                            HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+            HttpStatus.BAD_REQUEST.value(),
+            "Corpo da requisição inválido ou JSON malformado",
+            null,
+            Instant.now()
+        ));
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex,
@@ -266,14 +284,44 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    @ExceptionHandler(NoProfessionalsAvailableException.class)
-    public ResponseEntity<ApiError> handleNoProfessionals(NoProfessionalsAvailableException ex,
-                                                          HttpServletRequest request) {
-        log.warn("status=422 method={} path={} message={}",
-            request.getMethod(), request.getRequestURI(), ex.getMessage());
+    @ExceptionHandler({
+            NoProfessionalsAvailableException.class,
+            AddressNotGeocodableException.class
+    })
+    public ResponseEntity<ApiError> handleUnprocessable(RuntimeException ex, HttpServletRequest request) {
+        log.warn("status=422 method={} path={} exception={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getClass().getSimpleName(), ex.getMessage());
 
         return ResponseEntity.unprocessableEntity().body(new ApiError(
             HttpStatus.UNPROCESSABLE_ENTITY.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(GeocodingProviderUnavailableException.class)
+    public ResponseEntity<ApiError> handleGeocodingUnavailable(GeocodingProviderUnavailableException ex,
+                                                               HttpServletRequest request) {
+        log.warn("status=503 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(new ApiError(
+            HttpStatus.SERVICE_UNAVAILABLE.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(GeocodingRateLimitException.class)
+    public ResponseEntity<ApiError> handleGeocodingRateLimit(GeocodingRateLimitException ex,
+                                                             HttpServletRequest request) {
+        log.warn("status=429 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(new ApiError(
+            HttpStatus.TOO_MANY_REQUESTS.value(),
             ex.getMessage(),
             null,
             Instant.now()

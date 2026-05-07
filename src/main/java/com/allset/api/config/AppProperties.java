@@ -127,6 +127,25 @@ public record AppProperties(
         @DefaultValue("50")
         @Min(value = 1, message = "CHAT_MESSAGE_PAGE_SIZE deve ser maior que 0")
         @Max(value = 200, message = "CHAT_MESSAGE_PAGE_SIZE não pode exceder 200")
-        Integer chatMessagePageSize
+        Integer chatMessagePageSize,
+
+        // --- Geocoding ---
+
+        @DefaultValue("https://nominatim.openstreetmap.org")
+        String geocodingBaseUrl,
+
+        @NotBlank(message = "GEOCODING_USER_AGENT é obrigatório (contato exigido pela política do Nominatim)")
+        String geocodingUserAgent,
+
+        @DefaultValue("2592000")
+        @Min(value = 60, message = "GEOCODING_CACHE_TTL_SECONDS deve ser maior que 60")
+        Integer geocodingCacheTtlSeconds,
+
+        @DefaultValue("300")
+        @Min(value = 60, message = "GEOCODING_NEGATIVE_CACHE_TTL_SECONDS deve ser maior que 60")
+        Integer geocodingNegativeCacheTtlSeconds,
+
+        @DefaultValue("true")
+        Boolean geocodingEnabled
 
 ) {}
