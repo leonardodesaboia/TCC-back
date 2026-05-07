@@ -34,8 +34,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private static final String REFRESH_KEY_PREFIX = "refresh:";
-    private static final String RESET_CODE_KEY_PREFIX = "reset_code:";
+    private static final String REFRESH_KEY_PREFIX         = "refresh:";
+    private static final String RESET_CODE_KEY_PREFIX      = "reset_code:";
+    private static final String RESET_ATTEMPTS_KEY_PREFIX  = "reset_attempts:";
+    private static final int    MAX_RESET_ATTEMPTS         = 5;
 
     private final UserRepository userRepository;
     private final UserService userService;
@@ -128,9 +130,18 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+        String attemptsKey = RESET_ATTEMPTS_KEY_PREFIX + request.email();
+        long ttlSeconds = appProperties.resetCodeTtlMinutes() * 60L;
+
+        long attempts = cacheService.increment(attemptsKey, ttlSeconds);
+        if (attempts > MAX_RESET_ATTEMPTS) {
+            log.warn("event=reset_password_blocked email={} attempts={}", request.email(), attempts);
+            throw new InvalidResetCodeException();
+        }
+
         User user = userRepository.findByEmail(request.email())
             .filter(u -> u.getDeletedAt() == null && u.isActive())
-            .orElseThrow(() -> new InvalidResetCodeException());
+            .orElseThrow(InvalidResetCodeException::new);
 
         String storedCode = cacheService.get(RESET_CODE_KEY_PREFIX + request.email())
             .orElseThrow(InvalidResetCodeException::new);
@@ -140,13 +151,14 @@ public class AuthServiceImpl implements AuthService {
         }
 
         cacheService.delete(RESET_CODE_KEY_PREFIX + request.email());
+        cacheService.delete(attemptsKey);
 
         // Invalida sessões ativas ao trocar de senha
         cacheService.delete(REFRESH_KEY_PREFIX + user.getId());
 
         userService.updatePassword(user.getId(), passwordEncoder.encode(request.newPassword()));
 
-        log.info("Senha redefinida para userId={}", user.getId());
+        log.info("event=password_reset userId={}", user.getId());
     }
 
     private TokenResponse issueTokenPair(UUID userId, String role) {
