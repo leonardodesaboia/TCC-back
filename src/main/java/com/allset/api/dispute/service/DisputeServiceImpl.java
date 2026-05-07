@@ -162,7 +162,7 @@ public class DisputeServiceImpl implements DisputeService {
         }
 
         Dispute dispute = disputeRepository.findByOrderIdAndDeletedAtIsNull(orderId)
-                .orElseThrow(() -> new DisputeNotFoundException("Pedido nao possui disputa: " + orderId));
+                .orElseThrow(() -> new DisputeNotFoundException("Pedido não possui disputa: " + orderId));
         return disputeMapper.toResponse(dispute, isAdmin);
     }
 
@@ -183,7 +183,7 @@ public class DisputeServiceImpl implements DisputeService {
     public DisputeResponse markUnderReview(UUID disputeId, UUID adminId) {
         Dispute dispute = findActiveDispute(disputeId);
         if (dispute.getStatus() != DisputeStatus.open) {
-            throw new DisputeStatusTransitionException(dispute.getStatus(), "marcar em analise");
+            throw new DisputeStatusTransitionException(dispute.getStatus(), "marcar em análise");
         }
 
         dispute.setStatus(DisputeStatus.under_review);
@@ -193,12 +193,12 @@ public class DisputeServiceImpl implements DisputeService {
                 .orElseThrow(() -> new DisputeNotFoundException(disputeId));
 
         sendSystemMessageForOrder(order.getId(),
-                "Um administrador esta analisando a disputa.");
+                "Um administrador está analisando a disputa.");
 
         notifyParties(order, saved.getId(),
                 NotificationType.request_status_update,
-                "Disputa em analise",
-                "Um administrador comecou a analisar a disputa do seu pedido.");
+                "Disputa em análise",
+                "Um administrador começou a analisar a disputa do seu pedido.");
 
         log.info("event=dispute_under_review disputeId={} adminId={}", disputeId, adminId);
         return disputeMapper.toResponse(saved, true);
@@ -208,15 +208,20 @@ public class DisputeServiceImpl implements DisputeService {
     public DisputeResponse resolve(UUID disputeId, UUID adminId, ResolveDisputeRequest request) {
         Dispute dispute = findActiveDispute(disputeId);
         if (dispute.getStatus() == DisputeStatus.resolved) {
-            throw new DisputeStatusTransitionException(dispute.getStatus(), "resolucao");
+            throw new DisputeStatusTransitionException(dispute.getStatus(), "resolução");
         }
 
         Order order = orderRepository.findByIdAndDeletedAtIsNull(dispute.getOrderId())
                 .orElseThrow(() -> new DisputeNotFoundException(disputeId));
 
+        if (order.getStatus() != OrderStatus.disputed) {
+            throw new DisputeStatusTransitionException(dispute.getStatus(),
+                    "resolução — pedido não está em status 'disputed' (status atual: " + order.getStatus() + ")");
+        }
+
         if (order.getTotalAmount() == null) {
             throw new IllegalStateException(
-                    "Pedido sem total_amount definido — nao e possivel calcular resolucao");
+                    "Pedido sem total_amount definido — não é possível calcular resolução");
         }
         BigDecimal total = order.getTotalAmount();
 
@@ -235,7 +240,15 @@ public class DisputeServiceImpl implements DisputeService {
             case refund_partial -> {
                 if (request.clientRefundAmount() == null || request.professionalAmount() == null) {
                     throw new IllegalArgumentException(
-                            "Resolucao parcial exige clientRefundAmount e professionalAmount");
+                            "Resolução parcial exige clientRefundAmount e professionalAmount");
+                }
+                if (request.clientRefundAmount().compareTo(BigDecimal.ZERO) < 0) {
+                    throw new IllegalArgumentException(
+                            "clientRefundAmount não pode ser negativo");
+                }
+                if (request.professionalAmount().compareTo(BigDecimal.ZERO) < 0) {
+                    throw new IllegalArgumentException(
+                            "professionalAmount não pode ser negativo");
                 }
                 BigDecimal sum = request.clientRefundAmount().add(request.professionalAmount());
                 if (sum.compareTo(total) != 0) {
@@ -246,7 +259,7 @@ public class DisputeServiceImpl implements DisputeService {
                 clientRefund = request.clientRefundAmount();
                 proAmount = request.professionalAmount();
             }
-            default -> throw new IllegalArgumentException("Resolucao invalida: " + resolution);
+            default -> throw new IllegalArgumentException("Resolução inválida: " + resolution);
         }
 
         Instant now = Instant.now();
@@ -445,7 +458,7 @@ public class DisputeServiceImpl implements DisputeService {
         return switch (resolution) {
             case refund_full -> "Reembolso integral ao cliente: R$ " + clientRefund;
             case release_to_pro -> "Valor liberado ao profissional: R$ " + proAmount;
-            case refund_partial -> "Resolucao parcial — cliente: R$ " + clientRefund
+            case refund_partial -> "Resolução parcial — cliente: R$ " + clientRefund
                     + " | profissional: R$ " + proAmount;
         };
     }
