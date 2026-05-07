@@ -62,8 +62,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public List<ReviewResponse> listOrderReviews(UUID orderId, UUID requesterUserId, String requesterRole) {
-        reviewPublicationService.publishExpiredReviews();
-
         Order order = orderRepository.findByIdAndDeletedAtIsNull(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
@@ -91,8 +89,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public Page<ReviewResponse> listProfessionalReviews(UUID professionalId, Pageable pageable) {
-        reviewPublicationService.publishExpiredReviews();
-
         UUID professionalUserId = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
                 .map(professional -> professional.getUserId())
                 .orElseThrow(() -> new ProfessionalNotFoundException(professionalId));
@@ -103,8 +99,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public Page<ReviewResponse> listServiceReviews(UUID professionalId, UUID serviceId, Pageable pageable) {
-        reviewPublicationService.publishExpiredReviews();
-
         UUID professionalUserId = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
                 .map(professional -> professional.getUserId())
                 .orElseThrow(() -> new ProfessionalNotFoundException(professionalId));
