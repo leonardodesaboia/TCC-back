@@ -601,7 +601,7 @@ public class OrderServiceImpl implements OrderService {
             notifyProfessionals(
                     rejectedProfessionalIds,
                     NotificationType.request_rejected,
-                    "Proposta nao selecionada",
+                    "Proposta não selecionada",
                     "O cliente escolheu outro profissional para este pedido.",
                     orderId
             );
@@ -632,6 +632,16 @@ public class OrderServiceImpl implements OrderService {
                 .map(p -> p.getUserId())
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
 
+        Instant now = Instant.now();
+        order.setProCompletedAt(now);
+        order.setDisputeDeadline(now.plus(24, ChronoUnit.HOURS));
+        order.setStatus(OrderStatus.completed_by_pro);
+
+        Order saved = orderRepository.save(order);
+
+        // Upload feito após o save para que uma falha no storage não deixe o BD em estado inconsistente.
+        // Em caso de falha no upload, o status já foi atualizado — um job de reconciliação pode
+        // detectar pedidos completed_by_pro sem foto e alertar operações.
         StoredObject stored = storageService.upload(StorageBucket.ORDER_PHOTOS, orderId.toString(), file);
 
         photoRepository.save(OrderPhoto.builder()
@@ -640,21 +650,14 @@ public class OrderServiceImpl implements OrderService {
                 .photoType(PhotoType.completion_proof)
                 .storageKey(stored.key())
                 .build());
-
-        Instant now = Instant.now();
-        order.setProCompletedAt(now);
-        order.setDisputeDeadline(now.plus(24, ChronoUnit.HOURS));
-        order.setStatus(OrderStatus.completed_by_pro);
-
-        Order saved = orderRepository.save(order);
         recordTransition(orderId, OrderStatus.accepted, OrderStatus.completed_by_pro,
                 "Profissional marcou como concluído", proUserId);
 
         notifyClient(
                 order.getClientId(),
                 NotificationType.request_status_update,
-                "Servico marcado como concluido",
-                "O profissional marcou o servico como concluido e enviou a comprovacao.",
+                "Serviço marcado como concluído",
+                "O profissional marcou o serviço como concluído e enviou a comprovação.",
                 orderId
         );
 
