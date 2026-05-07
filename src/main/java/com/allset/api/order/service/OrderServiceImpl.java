@@ -515,7 +515,8 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderResponse clientRespond(UUID orderId, UUID clientId, ClientRespondRequest request) {
-        Order order = findActive(orderId);
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
 
         if (order.getMode() != OrderMode.express) {
             throw new ExpressQueueViolationException("Operação exclusiva para pedidos Express");
@@ -527,9 +528,9 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderStatusTransitionException(order.getStatus(), "escolha de proposta");
         }
 
-        // Busca a proposta do profissional selecionado
+        // Busca a proposta do profissional selecionado com lock pessimista para evitar race condition
         ExpressQueueEntry chosen = queueRepository
-                .findByOrderIdAndProfessionalId(orderId, request.selectedProfessionalId())
+                .findByOrderIdAndProfessionalIdForUpdate(orderId, request.selectedProfessionalId())
                 .orElseThrow(() -> new ExpressQueueViolationException(
                         "Proposta não encontrada para o profissional informado"));
 
@@ -592,7 +593,7 @@ public class OrderServiceImpl implements OrderService {
                 chosen.getProfessionalId(),
                 NotificationType.request_accepted,
                 "Pedido aceito",
-                "Seu orcamento foi aceito pelo cliente.",
+                "Seu orçamento foi aceito pelo cliente.",
                 orderId
         );
 
