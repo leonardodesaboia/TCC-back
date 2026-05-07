@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Implementação de {@link CacheService} usando Redis via {@link StringRedisTemplate}.
@@ -29,5 +30,15 @@ public class RedisCacheService implements CacheService {
     @Override
     public void delete(String key) {
         redisTemplate.delete(key);
+    }
+
+    @Override
+    public long increment(String key, long ttlSeconds) {
+        Long count = redisTemplate.opsForValue().increment(key);
+        if (count == null) count = 1L;
+        if (count == 1L) {
+            redisTemplate.expire(key, ttlSeconds, TimeUnit.SECONDS);
+        }
+        return count;
     }
 }

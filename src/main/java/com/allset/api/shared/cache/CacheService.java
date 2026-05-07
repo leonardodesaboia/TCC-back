@@ -31,4 +31,14 @@ public interface CacheService {
      * @param key chave a ser removida
      */
     void delete(String key);
+
+    /**
+     * Incrementa atomicamente o contador associado à chave e define o TTL na primeira chamada.
+     * Operação segura para rate limiting concorrente.
+     *
+     * @param key        chave do contador
+     * @param ttlSeconds TTL a ser definido apenas quando o contador for criado (valor = 1)
+     * @return novo valor do contador após o incremento
+     */
+    long increment(String key, long ttlSeconds);
 }
