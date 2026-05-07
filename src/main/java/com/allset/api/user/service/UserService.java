@@ -6,6 +6,7 @@ import com.allset.api.user.dto.UpdateUserRequest;
 import com.allset.api.user.dto.UserResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -35,4 +36,8 @@ public interface UserService {
      * @param encodedPassword senha já codificada com BCrypt
      */
     void updatePassword(UUID id, String encodedPassword);
+
+    UserResponse uploadAvatar(UUID id, MultipartFile file);
+
+    UserResponse deleteAvatar(UUID id);
 }

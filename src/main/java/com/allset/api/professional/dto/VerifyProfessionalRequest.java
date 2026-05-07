@@ -1,8 +1,10 @@
 package com.allset.api.professional.dto;
 
 import com.allset.api.professional.domain.VerificationStatus;
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public record VerifyProfessionalRequest(
 
@@ -11,5 +13,7 @@ public record VerifyProfessionalRequest(
         VerificationStatus status,
 
         @Schema(description = "Motivo da rejeição — obrigatório quando status = rejected")
+        @NoHtml
+        @Size(max = 500, message = "Motivo de rejeicao deve ter no maximo 500 caracteres")
         String rejectionReason
 ) {}

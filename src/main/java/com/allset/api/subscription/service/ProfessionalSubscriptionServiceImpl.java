@@ -56,9 +56,11 @@ public class ProfessionalSubscriptionServiceImpl implements ProfessionalSubscrip
 
         if (hasActiveSubscription(professional)) {
             professional.setSubscriptionPlanId(plan.getId());
+            professional.setSubscriptionCancelledAt(null);
         } else {
             professional.setSubscriptionPlanId(plan.getId());
             professional.setSubscriptionExpiresAt(nextMonthlyExpiration());
+            professional.setSubscriptionCancelledAt(null);
         }
 
         Professional savedProfessional = professionalRepository.save(professional);
@@ -72,6 +74,11 @@ public class ProfessionalSubscriptionServiceImpl implements ProfessionalSubscrip
 
         if (!hasActiveSubscription(professional)) {
             throw new ProfessionalSubscriptionNotFoundException(professionalId);
+        }
+
+        if (professional.getSubscriptionCancelledAt() == null) {
+            professional.setSubscriptionCancelledAt(Instant.now());
+            professional = professionalRepository.save(professional);
         }
 
         SubscriptionPlan plan = findActivePlan(professional.getSubscriptionPlanId());
@@ -102,6 +109,7 @@ public class ProfessionalSubscriptionServiceImpl implements ProfessionalSubscrip
         if (!professional.getSubscriptionExpiresAt().isAfter(Instant.now())) {
             professional.setSubscriptionPlanId(null);
             professional.setSubscriptionExpiresAt(null);
+            professional.setSubscriptionCancelledAt(null);
             professionalRepository.save(professional);
         }
     }

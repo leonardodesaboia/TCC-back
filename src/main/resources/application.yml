@@ -3,11 +3,21 @@ spring:
     name: allset-api
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 15MB
+  data:
+    web:
+      pageable:
+        max-page-size: 100
 
 jwt-secret: ${JWT_SECRET:}
 cpf-encryption-key: ${CPF_ENCRYPTION_KEY:}
 user-purge-cron: ${USER_PURGE_CRON:0 0 2 * * *}
 subscription-expiration-cron: ${SUBSCRIPTION_EXPIRATION_CRON:0 */30 * * * *}
+push-token-prune-cron: ${PUSH_TOKEN_PRUNE_CRON:0 0 3 * * *}
+review-publication-cron: ${REVIEW_PUBLICATION_CRON:0 0 * * * *}
 database-url: ${DATABASE_URL:}
 db-user: ${DB_USER:}
 db-pass: ${DB_PASS:}
@@ -23,6 +33,50 @@ reset-code-ttl-minutes: ${RESET_CODE_TTL_MINUTES:10}
 # Email / Resend
 resend-api-key: ${RESEND_API_KEY:}
 email-from: ${EMAIL_FROM:}
+
+# Express
+express-proposal-window-minutes: ${EXPRESS_PROPOSAL_WINDOW_MINUTES:15}
+express-client-window-minutes: ${EXPRESS_CLIENT_WINDOW_MINUTES:30}
+express-search-radius-meters: ${EXPRESS_SEARCH_RADIUS_METERS:5000}
+express-max-queue-size: ${EXPRESS_MAX_QUEUE_SIZE:10}
+
+# CORS / Frontend
+frontend-url: ${FRONTEND_URL:*}
+
+# Chat
+chat-message-max-length: ${CHAT_MESSAGE_MAX_LENGTH:4000}
+chat-message-page-size: ${CHAT_MESSAGE_PAGE_SIZE:50}
+
+# Geocoding
+geocoding-base-url: ${GEOCODING_BASE_URL:https://nominatim.openstreetmap.org}
+geocoding-user-agent: ${GEOCODING_USER_AGENT:}
+geocoding-cache-ttl-seconds: ${GEOCODING_CACHE_TTL_SECONDS:2592000}
+geocoding-negative-cache-ttl-seconds: ${GEOCODING_NEGATIVE_CACHE_TTL_SECONDS:300}
+geocoding-enabled: ${GEOCODING_ENABLED:true}
+
+# Seed
+seed:
+  enabled: ${SEED_ENABLED:false}
+
+# Storage / MinIO
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  public-endpoint: ${MINIO_PUBLIC_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  region: ${MINIO_REGION:us-east-1}
+  bucket-prefix: ${MINIO_BUCKET_PREFIX:allset}
+  auto-create-buckets: ${MINIO_AUTO_CREATE_BUCKETS:true}
+  presigned-url-ttl-minutes: ${MINIO_PRESIGNED_URL_TTL_MINUTES:15}
+  presigned-url-ttl-long-hours: ${MINIO_PRESIGNED_URL_TTL_LONG_HOURS:24}
+  max-size-mb:
+    avatar: ${MINIO_MAX_AVATAR_SIZE_MB:5}
+    document: ${MINIO_MAX_DOCUMENT_SIZE_MB:5}
+    order-photo: ${MINIO_MAX_ORDER_PHOTO_SIZE_MB:5}
+    chat-attachment: ${MINIO_MAX_CHAT_ATTACHMENT_SIZE_MB:5}
+    catalog-icon: ${MINIO_MAX_CATALOG_ICON_SIZE_MB:1}
+    dispute-evidence: ${MINIO_MAX_DISPUTE_EVIDENCE_SIZE_MB:5}
+    data-export: ${MINIO_MAX_DATA_EXPORT_SIZE_MB:100}
 
 ---
 

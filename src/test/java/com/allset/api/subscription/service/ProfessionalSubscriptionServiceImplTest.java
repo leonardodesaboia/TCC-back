@@ -72,7 +72,9 @@ class ProfessionalSubscriptionServiceImplTest {
                 true,
                 true,
                 "Pro",
-                Instant.now().plus(30, ChronoUnit.DAYS)
+                Instant.now().plus(30, ChronoUnit.DAYS),
+                true,
+                null
         );
 
         when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId)).thenReturn(Optional.of(professional));
@@ -121,7 +123,9 @@ class ProfessionalSubscriptionServiceImplTest {
                 true,
                 true,
                 "Premium",
-                currentExpiration
+                currentExpiration,
+                true,
+                null
         );
 
         when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId)).thenReturn(Optional.of(professional));
@@ -243,11 +247,13 @@ class ProfessionalSubscriptionServiceImplTest {
                 planId,
                 "Plano Pro",
                 expiration,
+                Instant.now(),
                 "Assinatura cancelada. Os beneficios permanecem ate o fim do periodo vigente."
         );
 
         when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId)).thenReturn(Optional.of(professional));
         when(subscriptionPlanRepository.findByIdAndActiveTrueAndDeletedAtIsNull(planId)).thenReturn(Optional.of(plan));
+        when(professionalRepository.save(professional)).thenReturn(professional);
         when(professionalSubscriptionMapper.toCancelResponse(professional, plan)).thenReturn(response);
 
         CancelSubscriptionResponse result = professionalSubscriptionService.cancel(professionalId);
@@ -282,7 +288,9 @@ class ProfessionalSubscriptionServiceImplTest {
                 false,
                 false,
                 null,
-                Instant.now().plus(30, ChronoUnit.DAYS)
+                Instant.now().plus(30, ChronoUnit.DAYS),
+                true,
+                null
         );
 
         when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId)).thenReturn(Optional.of(professional));

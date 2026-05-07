@@ -2,6 +2,7 @@ package com.allset.api.offering.service;
 
 import com.allset.api.catalog.exception.ServiceCategoryNotFoundException;
 import com.allset.api.catalog.repository.ServiceCategoryRepository;
+import com.allset.api.offering.domain.PricingType;
 import com.allset.api.offering.domain.ProfessionalOffering;
 import com.allset.api.offering.dto.CreateProfessionalOfferingRequest;
 import com.allset.api.offering.dto.ProfessionalOfferingResponse;
@@ -9,8 +10,12 @@ import com.allset.api.offering.dto.UpdateProfessionalOfferingRequest;
 import com.allset.api.offering.exception.ProfessionalOfferingNotFoundException;
 import com.allset.api.offering.mapper.ProfessionalOfferingMapper;
 import com.allset.api.offering.repository.ProfessionalOfferingRepository;
+import com.allset.api.professional.domain.Professional;
+import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.exception.ProfessionalNotFoundException;
+import com.allset.api.professional.exception.ProfessionalNotApprovedException;
 import com.allset.api.professional.repository.ProfessionalRepository;
+import com.allset.api.professional.repository.ProfessionalSpecialtyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,16 +32,21 @@ public class ProfessionalOfferingServiceImpl implements ProfessionalOfferingServ
 
     private final ProfessionalOfferingRepository professionalOfferingRepository;
     private final ProfessionalRepository professionalRepository;
+    private final ProfessionalSpecialtyRepository professionalSpecialtyRepository;
     private final ServiceCategoryRepository serviceCategoryRepository;
     private final ProfessionalOfferingMapper professionalOfferingMapper;
 
     @Override
     public ProfessionalOfferingResponse create(UUID professionalId, CreateProfessionalOfferingRequest request) {
-        professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
+        Professional professional = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
                 .orElseThrow(() -> new ProfessionalNotFoundException(professionalId));
+        requireApproved(professional);
 
         serviceCategoryRepository.findByIdAndDeletedAtIsNull(request.categoryId())
                 .orElseThrow(() -> new ServiceCategoryNotFoundException(request.categoryId()));
+
+        requireSpecialty(professionalId, request.categoryId());
+        validatePrice(professionalId, request.categoryId(), request.pricingType(), request.price());
 
         ProfessionalOffering offering = ProfessionalOffering.builder()
                 .professionalId(professionalId)
@@ -75,6 +85,10 @@ public class ProfessionalOfferingServiceImpl implements ProfessionalOfferingServ
 
     @Override
     public ProfessionalOfferingResponse update(UUID professionalId, UUID id, UpdateProfessionalOfferingRequest request) {
+        Professional professional = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
+                .orElseThrow(() -> new ProfessionalNotFoundException(professionalId));
+        requireApproved(professional);
+
         ProfessionalOffering offering = findOwned(professionalId, id);
 
         if (request.title() != null) offering.setTitle(request.title());
@@ -84,6 +98,12 @@ public class ProfessionalOfferingServiceImpl implements ProfessionalOfferingServ
         if (request.estimatedDurationMinutes() != null) offering.setEstimatedDurationMinutes(request.estimatedDurationMinutes());
         if (request.active() != null) offering.setActive(request.active());
 
+        if (Boolean.TRUE.equals(request.clearPrice())) {
+            offering.setPrice(null);
+        }
+
+        validatePrice(professionalId, offering.getCategoryId(), offering.getPricingType(), offering.getPrice());
+
         return professionalOfferingMapper.toResponse(professionalOfferingRepository.save(offering));
     }
 
@@ -92,6 +112,34 @@ public class ProfessionalOfferingServiceImpl implements ProfessionalOfferingServ
         ProfessionalOffering offering = findOwned(professionalId, id);
         offering.setDeletedAt(Instant.now());
         professionalOfferingRepository.save(offering);
+    }
+
+    private void requireApproved(Professional professional) {
+        if (professional.getVerificationStatus() != VerificationStatus.approved) {
+            throw new ProfessionalNotApprovedException(professional.getVerificationStatus());
+        }
+    }
+
+    private void validatePrice(UUID professionalId, UUID categoryId, PricingType pricingType, java.math.BigDecimal price) {
+        if (pricingType == PricingType.fixed && price == null) {
+            throw new IllegalArgumentException("Preço é obrigatório para serviços com precificação fixa (fixed)");
+        }
+        if (pricingType == PricingType.hourly && price == null) {
+            boolean hasSpecialtyRate = professionalSpecialtyRepository
+                    .findByProfessionalIdAndCategoryIdAndDeletedAtIsNull(professionalId, categoryId)
+                    .map(s -> s.getHourlyRate() != null)
+                    .orElse(false);
+            if (!hasSpecialtyRate) {
+                throw new IllegalArgumentException(
+                        "Preço é obrigatório: a especialidade vinculada não possui valor/hora definido");
+            }
+        }
+    }
+
+    private void requireSpecialty(UUID professionalId, UUID categoryId) {
+        professionalSpecialtyRepository.findByProfessionalIdAndCategoryIdAndDeletedAtIsNull(professionalId, categoryId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "O serviço deve estar vinculado a uma das profissões cadastradas pelo profissional. Categoria não encontrada nas especialidades: " + categoryId));
     }
 
     private ProfessionalOffering findOwned(UUID professionalId, UUID id) {

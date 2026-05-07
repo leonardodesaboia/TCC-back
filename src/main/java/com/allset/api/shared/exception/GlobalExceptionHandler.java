@@ -1,17 +1,42 @@
 package com.allset.api.shared.exception;
 
 import com.allset.api.auth.exception.InvalidCredentialsException;
+import com.allset.api.chat.exception.ConversationClosedException;
+import com.allset.api.chat.exception.ConversationNotFoundException;
+import com.allset.api.chat.exception.MessageContentInvalidException;
 import com.allset.api.auth.exception.InvalidResetCodeException;
 import com.allset.api.auth.exception.InvalidTokenException;
 import com.allset.api.address.exception.SavedAddressNotFoundException;
+import com.allset.api.notification.exception.NotificationNotFoundException;
+import com.allset.api.notification.exception.PushTokenNotFoundException;
+import com.allset.api.order.exception.ExpressQueueViolationException;
+import com.allset.api.order.exception.NoProfessionalsAvailableException;
+import com.allset.api.order.exception.OrderNotFoundException;
+import com.allset.api.order.exception.OrderStatusTransitionException;
+import com.allset.api.order.exception.ProposalWindowExpiredException;
 import com.allset.api.calendar.exception.BlockedPeriodNotFoundException;
 import com.allset.api.catalog.exception.ServiceAreaNameAlreadyExistsException;
 import com.allset.api.catalog.exception.ServiceAreaNotFoundException;
 import com.allset.api.catalog.exception.ServiceCategoryNotFoundException;
+import com.allset.api.dispute.exception.DisputeAlreadyExistsException;
+import com.allset.api.dispute.exception.DisputeNotFoundException;
+import com.allset.api.dispute.exception.DisputeStatusTransitionException;
+import com.allset.api.dispute.exception.DisputeWindowExpiredException;
 import com.allset.api.document.exception.ProfessionalDocumentNotFoundException;
+import com.allset.api.favorite.exception.FavoriteProfessionalAlreadyExistsException;
+import com.allset.api.favorite.exception.FavoriteProfessionalNotFoundException;
+import com.allset.api.geocoding.exception.AddressNotGeocodableException;
+import com.allset.api.geocoding.exception.GeocodingProviderUnavailableException;
+import com.allset.api.geocoding.exception.GeocodingRateLimitException;
 import com.allset.api.offering.exception.ProfessionalOfferingNotFoundException;
 import com.allset.api.professional.exception.ProfessionalAlreadyExistsException;
+import com.allset.api.professional.exception.ProfessionalNotApprovedException;
 import com.allset.api.professional.exception.ProfessionalNotFoundException;
+import com.allset.api.review.exception.ReviewAlreadyExistsException;
+import com.allset.api.integration.storage.exception.FileTooLargeException;
+import com.allset.api.integration.storage.exception.InvalidFileTypeException;
+import com.allset.api.integration.storage.exception.StorageObjectNotFoundException;
+import com.allset.api.integration.storage.exception.StorageUploadException;
 import com.allset.api.subscription.exception.SubscriptionPlanNameAlreadyExistsException;
 import com.allset.api.subscription.exception.SubscriptionPlanNotFoundException;
 import com.allset.api.subscription.exception.ProfessionalSubscriptionNotFoundException;
@@ -28,9 +53,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 
 import java.time.Instant;
 import java.util.Map;
@@ -40,6 +68,20 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableMessage(HttpMessageNotReadableException ex,
+                                                            HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+            HttpStatus.BAD_REQUEST.value(),
+            "Corpo da requisição inválido ou JSON malformado",
+            null,
+            Instant.now()
+        ));
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex,
@@ -61,6 +103,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             UserNotFoundException.class,
             SavedAddressNotFoundException.class,
+            OrderNotFoundException.class,
             ProfessionalNotFoundException.class,
             ServiceAreaNotFoundException.class,
             ServiceCategoryNotFoundException.class,
@@ -68,7 +111,13 @@ public class GlobalExceptionHandler {
             ProfessionalSubscriptionNotFoundException.class,
             ProfessionalDocumentNotFoundException.class,
             ProfessionalOfferingNotFoundException.class,
-            BlockedPeriodNotFoundException.class
+            BlockedPeriodNotFoundException.class,
+            ConversationNotFoundException.class,
+            NotificationNotFoundException.class,
+            PushTokenNotFoundException.class,
+            StorageObjectNotFoundException.class,
+            DisputeNotFoundException.class,
+            FavoriteProfessionalNotFoundException.class
     })
     public ResponseEntity<ApiError> handleNotFound(RuntimeException ex, HttpServletRequest request) {
         log.warn("status=404 method={} path={} message={}",
@@ -88,7 +137,11 @@ public class GlobalExceptionHandler {
             ProfessionalAlreadyExistsException.class,
             ServiceAreaNameAlreadyExistsException.class,
             SubscriptionPlanNameAlreadyExistsException.class,
-            SubscriptionPlanAlreadyActiveException.class
+            SubscriptionPlanAlreadyActiveException.class,
+            ReviewAlreadyExistsException.class,
+            DisputeAlreadyExistsException.class,
+            FavoriteProfessionalAlreadyExistsException.class,
+            ConversationClosedException.class
     })
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
                                                     HttpServletRequest request) {
@@ -157,6 +210,20 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    @ExceptionHandler(ProfessionalNotApprovedException.class)
+    public ResponseEntity<ApiError> handleNotApproved(ProfessionalNotApprovedException ex,
+                                                      HttpServletRequest request) {
+        log.warn("status=403 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiError(
+            HttpStatus.FORBIDDEN.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
     @ExceptionHandler(UserBannedException.class)
     public ResponseEntity<ApiError> handleBanned(UserBannedException ex,
                                                  HttpServletRequest request) {
@@ -168,6 +235,161 @@ public class GlobalExceptionHandler {
             ex.getMessage(),
             null,
             Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(MessageContentInvalidException.class)
+    public ResponseEntity<ApiError> handleMessageContentInvalid(MessageContentInvalidException ex,
+                                                                 HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+            HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler({
+            OrderStatusTransitionException.class,
+            ExpressQueueViolationException.class,
+            DisputeStatusTransitionException.class,
+            DisputeWindowExpiredException.class
+    })
+    public ResponseEntity<ApiError> handleOrderBusiness(RuntimeException ex, HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+            HttpStatus.BAD_REQUEST.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(ProposalWindowExpiredException.class)
+    public ResponseEntity<ApiError> handleProposalWindowExpired(ProposalWindowExpiredException ex,
+                                                                HttpServletRequest request) {
+        log.warn("status=409 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(
+            HttpStatus.CONFLICT.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler({
+            NoProfessionalsAvailableException.class,
+            AddressNotGeocodableException.class
+    })
+    public ResponseEntity<ApiError> handleUnprocessable(RuntimeException ex, HttpServletRequest request) {
+        log.warn("status=422 method={} path={} exception={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getClass().getSimpleName(), ex.getMessage());
+
+        return ResponseEntity.unprocessableEntity().body(new ApiError(
+            HttpStatus.UNPROCESSABLE_ENTITY.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(GeocodingProviderUnavailableException.class)
+    public ResponseEntity<ApiError> handleGeocodingUnavailable(GeocodingProviderUnavailableException ex,
+                                                               HttpServletRequest request) {
+        log.warn("status=503 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(new ApiError(
+            HttpStatus.SERVICE_UNAVAILABLE.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(GeocodingRateLimitException.class)
+    public ResponseEntity<ApiError> handleGeocodingRateLimit(GeocodingRateLimitException ex,
+                                                             HttpServletRequest request) {
+        log.warn("status=429 method={} path={} message={}",
+            request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(new ApiError(
+            HttpStatus.TOO_MANY_REQUESTS.value(),
+            ex.getMessage(),
+            null,
+            Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(InvalidFileTypeException.class)
+    public ResponseEntity<ApiError> handleInvalidFileType(InvalidFileTypeException ex, HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage(),
+                null,
+                Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(FileTooLargeException.class)
+    public ResponseEntity<ApiError> handleFileTooLarge(FileTooLargeException ex, HttpServletRequest request) {
+        log.warn("status=413 method={} path={} message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ApiError(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                ex.getMessage(),
+                null,
+                Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        log.warn("status=413 method={} path={} message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ApiError(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(),
+                "Arquivo excede o limite máximo permitido pelo servidor",
+                null,
+                Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiError> handleMultipart(MultipartException ex, HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+                HttpStatus.BAD_REQUEST.value(),
+                "Requisição multipart inválida",
+                null,
+                Instant.now()
+        ));
+    }
+
+    @ExceptionHandler(StorageUploadException.class)
+    public ResponseEntity<ApiError> handleStorageUpload(StorageUploadException ex, HttpServletRequest request) {
+        log.error("event=storage_upload_failed status=500 method={} path={} message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage(), ex);
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiError(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Falha ao processar arquivo no storage",
+                null,
+                Instant.now()
         ));
     }
 

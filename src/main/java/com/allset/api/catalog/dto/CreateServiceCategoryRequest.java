@@ -1,5 +1,6 @@
 package com.allset.api.catalog.dto;
 
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,8 +17,6 @@ public record CreateServiceCategoryRequest(
         @Schema(description = "Nome da categoria", example = "Eletricista")
         @NotBlank(message = "Nome é obrigatório")
         @Size(max = 80, message = "Nome deve ter no máximo 80 caracteres")
-        String name,
-
-        @Schema(description = "URL do ícone no S3")
-        String iconUrl
+        @NoHtml
+        String name
 ) {}

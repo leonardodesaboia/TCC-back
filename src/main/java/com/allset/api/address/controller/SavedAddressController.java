@@ -59,7 +59,7 @@ public class SavedAddressController {
     })
     @PostMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<SavedAddressResponse> create(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId,
         @Valid @RequestBody CreateSavedAddressRequest request
@@ -95,7 +95,7 @@ public class SavedAddressController {
     })
     @GetMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<List<SavedAddressResponse>> findAll(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId
     ) {
@@ -120,7 +120,7 @@ public class SavedAddressController {
     })
     @GetMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<SavedAddressResponse> findById(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId,
         @Parameter(description = "ID do endereço", required = true) @PathVariable UUID id
@@ -149,7 +149,7 @@ public class SavedAddressController {
     })
     @PutMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<SavedAddressResponse> update(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId,
         @Parameter(description = "ID do endereço", required = true) @PathVariable UUID id,
@@ -175,7 +175,7 @@ public class SavedAddressController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<Void> delete(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId,
         @Parameter(description = "ID do endereço", required = true) @PathVariable UUID id
@@ -202,7 +202,7 @@ public class SavedAddressController {
     })
     @PatchMapping("/{id}/set-default")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #userId.toString() == authentication.name")
     public ResponseEntity<SavedAddressResponse> setDefault(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID userId,
         @Parameter(description = "ID do endereço", required = true) @PathVariable UUID id

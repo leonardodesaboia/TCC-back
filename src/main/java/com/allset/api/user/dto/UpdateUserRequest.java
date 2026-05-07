@@ -1,5 +1,6 @@
 package com.allset.api.user.dto;
 
+import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
@@ -10,6 +11,7 @@ public record UpdateUserRequest(
 
     @Schema(description = "Novo nome completo", example = "João Souza")
     @Size(max = 150, message = "Nome deve ter no máximo 150 caracteres")
+    @NoHtml
     String name,
 
     @Schema(description = "Novo endereço de e-mail", example = "joao.novo@email.com")
@@ -22,9 +24,6 @@ public record UpdateUserRequest(
         regexp = "^\\+?[1-9]\\d{1,14}$",
         message = "Telefone inválido. Use formato E.164 (ex: +5511999999999)"
     )
-    String phone,
-
-    @Schema(description = "URL pública do avatar", example = "https://cdn.allset.com.br/avatars/uuid.jpg")
-    String avatarUrl
+    String phone
 
 ) {}

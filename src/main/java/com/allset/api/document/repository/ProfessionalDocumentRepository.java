@@ -1,5 +1,7 @@
 package com.allset.api.document.repository;
 
+import com.allset.api.document.domain.DocType;
+import com.allset.api.document.domain.DocumentSide;
 import com.allset.api.document.domain.ProfessionalDocument;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -12,4 +14,12 @@ public interface ProfessionalDocumentRepository extends JpaRepository<Profession
     List<ProfessionalDocument> findAllByProfessionalId(UUID professionalId);
 
     Optional<ProfessionalDocument> findByIdAndProfessionalId(UUID id, UUID professionalId);
+
+    Optional<ProfessionalDocument> findByProfessionalIdAndDocTypeAndDocSide(
+            UUID professionalId,
+            DocType docType,
+            DocumentSide docSide
+    );
+
+    long countByProfessionalId(UUID professionalId);
 }
