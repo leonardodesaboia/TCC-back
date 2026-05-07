@@ -143,8 +143,8 @@ public class OrderServiceImpl implements OrderService {
         notifyProfessionals(
                 nearby.stream().map(NearbyProfessional::getProfessionalId).toList(),
                 NotificationType.new_request,
-                "Nova solicitacao Express",
-                "Ha um novo pedido Express disponivel para a sua categoria.",
+                "Nova solicitação Express",
+                "Há um novo pedido Express disponível para a sua categoria.",
                 saved.getId()
         );
 
@@ -785,7 +785,7 @@ public class OrderServiceImpl implements OrderService {
                         proposedProfessionalIds,
                         NotificationType.request_status_update,
                         "Pedido cancelado",
-                        "O cliente cancelou o pedido antes da selecao final.",
+                        "O cliente cancelou o pedido antes da seleção final.",
                         orderId
                 );
             }
