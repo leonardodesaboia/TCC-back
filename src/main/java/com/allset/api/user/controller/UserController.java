@@ -21,9 +21,11 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
@@ -78,7 +80,7 @@ public class UserController {
     })
     @GetMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Page<UserResponse>> findAll(
         @Parameter(description = "Filtrar usuários banidos") @RequestParam(defaultValue = "false") boolean banned,
         @Parameter(description = "Filtrar usuários removidos (soft delete)") @RequestParam(defaultValue = "false") boolean deleted,
@@ -102,7 +104,7 @@ public class UserController {
     })
     @GetMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> findById(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
@@ -111,8 +113,9 @@ public class UserController {
 
     @Operation(
         summary = "Atualizar usuário",
-        description = "Atualiza os dados de um usuário (nome, email, telefone, avatarUrl). "
+        description = "Atualiza os dados de um usuário (nome, email, telefone). "
                     + "Apenas os campos informados são alterados. "
+                    + "Para atualizar o avatar, use os endpoints dedicados `POST /{id}/avatar` ou `DELETE /{id}/avatar`. "
                     + "Permitido ao próprio usuário ou a administradores."
     )
     @ApiResponses({
@@ -129,7 +132,7 @@ public class UserController {
     })
     @PutMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> update(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id,
         @Valid @RequestBody UpdateUserRequest request
@@ -154,7 +157,7 @@ public class UserController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> softDelete(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
@@ -177,7 +180,7 @@ public class UserController {
     })
     @PatchMapping("/{id}/reactivate")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
     public ResponseEntity<UserResponse> reactivate(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
@@ -200,7 +203,7 @@ public class UserController {
     })
     @PatchMapping("/{id}/ban")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<UserResponse> ban(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id,
         @Valid @RequestBody BanUserRequest request
@@ -222,9 +225,61 @@ public class UserController {
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PatchMapping("/{id}/activate")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<UserResponse> activate(
         @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
     ) {
         return ResponseEntity.ok(userService.activate(id));
+    }
+
+    @Operation(
+        summary = "Atualizar avatar",
+        description = "Faz upload de uma nova foto de avatar (JPEG ou PNG, até o limite configurado). "
+                    + "Substitui o avatar atual, removendo a versão anterior do storage. "
+                    + "Permitido ao próprio usuário ou a administradores."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Avatar atualizado com sucesso",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Tipo de arquivo inválido",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "401", description = "Token ausente ou inválido", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "413", description = "Arquivo excede o tamanho máximo permitido",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    public ResponseEntity<UserResponse> uploadAvatar(
+        @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id,
+        @Parameter(description = "Arquivo de imagem (JPEG/PNG)", required = true)
+        @RequestPart("file") MultipartFile file
+    ) {
+        return ResponseEntity.ok(userService.uploadAvatar(id, file));
+    }
+
+    @Operation(
+        summary = "Remover avatar",
+        description = "Remove o avatar atual do usuário. "
+                    + "Permitido ao próprio usuário ou a administradores."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Avatar removido com sucesso",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Token ausente ou inválido", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
+            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @DeleteMapping("/{id}/avatar")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    @PreAuthorize("hasAuthority('admin') or #id.toString() == authentication.name")
+    public ResponseEntity<UserResponse> deleteAvatar(
+        @Parameter(description = "ID do usuário", required = true) @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(userService.deleteAvatar(id));
     }
 }

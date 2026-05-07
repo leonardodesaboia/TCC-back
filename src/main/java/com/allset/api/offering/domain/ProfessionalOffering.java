@@ -35,7 +35,7 @@ public class ProfessionalOffering extends PostgresEntity {
     @Column(name = "pricing_type", columnDefinition = "pricing_type", nullable = false)
     private PricingType pricingType;
 
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Column(precision = 10, scale = 2)
     private BigDecimal price;
 
     @Column(name = "estimated_duration_minutes")

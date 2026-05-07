@@ -1,7 +1,7 @@
 # AllSet API — Backend
 
 Marketplace de serviços autônomos que conecta clientes a profissionais verificados em Fortaleza/CE.
-Dois modos de contratação: **Agendado** (data/hora escolhida pelo cliente) e **Express** (match instantâneo com o primeiro profissional disponível próximo).
+Dois modos de contratação: **Agendado** (data/hora escolhida pelo cliente, futuro) e **Express** (broadcast para profissionais próximos, cada um propõe preço, cliente escolhe).
 
 Modelo de negócio: taxa de 20% descontada no momento da liberação do escrow. Pagamento retido via Asaas e liberado somente após conclusão confirmada por ambas as partes.
 
@@ -20,7 +20,7 @@ Modelo de negócio: taxa de 20% descontada no momento da liberação do escrow. 
 | Auth | JWT HS256 via Spring OAuth2 Resource Server (`NimbusJwtDecoder`) |
 | Docs | SpringDoc OpenAPI 2.8 / Swagger UI |
 | Container | Docker + Docker Compose (multi-stage build) |
-| Integrações | Asaas (pagamentos/escrow), IDwall SDK (KYC), AWS S3, FCM (push), WebSocket (chat) |
+| Integrações | Asaas (pagamentos/escrow), IDwall SDK (KYC), MinIO (S3-compatible), FCM (push), WebSocket (chat) |
 
 ---
 
@@ -57,7 +57,22 @@ Copiar `.env.example` → `.env` e preencher antes de subir. A aplicação falha
 | `REDIS_HOST` / `REDIS_PORT` | Não | Padrão: `localhost:6379` |
 | `PORT` | Não | Padrão: `8080` |
 | `USER_PURGE_CRON` | Não | Cron do job de purga (padrão: `0 0 2 * * *`) |
+| `RESEND_API_KEY` | Sim | API key do Resend para envio de e-mails |
+| `EMAIL_FROM` | Sim | Endereço de origem dos e-mails (ex: `noreply@allset.com.br`) |
 | `SPRING_PROFILES_ACTIVE` | Não | `dev` ou `prod` (padrão: `dev`) |
+| `ACCESS_TOKEN_TTL_MINUTES` | Não | TTL do access token (padrão: `15`) |
+| `REFRESH_TOKEN_TTL_DAYS` | Não | TTL do refresh token (padrão: `7`) |
+| `RESET_CODE_TTL_MINUTES` | Não | TTL do código de recuperação de senha (padrão: `10`) |
+| `SUBSCRIPTION_EXPIRATION_CRON` | Não | Cron do job de expiração de assinaturas (padrão: `0 */30 * * * *`) |
+| `EXPRESS_SEARCH_RADIUS_METERS` | Não | Raio único de busca Express, em metros (padrão: `300`) |
+| `EXPRESS_PROPOSAL_WINDOW_MINUTES` | Não | Janela em que profissionais podem propor no Express (padrão: `15`) |
+| `EXPRESS_CLIENT_WINDOW_MINUTES` | Não | Janela após o fim das propostas para o cliente escolher (padrão: `30`) |
+| `EXPRESS_MAX_QUEUE_SIZE` | Não | Máximo de profissionais notificados (padrão: `10`) |
+| `GEOCODING_BASE_URL` | Não | Base URL do provider (padrão: `https://nominatim.openstreetmap.org`) |
+| `GEOCODING_USER_AGENT` | Sim | User-Agent identificador exigido pela política do Nominatim (ex: `AllSet-API/1.0 (contato@allset.com.br)`) |
+| `GEOCODING_CACHE_TTL_SECONDS` | Não | TTL do cache de resultados positivos (padrão: `2592000` = 30 dias) |
+| `GEOCODING_NEGATIVE_CACHE_TTL_SECONDS` | Não | TTL do cache de "não localizado" (padrão: `300` = 5min) |
+| `GEOCODING_ENABLED` | Não | Kill-switch — `false` desabilita lookup e enriquecimento (padrão: `true`) |
 
 ---
 
@@ -73,44 +88,76 @@ src/main/java/com/allset/api/
 │   ├── SecurityConfig.java                  # JWT, BCrypt, CORS, regras de acesso
 │   ├── OpenApiConfig.java                   # bearerAuth no Swagger
 │   └── StartupLogger.java
-├── shared/
+├── shared/                                  # Utilitários transversais (não-domínio, não-integração externa)
+│   ├── annotation/                          # @CurrentUser, @RequiresAnyRole + aspect
+│   ├── cache/                               # CacheService + RedisCacheService
 │   ├── crypto/CpfConverter.java             # AttributeConverter AES-256/CBC transparente
-│   ├── validation/ValidCPF.java + CpfValidator.java
-│   └── exception/
-│       ├── ApiError.java                    # Contrato de resposta de erro
-│       └── GlobalExceptionHandler.java      # @RestControllerAdvice centralizado
+│   ├── exception/
+│   │   ├── ApiError.java                    # Contrato de resposta de erro
+│   │   └── GlobalExceptionHandler.java      # @RestControllerAdvice centralizado
+│   ├── resolver/CurrentUserArgumentResolver.java
+│   ├── token/                               # TokenService + JwtTokenService (JWT interno)
+│   └── validation/                          # ValidCPF, ValidPassword, NoHtml + validators
+├── integration/                             # Adapters para serviços externos (regra: services nunca chamam APIs externas direto)
+│   ├── storage/                             # MinIO (S3-compatible) — config, service, eventos de deleção
+│   └── email/                               # Resend — EmailService + ResendEmailService
+├── auth/                                    # Login, JWT, refresh token, recuperação de senha (ver Exceções ao padrão)
+├── seed/                                    # StartupSeedRunner + StartupSeedService — bootstrap dev (ver Exceções ao padrão)
 ├── user/                                    # Módulo de usuários (clientes, profissionais, admins)
-│   ├── controller/UserController.java
-│   ├── service/UserServiceImpl.java
-│   ├── repository/UserRepository.java
-│   ├── domain/User.java + UserRole.java
-│   ├── mapper/UserMapper.java               # MapStruct
-│   ├── dto/                                 # CreateUserRequest, UpdateUserRequest, UserResponse, BanUserRequest
-│   ├── exception/                           # EmailAlreadyExistsException, CpfAlreadyExistsException,
-│   │                                        # UserNotFoundException, UserPendingDeletionException, UserBannedException
 │   └── scheduler/UserPurgeScheduler.java
 ├── address/                                 # Endereços salvos por usuário
-│   ├── controller/SavedAddressController.java
-│   ├── service/SavedAddressServiceImpl.java
-│   ├── repository/SavedAddressRepository.java
-│   ├── domain/SavedAddress.java
-│   ├── mapper/SavedAddressMapper.java
-│   ├── dto/                                 # CreateSavedAddressRequest, UpdateSavedAddressRequest, SavedAddressResponse
-│   └── exception/SavedAddressNotFoundException.java
-└── [módulos futuros: auth, professional, order, payment, chat, review, dispute, subscription, notification, admin]
+├── professional/                            # Perfil profissional, KYC, geolocalização
+├── document/                                # Documentos do profissional (MinIO + IDwall)
+├── offering/                                # Serviços oferecidos pelo profissional
+├── catalog/                                 # Áreas e categorias de serviço (admin)
+├── subscription/                            # Planos de assinatura para profissionais
+│   └── scheduler/SubscriptionExpirationScheduler.java
+├── calendar/                                # Calendário de disponibilidade do profissional
+├── favorite/                                # Profissionais favoritos do cliente
+└── order/                                   # Pedidos Express — ciclo completo
+    ├── controller/OrderController.java
+    ├── service/OrderServiceImpl.java
+    ├── repository/
+    │   ├── OrderRepository.java
+    │   ├── ExpressQueueRepository.java      # Haversine, bulk-reject, timeout queries
+    │   ├── OrderStatusHistoryRepository.java
+    │   └── OrderPhotoRepository.java
+    ├── domain/                              # Order, ExpressQueueEntry, OrderStatusHistory, OrderPhoto + enums
+    ├── mapper/OrderMapper.java
+    ├── dto/                                 # CreateExpressOrderRequest, ProRespondRequest,
+    │                                        # ClientRespondRequest, OrderResponse, ExpressProposalResponse,
+    │                                        # DistanceBand (faixa de distância por proposta), ...
+    ├── exception/                           # OrderNotFoundException, OrderStatusTransitionException,
+    │                                        # ExpressQueueViolationException, NoProfessionalsAvailableException,
+    │                                        # ProposalWindowExpiredException
+    └── scheduler/ExpressTimeoutScheduler.java
 
 src/main/resources/
 ├── application.yml
-├── application-dev.yml
-├── application-prod.yml
 └── db/migration/
     ├── V1__init.sql
     ├── V2__create_users.sql
     ├── V3__create_saved_addresses.sql
-    └── V4__alter_saved_addresses_state_to_varchar.sql
+    ├── V4__alter_saved_addresses_state_to_varchar.sql
+    ├── V5__create_subscription_plans.sql
+    ├── V6__create_service_areas.sql
+    ├── V7__create_service_categories.sql
+    ├── V8__create_professionals.sql
+    ├── V9__create_professional_documents.sql
+    ├── V10__create_professional_services.sql
+    ├── V11__create_blocked_periods.sql
+    └── V12__create_orders.sql
 ```
 
 Cada módulo futuro **deve** seguir essa estrutura: `controller / service / repository / domain / mapper / dto / exception`.
+
+### Exceções ao padrão de módulo
+
+Os módulos abaixo divergem do template canônico por motivos justificados — **não tomar como referência ao criar novos módulos**.
+
+- **`auth/`** — possui apenas `controller / dto / exception / service`. Não há `domain`, `mapper` nem `repository` porque o módulo não persiste entidade JPA própria: usuários moram em `user/`, refresh tokens vivem no Redis (TTL), códigos de recuperação de senha também são keys efêmeras. A emissão de JWT delega ao `shared/token/`.
+- **`seed/`** — dois arquivos planos (`StartupSeedRunner`, `StartupSeedService`) na raiz do pacote. Roda na inicialização do `dev` para popular catálogo (áreas, categorias, planos). Não expõe endpoints, não tem entidade própria, não deve ser portado para `prod`.
+- **`shared/storage/`** e **`shared/email/`** **não existem mais** — foram movidos para `integration/storage/` e `integration/email/` respeitando a regra de integrações externas.
 
 ---
 
@@ -205,20 +252,33 @@ Ao criar exceções novas em módulos futuros, **sempre** registrá-las no `Glob
 
 Deleção é **física** — não usa soft delete, diferente das entidades principais.
 
+### Profissionais Favoritos (`/api/v1/professionals/{professionalId}/favorite` e `/api/v1/favorite-professionals`)
+
+Apenas clientes (`hasAuthority('client')`) gerenciam seus próprios favoritos. O serviço opera sempre com o `currentUserId` extraído do JWT — nunca aceitar `userId` por path/body.
+
+| Método | Caminho | Comportamento |
+|---|---|---|
+| `POST /api/v1/professionals/{professionalId}/favorite` | Favoritar — 201 + Location |
+| `GET /api/v1/professionals/{professionalId}/favorite` | Status (favoritado ou não) |
+| `DELETE /api/v1/professionals/{professionalId}/favorite` | Remover — 204 |
+| `GET /api/v1/favorite-professionals` | Listar paginado (20/página, ordenado por `createdAt desc`) |
+
+**Regras:**
+- Unicidade por `(user_id, professional_id)` — duplicidade retorna `FavoriteProfessionalAlreadyExistsException` (409)
+- Profissional inexistente retorna 404 via `FavoriteProfessionalNotFoundException`
+- Deleção é **física** (mesma decisão dos endereços salvos)
+
 ---
 
 ## Domínios a implementar
 
 | Módulo | Responsabilidade |
 |---|---|
-| `auth` | Login, geração de JWT (access + refresh), logout, blacklist Redis, recuperação de senha |
-| `professional` | Perfil, especialidades, KYC via IDwall, calendário de disponibilidade, geolocalização |
-| `order` | Ciclo completo de pedido agendado e Express, `order_status_history` (audit log imutável) |
 | `payment` | Asaas — criação de cobrança, escrow, liberação com fee 20%, reembolso, webhook Asaas |
+| ~~`geocoding`~~ | ~~Conversão de endereço escrito em coordenadas via provider externo (Nominatim/OSM) com cache Redis~~ — implementado |
 | `chat` | WebSocket em tempo real, persistência de mensagens, histórico acessível pós-conclusão |
 | `review` | Avaliação bilateral double-blind — publica quando ambos submetem ou 7 dias expiram |
 | `dispute` | Abertura em até 24h pós-conclusão, evidências (S3), resolução exclusiva por admin |
-| `subscription` | Planos de assinatura para profissionais |
 | `notification` | Push via FCM, persistência, preferências do usuário |
 | `admin` | Moderação, métricas, resolução de disputas |
 
@@ -251,7 +311,7 @@ Deleção é **física** — não usa soft delete, diferente das entidades princ
 - Não diferenciar "não encontrado" de "sem permissão" em queries de ownership — sempre 404
 
 ### Integrações externas
-Clients para Asaas, IDwall, S3 e FCM ficam em `integration/`. Services nunca chamam APIs externas diretamente. Tratar falhas com retry + fallback. Webhooks externos (ex: Asaas) validar assinatura antes de processar.
+Clients para Asaas, IDwall, MinIO (S3-compatible), FCM e Resend ficam em `integration/`. Services nunca chamam APIs externas diretamente. Tratar falhas com retry + fallback. Webhooks externos (ex: Asaas) validar assinatura antes de processar.
 
 ---
 
@@ -259,14 +319,15 @@ Clients para Asaas, IDwall, S3 e FCM ficam em `integration/`. Services nunca cha
 
 1. **Escrow obrigatório** — cliente paga ao criar o pedido; valor nunca vai direto ao profissional
 2. **Conclusão dupla** — pedido só fecha quando AMBOS confirmam; profissional obriga envio de foto comprobatória
-3. **Express — um por vez** — profissionais oferecidos um a um (mais próximo primeiro); próximo só recebe se o atual recusar ou timeout
-4. **Localização nunca exposta** — exibir apenas quantidade de profissionais no raio; nunca coordenadas exatas ao cliente
+3. **Express — broadcast hiper-local** — todos os profissionais aprovados em um raio fixo de **300 metros** (configurável em `EXPRESS_SEARCH_RADIUS_METERS`) são notificados simultaneamente via Haversine. Cada um envia sua proposta de preço **dentro de 15 minutos** (`EXPRESS_PROPOSAL_WINDOW_MINUTES`). Após esse prazo, novas propostas são bloqueadas; o cliente tem **mais 30 minutos** (`EXPRESS_CLIENT_WINDOW_MINUTES`) para escolher entre as propostas recebidas (45 min totais). Se ninguém propõe nos primeiros 15 min ou se o cliente não escolhe em 45 min, o pedido é cancelado automaticamente. **Não há expansão de raio.** Prioridade na fila: assinantes Pro primeiro, depois proximidade. O status permanece `pending` durante toda a janela de 45 min; a discriminação entre "fase de propostas" e "fase de escolha" é feita comparando `now()` com `proposalDeadline` e `expiresAt`.
+4. **Localização nunca exposta** — exibir apenas a quantidade de profissionais no raio e a **faixa de distância** (terço do raio configurado) por proposta; nunca coordenadas exatas nem distância numérica em metros ao cliente
 5. **Double-blind** — avaliações só ficam visíveis após ambas as partes submeterem ou 7 dias expirarem
 6. **Janela de disputa** — 24h após conclusão; resolvida exclusivamente por admin
 7. **Taxa de cancelamento** — 50% do valor cobrado se cancelado dentro de 24h da contratação
 8. **Fee da plataforma** — 20% descontado na liberação do escrow, não no pagamento inicial
 9. **KYC automático** — verificação de documentos via IDwall SDK no cadastro do profissional, sem aprovação manual
 10. **Uploads** — máx. 5MB, formatos JPG/JPEG/PNG (fotos de conclusão, evidências de disputa, avatar)
+11. **Geocoding de endereços** — endereços salvos sem `lat`/`lng` são geocodificados automaticamente via Nominatim no `POST /api/users/{userId}/addresses`. Falha do provider (timeout, 5xx, kill-switch) **não bloqueia** o cadastro — endereço é gravado com coordenadas nulas e o front pode reexecutar lookup via `POST /api/v1/geocoding/lookup` e atualizar via `PUT`. Endereço não localizável (provider devolve vazio) retorna 422.
 
 ---
 

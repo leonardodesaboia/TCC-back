@@ -58,6 +58,14 @@ public record AppProperties(
         @DefaultValue("0 0 2 * * *")
         String userPurgeCron,
 
+        @NotBlank(message = "PUSH_TOKEN_PRUNE_CRON Ã© obrigatÃ³rio")
+        @DefaultValue("0 0 3 * * *")
+        String pushTokenPruneCron,
+
+        @NotBlank(message = "REVIEW_PUBLICATION_CRON e obrigatorio")
+        @DefaultValue("0 0 * * * *")
+        String reviewPublicationCron,
+
         // --- Auth: TTLs ---
 
         @DefaultValue("15")
@@ -78,6 +86,66 @@ public record AppProperties(
         String resendApiKey,
 
         @NotBlank(message = "EMAIL_FROM é obrigatório")
-        String emailFrom
+        String emailFrom,
+
+        // --- Express ---
+
+        @DefaultValue("15")
+        @Min(value = 1, message = "EXPRESS_PROPOSAL_WINDOW_MINUTES deve ser maior que 0")
+        Integer expressProposalWindowMinutes,
+
+        @DefaultValue("30")
+        @Min(value = 1, message = "EXPRESS_CLIENT_WINDOW_MINUTES deve ser maior que 0")
+        Integer expressClientWindowMinutes,
+
+        @DefaultValue("5000")
+        @Min(value = 1, message = "EXPRESS_SEARCH_RADIUS_METERS deve ser maior que 0")
+        @Max(value = 5000, message = "EXPRESS_SEARCH_RADIUS_METERS não pode exceder 5000")
+        Integer expressSearchRadiusMeters,
+
+        @DefaultValue("10")
+        @Min(value = 1, message = "EXPRESS_MAX_QUEUE_SIZE deve ser maior que 0")
+        Integer expressMaxQueueSize,
+
+        // --- CORS / Frontend ---
+
+        /**
+         * URL do frontend permitida para conexões WebSocket e CORS.
+         * Em produção deve ser o domínio exato (ex: https://app.allset.com.br).
+         * Em desenvolvimento aceita qualquer origem por padrão.
+         */
+        @DefaultValue("*")
+        String frontendUrl,
+
+        // --- Chat ---
+
+        @DefaultValue("4000")
+        @Min(value = 1, message = "CHAT_MESSAGE_MAX_LENGTH deve ser maior que 0")
+        @Max(value = 10000, message = "CHAT_MESSAGE_MAX_LENGTH não pode exceder 10000")
+        Integer chatMessageMaxLength,
+
+        @DefaultValue("50")
+        @Min(value = 1, message = "CHAT_MESSAGE_PAGE_SIZE deve ser maior que 0")
+        @Max(value = 200, message = "CHAT_MESSAGE_PAGE_SIZE não pode exceder 200")
+        Integer chatMessagePageSize,
+
+        // --- Geocoding ---
+
+        @DefaultValue("https://nominatim.openstreetmap.org")
+        String geocodingBaseUrl,
+
+        @NotBlank(message = "GEOCODING_USER_AGENT é obrigatório (contato exigido pela política do Nominatim)")
+        String geocodingUserAgent,
+
+        @DefaultValue("2592000")
+        @Min(value = 60, message = "GEOCODING_CACHE_TTL_SECONDS deve ser maior que 60")
+        Integer geocodingCacheTtlSeconds,
+
+        @DefaultValue("300")
+        @Min(value = 60, message = "GEOCODING_NEGATIVE_CACHE_TTL_SECONDS deve ser maior que 60")
+        Integer geocodingNegativeCacheTtlSeconds,
+
+        @DefaultValue("true")
+        Boolean geocodingEnabled
 
 ) {}

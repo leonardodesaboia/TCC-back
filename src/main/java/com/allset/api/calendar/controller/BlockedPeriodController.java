@@ -48,7 +48,7 @@ public class BlockedPeriodController {
     })
     @PostMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<BlockedPeriodResponse> create(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId,
             @Valid @RequestBody CreateBlockedPeriodRequest request
@@ -73,7 +73,7 @@ public class BlockedPeriodController {
     })
     @GetMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<List<BlockedPeriodResponse>> findAll(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId
     ) {
@@ -90,7 +90,7 @@ public class BlockedPeriodController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
     public ResponseEntity<Void> delete(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId,
             @Parameter(description = "ID do bloqueio", required = true) @PathVariable UUID id

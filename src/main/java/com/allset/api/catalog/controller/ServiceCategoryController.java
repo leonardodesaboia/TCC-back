@@ -20,9 +20,11 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
@@ -51,7 +53,7 @@ public class ServiceCategoryController {
     })
     @PostMapping
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceCategoryResponse> create(@Valid @RequestBody CreateServiceCategoryRequest request) {
         ServiceCategoryResponse response = serviceCategoryService.create(request);
         URI location = ServletUriComponentsBuilder
@@ -105,7 +107,7 @@ public class ServiceCategoryController {
     })
     @PutMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ServiceCategoryResponse> update(
             @Parameter(description = "ID da categoria", required = true) @PathVariable UUID id,
             @Valid @RequestBody UpdateServiceCategoryRequest request
@@ -123,11 +125,50 @@ public class ServiceCategoryController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<Void> delete(
             @Parameter(description = "ID da categoria", required = true) @PathVariable UUID id
     ) {
         serviceCategoryService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Definir ícone da categoria",
+            description = "Faz upload do ícone da categoria (PNG ou SVG). Bucket público, URL retornada não expira.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Ícone atualizado com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ServiceCategoryResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Tipo de arquivo inválido",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "404", description = "Categoria não encontrada",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "413", description = "Arquivo excede o tamanho máximo permitido",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PutMapping(value = "/{id}/icon", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    @PreAuthorize("hasAuthority('admin')")
+    public ResponseEntity<ServiceCategoryResponse> setIcon(
+            @Parameter(description = "ID da categoria", required = true) @PathVariable UUID id,
+            @Parameter(description = "Arquivo do ícone (PNG/SVG)", required = true)
+            @RequestPart("file") MultipartFile file
+    ) {
+        return ResponseEntity.ok(serviceCategoryService.setIcon(id, file));
+    }
+
+    @Operation(summary = "Remover ícone da categoria", description = "Remove o ícone atual da categoria.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Ícone removido com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ServiceCategoryResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Categoria não encontrada",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @DeleteMapping("/{id}/icon")
+    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
+    @PreAuthorize("hasAuthority('admin')")
+    public ResponseEntity<ServiceCategoryResponse> removeIcon(
+            @Parameter(description = "ID da categoria", required = true) @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(serviceCategoryService.removeIcon(id));
     }
 }

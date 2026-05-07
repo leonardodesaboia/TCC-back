@@ -2,6 +2,7 @@ package com.allset.api.professional.controller;
 
 import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.dto.*;
+import com.allset.api.shared.annotation.CurrentUser;
 import com.allset.api.professional.service.ProfessionalService;
 import com.allset.api.shared.exception.ApiError;
 import io.swagger.v3.oas.annotations.Operation;
@@ -49,6 +50,7 @@ public class ProfessionalController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @PostMapping
+    @PreAuthorize("hasAuthority('admin') or #request.userId().toString() == authentication.name")
     public ResponseEntity<ProfessionalResponse> create(@Valid @RequestBody CreateProfessionalRequest request) {
         ProfessionalResponse response = professionalService.create(request);
         URI location = ServletUriComponentsBuilder
@@ -59,22 +61,34 @@ public class ProfessionalController {
         return ResponseEntity.created(location).body(response);
     }
 
-    @Operation(summary = "Listar profissionais", description = "Retorna profissionais paginados. Use `?status=` para filtrar por verificação ou `?geoActive=true` para disponíveis no Express.")
+    @Operation(summary = "Listar profissionais", description = "Retorna profissionais paginados. Use `?status=` para filtrar por verificação ou `?geoActive=true` para disponíveis no Express. Usuários não-admin só podem listar profissionais aprovados ou disponíveis no Express.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProfessionalResponse.class))),
             @ApiResponse(responseCode = "401", description = "Token ausente ou inválido", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Acesso negado — requer role admin", content = @Content)
+            @ApiResponse(responseCode = "403", description = "Acesso negado — listagem de pendentes/rejeitados requer role admin", content = @Content)
     })
     @GetMapping
-    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin') or (#status != null and #status.name() == 'approved') or #geoActive")
     public ResponseEntity<Page<ProfessionalResponse>> findAll(
             @Parameter(description = "Filtrar por status de verificação") @RequestParam(required = false) VerificationStatus status,
             @Parameter(description = "Filtrar disponíveis no Express") @RequestParam(defaultValue = "false") boolean geoActive,
             @ParameterObject @PageableDefault(size = 20, sort = "createdAt") Pageable pageable
     ) {
         return ResponseEntity.ok(professionalService.findAll(status, geoActive, pageable));
+    }
+
+    @Operation(summary = "Buscar meu perfil profissional", description = "Retorna o perfil profissional vinculado ao usuário autenticado.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Perfil profissional encontrado",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProfessionalResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Token ausente ou inválido", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Usuário autenticado não possui perfil profissional",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @GetMapping("/me")
+    public ResponseEntity<ProfessionalResponse> findMine(@CurrentUser UUID currentUserId) {
+        return ResponseEntity.ok(professionalService.findByUserId(currentUserId));
     }
 
     @Operation(summary = "Buscar profissional por ID")
@@ -88,7 +102,6 @@ public class ProfessionalController {
     })
     @GetMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
     public ResponseEntity<ProfessionalResponse> findById(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID id
     ) {
@@ -108,7 +121,7 @@ public class ProfessionalController {
     })
     @PutMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
     public ResponseEntity<ProfessionalResponse> update(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID id,
             @Valid @RequestBody UpdateProfessionalRequest request
@@ -129,7 +142,7 @@ public class ProfessionalController {
     })
     @PatchMapping("/{id}/geo")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
     public ResponseEntity<ProfessionalResponse> updateGeo(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID id,
             @Valid @RequestBody UpdateGeoRequest request
@@ -150,7 +163,7 @@ public class ProfessionalController {
     })
     @PatchMapping("/{id}/verify")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin')")
+    @PreAuthorize("hasAuthority('admin')")
     public ResponseEntity<ProfessionalResponse> verify(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID id,
             @Valid @RequestBody VerifyProfessionalRequest request
@@ -168,7 +181,7 @@ public class ProfessionalController {
     })
     @DeleteMapping("/{id}")
     // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    // @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#id, authentication)")
     public ResponseEntity<Void> delete(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID id
     ) {

@@ -1,8 +1,8 @@
 package com.allset.api.document.service;
 
 import com.allset.api.document.domain.DocType;
+import com.allset.api.document.domain.DocumentSide;
 import com.allset.api.document.domain.ProfessionalDocument;
-import com.allset.api.document.dto.CreateProfessionalDocumentRequest;
 import com.allset.api.document.dto.ProfessionalDocumentResponse;
 import com.allset.api.document.exception.ProfessionalDocumentNotFoundException;
 import com.allset.api.document.mapper.ProfessionalDocumentMapper;
@@ -10,11 +10,18 @@ import com.allset.api.document.repository.ProfessionalDocumentRepository;
 import com.allset.api.professional.domain.Professional;
 import com.allset.api.professional.exception.ProfessionalNotFoundException;
 import com.allset.api.professional.repository.ProfessionalRepository;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.domain.StoredObject;
+import com.allset.api.integration.storage.event.ObjectDeletionRequestedEvent;
+import com.allset.api.integration.storage.service.StorageService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -23,6 +30,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,31 +47,41 @@ class ProfessionalDocumentServiceImplTest {
     @Mock
     private ProfessionalDocumentMapper professionalDocumentMapper;
 
+    @Mock
+    private StorageService storageService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private ProfessionalDocumentServiceImpl professionalDocumentService;
 
     @Test
     void createShouldRequireExistingProfessional() {
         UUID professionalId = UUID.randomUUID();
-        CreateProfessionalDocumentRequest request = new CreateProfessionalDocumentRequest(DocType.rg, "https://cdn/doc.pdf");
+        MultipartFile file = new MockMultipartFile("file", "rg.pdf", "application/pdf", new byte[]{1, 2, 3});
 
         when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> professionalDocumentService.create(professionalId, request))
+        assertThatThrownBy(() -> professionalDocumentService.create(professionalId, DocType.rg, DocumentSide.front, file))
                 .isInstanceOf(ProfessionalNotFoundException.class)
                 .hasMessageContaining(professionalId.toString());
+
+        verify(storageService, never()).upload(any(), any(), any(MultipartFile.class));
     }
 
     @Test
-    void createShouldPersistDocumentForProfessional() {
+    void createShouldUploadAndPersistDocument() {
         UUID professionalId = UUID.randomUUID();
         UUID documentId = UUID.randomUUID();
-        CreateProfessionalDocumentRequest request = new CreateProfessionalDocumentRequest(DocType.cnh, "https://cdn/cnh.pdf");
+        MultipartFile file = new MockMultipartFile("file", "cnh.pdf", "application/pdf", new byte[]{1, 2, 3});
+        String storedKey = "documents/" + professionalId + "/abc.pdf";
 
         ProfessionalDocument saved = ProfessionalDocument.builder()
                 .professionalId(professionalId)
                 .docType(DocType.cnh)
-                .fileUrl("https://cdn/cnh.pdf")
+                .docSide(DocumentSide.front)
+                .fileKey(storedKey)
                 .uploadedAt(Instant.now())
                 .verified(false)
                 .build();
@@ -72,19 +91,102 @@ class ProfessionalDocumentServiceImplTest {
                 documentId,
                 professionalId,
                 DocType.cnh,
-                "https://cdn/cnh.pdf",
+                DocumentSide.front,
+                null,
                 saved.getUploadedAt(),
                 false
         );
 
         when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId))
                 .thenReturn(Optional.of(Professional.builder().userId(UUID.randomUUID()).build()));
+        when(professionalDocumentRepository.findByProfessionalIdAndDocTypeAndDocSide(professionalId, DocType.cnh, DocumentSide.front))
+                .thenReturn(Optional.empty());
+        when(storageService.upload(eq(StorageBucket.DOCUMENTS), eq(professionalId.toString()), eq(file)))
+                .thenReturn(new StoredObject(StorageBucket.DOCUMENTS, storedKey, "application/pdf", 3L));
         when(professionalDocumentRepository.save(any(ProfessionalDocument.class))).thenReturn(saved);
         when(professionalDocumentMapper.toResponse(saved)).thenReturn(response);
 
-        ProfessionalDocumentResponse result = professionalDocumentService.create(professionalId, request);
+        ProfessionalDocumentResponse result = professionalDocumentService.create(professionalId, DocType.cnh, DocumentSide.front, file);
 
         assertThat(result).isEqualTo(response);
+    }
+
+    @Test
+    void createShouldReplaceExistingDocumentWhenProfessionalWasRejected() {
+        UUID professionalId = UUID.randomUUID();
+        UUID existingId = UUID.randomUUID();
+        MultipartFile file = new MockMultipartFile("file", "document-front.jpg", "image/jpeg", new byte[]{1, 2, 3});
+        String oldKey = "documents/" + professionalId + "/front-old.jpg";
+        String newKey = "documents/" + professionalId + "/front-new.jpg";
+
+        ProfessionalDocument existing = ProfessionalDocument.builder()
+                .professionalId(professionalId)
+                .docType(DocType.rg)
+                .docSide(DocumentSide.front)
+                .fileKey(oldKey)
+                .build();
+        existing.setId(existingId);
+
+        ProfessionalDocument saved = ProfessionalDocument.builder()
+                .professionalId(professionalId)
+                .docType(DocType.rg)
+                .docSide(DocumentSide.front)
+                .fileKey(newKey)
+                .uploadedAt(Instant.now())
+                .verified(false)
+                .build();
+
+        when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId))
+                .thenReturn(Optional.of(Professional.builder()
+                        .userId(UUID.randomUUID())
+                        .verificationStatus(com.allset.api.professional.domain.VerificationStatus.rejected)
+                        .build()));
+        when(professionalDocumentRepository.findByProfessionalIdAndDocTypeAndDocSide(professionalId, DocType.rg, DocumentSide.front))
+                .thenReturn(Optional.of(existing));
+        when(storageService.upload(eq(StorageBucket.DOCUMENTS), eq(professionalId.toString()), eq(file)))
+                .thenReturn(new StoredObject(StorageBucket.DOCUMENTS, newKey, "image/jpeg", 3L));
+        when(professionalDocumentRepository.save(any(ProfessionalDocument.class))).thenReturn(saved);
+        when(professionalDocumentMapper.toResponse(saved)).thenReturn(new ProfessionalDocumentResponse(
+                UUID.randomUUID(),
+                professionalId,
+                DocType.rg,
+                DocumentSide.front,
+                null,
+                saved.getUploadedAt(),
+                false
+        ));
+
+        professionalDocumentService.create(professionalId, DocType.rg, DocumentSide.front, file);
+
+        verify(professionalDocumentRepository).delete(existing);
+        verify(eventPublisher).publishEvent(new ObjectDeletionRequestedEvent(StorageBucket.DOCUMENTS, oldKey));
+    }
+
+    @Test
+    void createShouldRejectReplacingPendingDocument() {
+        UUID professionalId = UUID.randomUUID();
+        MultipartFile file = new MockMultipartFile("file", "document-front.jpg", "image/jpeg", new byte[]{1, 2, 3});
+
+        ProfessionalDocument existing = ProfessionalDocument.builder()
+                .professionalId(professionalId)
+                .docType(DocType.rg)
+                .docSide(DocumentSide.front)
+                .fileKey("documents/front-old.jpg")
+                .build();
+
+        when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId))
+                .thenReturn(Optional.of(Professional.builder()
+                        .userId(UUID.randomUUID())
+                        .verificationStatus(com.allset.api.professional.domain.VerificationStatus.pending)
+                        .build()));
+        when(professionalDocumentRepository.findByProfessionalIdAndDocTypeAndDocSide(professionalId, DocType.rg, DocumentSide.front))
+                .thenReturn(Optional.of(existing));
+        when(storageService.upload(eq(StorageBucket.DOCUMENTS), eq(professionalId.toString()), eq(file)))
+                .thenReturn(new StoredObject(StorageBucket.DOCUMENTS, "documents/front-new.jpg", "image/jpeg", 3L));
+
+        assertThatThrownBy(() -> professionalDocumentService.create(professionalId, DocType.rg, DocumentSide.front, file))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("bloqueado");
     }
 
     @Test
@@ -97,16 +199,19 @@ class ProfessionalDocumentServiceImplTest {
         assertThatThrownBy(() -> professionalDocumentService.delete(professionalId, documentId))
                 .isInstanceOf(ProfessionalDocumentNotFoundException.class)
                 .hasMessageContaining(documentId.toString());
+
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
-    void deleteShouldRemoveMatchedDocument() {
+    void deleteShouldRemoveDocumentAndPublishStorageEvent() {
         UUID professionalId = UUID.randomUUID();
         UUID documentId = UUID.randomUUID();
+        String key = "documents/" + professionalId + "/rg.pdf";
         ProfessionalDocument document = ProfessionalDocument.builder()
                 .professionalId(professionalId)
                 .docType(DocType.rg)
-                .fileUrl("https://cdn/rg.pdf")
+                .fileKey(key)
                 .build();
         document.setId(documentId);
 
@@ -116,5 +221,6 @@ class ProfessionalDocumentServiceImplTest {
         professionalDocumentService.delete(professionalId, documentId);
 
         verify(professionalDocumentRepository).delete(document);
+        verify(eventPublisher).publishEvent(new ObjectDeletionRequestedEvent(StorageBucket.DOCUMENTS, key));
     }
 }

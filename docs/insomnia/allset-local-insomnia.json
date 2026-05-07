@@ -1,0 +1,906 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-04-07T00:00:00.000Z",
+  "__export_source": "insomnia.importers:v0.1.0",
+  "resources": [
+    {
+      "_id": "wrk_allset_local",
+      "_type": "workspace",
+      "name": "All Set API Local",
+      "description": "Colecao local do backend atual do projeto TCC-back",
+      "scope": "collection",
+      "parentId": null,
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ _.access_token }}"
+      }
+    },
+    {
+      "_id": "env_allset_local",
+      "_type": "environment",
+      "name": "Base Environment",
+      "parentId": "wrk_allset_local",
+      "data": {
+        "base_url": "http://localhost:8080",
+        "access_token": "",
+        "refresh_token": "",
+        "login_email": "cliente@example.com",
+        "login_password": "Senha@2025!",
+        "user_id": "",
+        "address_id": "",
+        "professional_id": "",
+        "document_id": "",
+        "offering_id": "",
+        "blocked_period_id": "",
+        "area_id": "",
+        "category_id": "",
+        "subscription_plan_id": "",
+        "order_id": ""
+      }
+    },
+
+    { "_id": "fld_util", "_type": "request_group", "name": "Utilitarios", "parentId": "wrk_allset_local", "description": "Health check e OpenAPI" },
+    { "_id": "fld_auth", "_type": "request_group", "name": "Auth", "parentId": "wrk_allset_local", "description": "Autenticacao e recuperacao de senha" },
+    { "_id": "fld_users", "_type": "request_group", "name": "Users", "parentId": "wrk_allset_local", "description": "Usuarios" },
+    { "_id": "fld_addresses", "_type": "request_group", "name": "Addresses", "parentId": "wrk_allset_local", "description": "Enderecos salvos" },
+    { "_id": "fld_professionals", "_type": "request_group", "name": "Professionals", "parentId": "wrk_allset_local", "description": "Perfis profissionais" },
+    { "_id": "fld_documents", "_type": "request_group", "name": "Professional Documents", "parentId": "wrk_allset_local", "description": "Documentos KYC" },
+    { "_id": "fld_offerings", "_type": "request_group", "name": "Professional Services", "parentId": "wrk_allset_local", "description": "Servicos do profissional" },
+    { "_id": "fld_calendar", "_type": "request_group", "name": "Calendar Blocks", "parentId": "wrk_allset_local", "description": "Bloqueios de agenda" },
+    { "_id": "fld_service_areas", "_type": "request_group", "name": "Service Areas", "parentId": "wrk_allset_local", "description": "Catalogo nivel 1" },
+    { "_id": "fld_service_categories", "_type": "request_group", "name": "Service Categories", "parentId": "wrk_allset_local", "description": "Catalogo nivel 2" },
+    { "_id": "fld_subscription_plans", "_type": "request_group", "name": "Subscription Plans", "parentId": "wrk_allset_local", "description": "Planos de assinatura" },
+    { "_id": "fld_professional_subscription", "_type": "request_group", "name": "Professional Subscription", "parentId": "wrk_allset_local", "description": "Assinatura do profissional" },
+    { "_id": "fld_orders", "_type": "request_group", "name": "Orders", "parentId": "wrk_allset_local", "description": "Fluxo Express" },
+
+    {
+      "_id": "req_health",
+      "_type": "request",
+      "name": "Health Check",
+      "method": "GET",
+      "url": "{{ _.base_url }}/actuator/health",
+      "parentId": "fld_util",
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": { "type": "none" }
+    },
+    {
+      "_id": "req_openapi",
+      "_type": "request",
+      "name": "OpenAPI JSON",
+      "method": "GET",
+      "url": "{{ _.base_url }}/v3/api-docs",
+      "parentId": "fld_util",
+      "body": {},
+      "headers": [],
+      "parameters": [],
+      "authentication": { "type": "none" }
+    },
+
+    {
+      "_id": "req_auth_login",
+      "_type": "request",
+      "name": "Login",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/auth/login",
+      "parentId": "fld_auth",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"email\":\"{{ _.login_email }}\",\"password\":\"{{ _.login_password }}\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "authentication": { "type": "none" },
+      "afterResponseScript": "const body = insomnia.response.json(); insomnia.environment.set('access_token', body.accessToken); insomnia.environment.set('refresh_token', body.refreshToken);"
+    },
+    {
+      "_id": "req_auth_refresh",
+      "_type": "request",
+      "name": "Refresh",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/auth/refresh",
+      "parentId": "fld_auth",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"refreshToken\":\"{{ _.refresh_token }}\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "authentication": { "type": "none" },
+      "afterResponseScript": "const body = insomnia.response.json(); insomnia.environment.set('access_token', body.accessToken); insomnia.environment.set('refresh_token', body.refreshToken);"
+    },
+    {
+      "_id": "req_auth_logout",
+      "_type": "request",
+      "name": "Logout",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/auth/logout",
+      "parentId": "fld_auth",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"refreshToken\":\"{{ _.refresh_token }}\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "authentication": { "type": "none" }
+    },
+    {
+      "_id": "req_auth_forgot_password",
+      "_type": "request",
+      "name": "Forgot Password",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/auth/forgot-password",
+      "parentId": "fld_auth",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"email\":\"{{ _.login_email }}\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "authentication": { "type": "none" }
+    },
+    {
+      "_id": "req_auth_reset_password",
+      "_type": "request",
+      "name": "Reset Password",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/auth/reset-password",
+      "parentId": "fld_auth",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"email\":\"{{ _.login_email }}\",\"code\":\"1234\",\"newPassword\":\"NovaSenha@2025!\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "authentication": { "type": "none" }
+    },
+
+    {
+      "_id": "req_users_create",
+      "_type": "request",
+      "name": "Create User",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/users",
+      "parentId": "fld_users",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"name\":\"Joao da Silva\",\"cpf\":\"529.982.247-25\",\"email\":\"cliente@example.com\",\"phone\":\"+5585999999999\",\"password\":\"Senha@2025!\",\"role\":\"client\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "authentication": { "type": "none" }
+    },
+    {
+      "_id": "req_users_list",
+      "_type": "request",
+      "name": "List Users",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/users?banned=false&deleted=false&page=0&size=20&sort=createdAt,desc",
+      "parentId": "fld_users",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_users_get",
+      "_type": "request",
+      "name": "Get User By ID",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}",
+      "parentId": "fld_users",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_users_update",
+      "_type": "request",
+      "name": "Update User",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}",
+      "parentId": "fld_users",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"name\":\"Joao Souza\",\"email\":\"cliente+atualizado@example.com\",\"phone\":\"+5585988887777\",\"avatarUrl\":\"https://cdn.example.com/avatar.jpg\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_users_delete",
+      "_type": "request",
+      "name": "Soft Delete User",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}",
+      "parentId": "fld_users",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_users_reactivate",
+      "_type": "request",
+      "name": "Reactivate User",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}/reactivate",
+      "parentId": "fld_users",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_users_ban",
+      "_type": "request",
+      "name": "Ban User",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}/ban",
+      "parentId": "fld_users",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"reason\":\"Violacao dos termos de uso\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_users_activate",
+      "_type": "request",
+      "name": "Activate User",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}/activate",
+      "parentId": "fld_users",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+
+    {
+      "_id": "req_addresses_create",
+      "_type": "request",
+      "name": "Create Address",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}/addresses",
+      "parentId": "fld_addresses",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"label\":\"Casa\",\"street\":\"Rua das Flores\",\"number\":\"42\",\"complement\":\"Apto 301\",\"district\":\"Centro\",\"city\":\"Fortaleza\",\"state\":\"CE\",\"zipCode\":\"60000-000\",\"lat\":-3.731862,\"lng\":-38.526669,\"isDefault\":true}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "afterResponseScript": "const body = insomnia.response.json(); insomnia.environment.set('address_id', body.id);"
+    },
+    {
+      "_id": "req_addresses_list",
+      "_type": "request",
+      "name": "List Addresses",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}/addresses",
+      "parentId": "fld_addresses",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_addresses_get",
+      "_type": "request",
+      "name": "Get Address By ID",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}/addresses/{{ _.address_id }}",
+      "parentId": "fld_addresses",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_addresses_update",
+      "_type": "request",
+      "name": "Update Address",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}/addresses/{{ _.address_id }}",
+      "parentId": "fld_addresses",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"label\":\"Trabalho\",\"street\":\"Av. Beira Mar\",\"number\":\"1000\",\"district\":\"Meireles\",\"city\":\"Fortaleza\",\"state\":\"CE\",\"zipCode\":\"60165-121\",\"lat\":-3.721000,\"lng\":-38.500000,\"isDefault\":true}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_addresses_delete",
+      "_type": "request",
+      "name": "Delete Address",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}/addresses/{{ _.address_id }}",
+      "parentId": "fld_addresses",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_addresses_set_default",
+      "_type": "request",
+      "name": "Set Default Address",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/api/users/{{ _.user_id }}/addresses/{{ _.address_id }}/set-default",
+      "parentId": "fld_addresses",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+
+    {
+      "_id": "req_professionals_create",
+      "_type": "request",
+      "name": "Create Professional",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/professionals",
+      "parentId": "fld_professionals",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"userId\":\"{{ _.user_id }}\",\"bio\":\"Eletricista residencial e comercial\",\"yearsOfExperience\":5,\"baseHourlyRate\":120.00}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "authentication": { "type": "none" },
+      "afterResponseScript": "const body = insomnia.response.json(); insomnia.environment.set('professional_id', body.id);"
+    },
+    {
+      "_id": "req_professionals_list",
+      "_type": "request",
+      "name": "List Professionals",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/professionals?geoActive=false&page=0&size=20&sort=createdAt,desc",
+      "parentId": "fld_professionals",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_professionals_get",
+      "_type": "request",
+      "name": "Get Professional By ID",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}",
+      "parentId": "fld_professionals",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_professionals_update",
+      "_type": "request",
+      "name": "Update Professional",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}",
+      "parentId": "fld_professionals",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"bio\":\"Eletricista especializado em manutencao predial\",\"yearsOfExperience\":8,\"baseHourlyRate\":150.00}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_professionals_geo",
+      "_type": "request",
+      "name": "Update Professional Geo",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/geo",
+      "parentId": "fld_professionals",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"geoActive\":true,\"geoLat\":-3.731862,\"geoLng\":-38.526669}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_professionals_verify",
+      "_type": "request",
+      "name": "Verify Professional",
+      "method": "PATCH",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/verify",
+      "parentId": "fld_professionals",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"status\":\"approved\",\"rejectionReason\":null}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_professionals_delete",
+      "_type": "request",
+      "name": "Delete Professional",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}",
+      "parentId": "fld_professionals",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+
+    {
+      "_id": "req_documents_create",
+      "_type": "request",
+      "name": "Create Professional Document",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/documents",
+      "parentId": "fld_documents",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"docType\":\"rg\",\"fileUrl\":\"https://cdn.example.com/documents/rg-frente.jpg\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "afterResponseScript": "const body = insomnia.response.json(); insomnia.environment.set('document_id', body.id);"
+    },
+    {
+      "_id": "req_documents_list",
+      "_type": "request",
+      "name": "List Professional Documents",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/documents",
+      "parentId": "fld_documents",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_documents_delete",
+      "_type": "request",
+      "name": "Delete Professional Document",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/documents/{{ _.document_id }}",
+      "parentId": "fld_documents",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+
+    {
+      "_id": "req_offerings_create",
+      "_type": "request",
+      "name": "Create Professional Service",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/services",
+      "parentId": "fld_offerings",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"categoryId\":\"{{ _.category_id }}\",\"title\":\"Instalacao de tomadas\",\"description\":\"Instalacao e troca de tomadas e interruptores\",\"pricingType\":\"fixed\",\"price\":180.00,\"estimatedDurationMinutes\":90}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "afterResponseScript": "const body = insomnia.response.json(); insomnia.environment.set('offering_id', body.id);"
+    },
+    {
+      "_id": "req_offerings_list",
+      "_type": "request",
+      "name": "List Professional Services",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/services?includeInactive=false&page=0&size=20&sort=createdAt,desc",
+      "parentId": "fld_offerings",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_offerings_get",
+      "_type": "request",
+      "name": "Get Professional Service By ID",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/services/{{ _.offering_id }}",
+      "parentId": "fld_offerings",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_offerings_update",
+      "_type": "request",
+      "name": "Update Professional Service",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/services/{{ _.offering_id }}",
+      "parentId": "fld_offerings",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"title\":\"Instalacao de luminarias\",\"description\":\"Instalacao de luminarias e spots\",\"pricingType\":\"fixed\",\"price\":220.00,\"estimatedDurationMinutes\":120,\"active\":true}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_offerings_delete",
+      "_type": "request",
+      "name": "Delete Professional Service",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/services/{{ _.offering_id }}",
+      "parentId": "fld_offerings",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+
+    {
+      "_id": "req_calendar_create",
+      "_type": "request",
+      "name": "Create Calendar Block",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/calendar/blocks",
+      "parentId": "fld_calendar",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"blockType\":\"specific_date\",\"specificDate\":\"2026-04-20\",\"startsAt\":\"08:00:00\",\"endsAt\":\"12:00:00\",\"reason\":\"Atendimento externo\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "afterResponseScript": "const body = insomnia.response.json(); insomnia.environment.set('blocked_period_id', body.id);"
+    },
+    {
+      "_id": "req_calendar_list",
+      "_type": "request",
+      "name": "List Calendar Blocks",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/calendar/blocks",
+      "parentId": "fld_calendar",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_calendar_delete",
+      "_type": "request",
+      "name": "Delete Calendar Block",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/calendar/blocks/{{ _.blocked_period_id }}",
+      "parentId": "fld_calendar",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+
+    {
+      "_id": "req_service_areas_create",
+      "_type": "request",
+      "name": "Create Service Area",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/service-areas",
+      "parentId": "fld_service_areas",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"name\":\"Eletrica\",\"iconUrl\":\"https://cdn.example.com/icons/eletrica.png\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "afterResponseScript": "const body = insomnia.response.json(); insomnia.environment.set('area_id', body.id);"
+    },
+    {
+      "_id": "req_service_areas_list",
+      "_type": "request",
+      "name": "List Service Areas",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/service-areas?includeInactive=false&page=0&size=20&sort=name,asc",
+      "parentId": "fld_service_areas",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_service_areas_get",
+      "_type": "request",
+      "name": "Get Service Area By ID",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/service-areas/{{ _.area_id }}",
+      "parentId": "fld_service_areas",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_service_areas_update",
+      "_type": "request",
+      "name": "Update Service Area",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/v1/service-areas/{{ _.area_id }}",
+      "parentId": "fld_service_areas",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"name\":\"Eletrica Residencial\",\"iconUrl\":\"https://cdn.example.com/icons/eletrica-residencial.png\",\"active\":true}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_service_areas_delete",
+      "_type": "request",
+      "name": "Delete Service Area",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/v1/service-areas/{{ _.area_id }}",
+      "parentId": "fld_service_areas",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+
+    {
+      "_id": "req_service_categories_create",
+      "_type": "request",
+      "name": "Create Service Category",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/service-categories",
+      "parentId": "fld_service_categories",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"areaId\":\"{{ _.area_id }}\",\"name\":\"Eletricista\",\"iconUrl\":\"https://cdn.example.com/icons/eletricista.png\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "afterResponseScript": "const body = insomnia.response.json(); insomnia.environment.set('category_id', body.id);"
+    },
+    {
+      "_id": "req_service_categories_list",
+      "_type": "request",
+      "name": "List Service Categories",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/service-categories?areaId={{ _.area_id }}&includeInactive=false&page=0&size=20&sort=name,asc",
+      "parentId": "fld_service_categories",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_service_categories_get",
+      "_type": "request",
+      "name": "Get Service Category By ID",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/service-categories/{{ _.category_id }}",
+      "parentId": "fld_service_categories",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_service_categories_update",
+      "_type": "request",
+      "name": "Update Service Category",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/v1/service-categories/{{ _.category_id }}",
+      "parentId": "fld_service_categories",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"name\":\"Eletricista Predial\",\"iconUrl\":\"https://cdn.example.com/icons/eletricista-predial.png\",\"active\":true}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_service_categories_delete",
+      "_type": "request",
+      "name": "Delete Service Category",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/v1/service-categories/{{ _.category_id }}",
+      "parentId": "fld_service_categories",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+
+    {
+      "_id": "req_subscription_plans_create",
+      "_type": "request",
+      "name": "Create Subscription Plan",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/subscription-plans",
+      "parentId": "fld_subscription_plans",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"name\":\"Plano Pro\",\"priceMonthly\":49.90,\"highlightInSearch\":true,\"expressPriority\":true,\"badgeLabel\":\"Pro\",\"active\":true}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "afterResponseScript": "const body = insomnia.response.json(); insomnia.environment.set('subscription_plan_id', body.id);"
+    },
+    {
+      "_id": "req_subscription_plans_list",
+      "_type": "request",
+      "name": "List Subscription Plans",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/subscription-plans?includeInactive=false&page=0&size=20&sort=name,asc",
+      "parentId": "fld_subscription_plans",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_subscription_plans_get",
+      "_type": "request",
+      "name": "Get Subscription Plan By ID",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/subscription-plans/{{ _.subscription_plan_id }}",
+      "parentId": "fld_subscription_plans",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_subscription_plans_update",
+      "_type": "request",
+      "name": "Update Subscription Plan",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/v1/subscription-plans/{{ _.subscription_plan_id }}",
+      "parentId": "fld_subscription_plans",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"name\":\"Plano Premium\",\"priceMonthly\":59.90,\"highlightInSearch\":true,\"expressPriority\":true,\"badgeLabel\":\"Premium\",\"active\":true}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_subscription_plans_delete",
+      "_type": "request",
+      "name": "Delete Subscription Plan",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/api/v1/subscription-plans/{{ _.subscription_plan_id }}",
+      "parentId": "fld_subscription_plans",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+
+    {
+      "_id": "req_professional_subscription_get",
+      "_type": "request",
+      "name": "Get Professional Subscription",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/subscription",
+      "parentId": "fld_professional_subscription",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_professional_subscription_assign",
+      "_type": "request",
+      "name": "Assign Subscription Plan",
+      "method": "PUT",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/subscription",
+      "parentId": "fld_professional_subscription",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"subscriptionPlanId\":\"{{ _.subscription_plan_id }}\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_professional_subscription_cancel",
+      "_type": "request",
+      "name": "Cancel Professional Subscription",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/professionals/{{ _.professional_id }}/subscription/cancel",
+      "parentId": "fld_professional_subscription",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+
+    {
+      "_id": "req_orders_create_express",
+      "_type": "request",
+      "name": "Create Express Order",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/orders/express",
+      "parentId": "fld_orders",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"areaId\":\"{{ _.area_id }}\",\"categoryId\":\"{{ _.category_id }}\",\"description\":\"Tomada queimada na sala principal\",\"addressId\":\"{{ _.address_id }}\",\"photoUrl\":\"https://cdn.example.com/orders/problema.jpg\",\"urgencyFee\":20.00}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": [],
+      "afterResponseScript": "const body = insomnia.response.json(); insomnia.environment.set('order_id', body.id);"
+    },
+    {
+      "_id": "req_orders_get",
+      "_type": "request",
+      "name": "Get Order By ID",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/orders/{{ _.order_id }}",
+      "parentId": "fld_orders",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_orders_list",
+      "_type": "request",
+      "name": "List Orders",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/orders?page=0&size=20&sort=createdAt,desc",
+      "parentId": "fld_orders",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_orders_proposals",
+      "_type": "request",
+      "name": "Get Express Proposals",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/v1/orders/{{ _.order_id }}/express/proposals",
+      "parentId": "fld_orders",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_orders_pro_respond",
+      "_type": "request",
+      "name": "Professional Respond To Express Order",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/orders/{{ _.order_id }}/express/pro-respond",
+      "parentId": "fld_orders",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"response\":\"accepted\",\"proposedAmount\":180.00}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_orders_client_respond",
+      "_type": "request",
+      "name": "Client Choose Proposal",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/orders/{{ _.order_id }}/express/client-respond",
+      "parentId": "fld_orders",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"selectedProfessionalId\":\"{{ _.professional_id }}\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_orders_complete",
+      "_type": "request",
+      "name": "Professional Complete Order",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/orders/{{ _.order_id }}/complete",
+      "parentId": "fld_orders",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"photoUrl\":\"https://cdn.example.com/orders/conclusao.jpg\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    },
+    {
+      "_id": "req_orders_confirm",
+      "_type": "request",
+      "name": "Client Confirm Completion",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/orders/{{ _.order_id }}/confirm",
+      "parentId": "fld_orders",
+      "body": {},
+      "headers": [],
+      "parameters": []
+    },
+    {
+      "_id": "req_orders_cancel",
+      "_type": "request",
+      "name": "Cancel Order",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/v1/orders/{{ _.order_id }}/cancel",
+      "parentId": "fld_orders",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"reason\":\"Cliente desistiu do atendimento\"}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }],
+      "parameters": []
+    }
+  ]
+}

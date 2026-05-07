@@ -14,6 +14,8 @@ public interface ServiceCategoryRepository extends JpaRepository<ServiceCategory
 
     Page<ServiceCategory> findAllByDeletedAtIsNull(Pageable pageable);
 
+    Page<ServiceCategory> findAllByAreaIdAndDeletedAtIsNull(UUID areaId, Pageable pageable);
+
     Page<ServiceCategory> findAllByAreaIdAndActiveTrueAndDeletedAtIsNull(UUID areaId, Pageable pageable);
 
     Page<ServiceCategory> findAllByActiveTrueAndDeletedAtIsNull(Pageable pageable);

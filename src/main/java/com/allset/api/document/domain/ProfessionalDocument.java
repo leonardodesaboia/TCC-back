@@ -33,8 +33,13 @@ public class ProfessionalDocument {
     @Column(name = "doc_type", columnDefinition = "doc_type", nullable = false, updatable = false)
     private DocType docType;
 
+    @Enumerated(EnumType.STRING)
+    @JdbcType(PostgreSQLEnumJdbcType.class)
+    @Column(name = "doc_side", columnDefinition = "document_side", nullable = false, updatable = false)
+    private DocumentSide docSide;
+
     @Column(name = "file_url", nullable = false, columnDefinition = "TEXT")
-    private String fileUrl;
+    private String fileKey;
 
     @CreatedDate
     @Column(name = "uploaded_at", nullable = false, updatable = false)

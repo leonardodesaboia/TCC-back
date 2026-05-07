@@ -7,11 +7,19 @@ import com.allset.api.address.dto.UpdateSavedAddressRequest;
 import com.allset.api.address.exception.SavedAddressNotFoundException;
 import com.allset.api.address.mapper.SavedAddressMapper;
 import com.allset.api.address.repository.SavedAddressRepository;
+import com.allset.api.geocoding.dto.GeocodeRequest;
+import com.allset.api.geocoding.dto.GeocodeResponse;
+import com.allset.api.geocoding.exception.GeocodingProviderUnavailableException;
+import com.allset.api.geocoding.exception.GeocodingRateLimitException;
+import com.allset.api.geocoding.service.GeocodingService;
 import com.allset.api.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,9 +28,12 @@ import java.util.UUID;
 @Transactional
 public class SavedAddressServiceImpl implements SavedAddressService {
 
+    private static final Logger log = LoggerFactory.getLogger(SavedAddressServiceImpl.class);
+
     private final SavedAddressRepository savedAddressRepository;
     private final SavedAddressMapper savedAddressMapper;
     private final UserService userService;
+    private final GeocodingService geocodingService;
 
     @Override
     public SavedAddressResponse create(UUID userId, CreateSavedAddressRequest request) {
@@ -31,6 +42,16 @@ public class SavedAddressServiceImpl implements SavedAddressService {
 
         if (request.isDefault()) {
             savedAddressRepository.unsetDefaultForUser(userId);
+        }
+
+        BigDecimal lat = request.lat();
+        BigDecimal lng = request.lng();
+        if (lat == null || lng == null) {
+            GeocodeResponse geocoded = tryGeocode(toGeocodeRequest(request));
+            if (geocoded != null) {
+                lat = geocoded.lat();
+                lng = geocoded.lng();
+            }
         }
 
         SavedAddress address = SavedAddress.builder()
@@ -43,8 +64,8 @@ public class SavedAddressServiceImpl implements SavedAddressService {
             .city(request.city())
             .state(request.state())
             .zipCode(request.zipCode())
-            .lat(request.lat())
-            .lng(request.lng())
+            .lat(lat)
+            .lng(lng)
             .isDefault(request.isDefault())
             .build();
 
@@ -69,6 +90,13 @@ public class SavedAddressServiceImpl implements SavedAddressService {
     public SavedAddressResponse update(UUID userId, UUID id, UpdateSavedAddressRequest request) {
         SavedAddress address = findOwnedAddress(userId, id);
 
+        boolean addressFieldsChanged =
+            request.street()  != null
+            || request.number()  != null
+            || request.zipCode() != null
+            || request.city()    != null
+            || request.state()   != null;
+
         if (request.label() != null)      { address.setLabel(request.label()); }
         if (request.street() != null)     { address.setStreet(request.street()); }
         if (request.number() != null)     { address.setNumber(request.number()); }
@@ -79,6 +107,24 @@ public class SavedAddressServiceImpl implements SavedAddressService {
         if (request.zipCode() != null)    { address.setZipCode(request.zipCode()); }
         if (request.lat() != null)        { address.setLat(request.lat()); }
         if (request.lng() != null)        { address.setLng(request.lng()); }
+
+        // Re-geocodificar apenas quando algum campo de endereço mudou e o request
+        // não trouxe lat/lng explícitos (front que confirmou o pin não é re-geocodificado).
+        if (addressFieldsChanged && request.lat() == null && request.lng() == null) {
+            GeocodeResponse geocoded = tryGeocode(new GeocodeRequest(
+                address.getZipCode(),
+                address.getStreet(),
+                address.getNumber(),
+                address.getComplement(),
+                address.getDistrict(),
+                address.getCity(),
+                address.getState()
+            ));
+            if (geocoded != null) {
+                address.setLat(geocoded.lat());
+                address.setLng(geocoded.lng());
+            }
+        }
 
         if (request.isDefault() != null) {
             if (Boolean.TRUE.equals(request.isDefault())) {
@@ -113,5 +159,37 @@ public class SavedAddressServiceImpl implements SavedAddressService {
     private SavedAddress findOwnedAddress(UUID userId, UUID id) {
         return savedAddressRepository.findByIdAndUserId(id, userId)
             .orElseThrow(() -> new SavedAddressNotFoundException(id));
+    }
+
+    /**
+     * Geocodifica o endereço tolerando falha do provider:
+     * <ul>
+     *   <li>endereço não localizável → propaga {@code AddressNotGeocodableException} (422);</li>
+     *   <li>provider offline / rate limit → log warn e devolve {@code null}, deixando lat/lng nulos
+     *       no banco (o front pode reexecutar lookup e atualizar via PUT depois).</li>
+     * </ul>
+     */
+    private GeocodeResponse tryGeocode(GeocodeRequest request) {
+        try {
+            return geocodingService.geocode(request);
+        } catch (GeocodingProviderUnavailableException ex) {
+            log.warn("Geocoding indisponível, salvando endereço sem coordenadas: {}", ex.getMessage());
+            return null;
+        } catch (GeocodingRateLimitException ex) {
+            log.warn("Geocoding sob rate limit, salvando endereço sem coordenadas: {}", ex.getMessage());
+            return null;
+        }
+    }
+
+    private static GeocodeRequest toGeocodeRequest(CreateSavedAddressRequest request) {
+        return new GeocodeRequest(
+            request.zipCode(),
+            request.street(),
+            request.number(),
+            request.complement(),
+            request.district(),
+            request.city(),
+            request.state()
+        );
     }
 }

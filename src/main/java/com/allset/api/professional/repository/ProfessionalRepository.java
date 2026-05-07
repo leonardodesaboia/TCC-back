@@ -25,5 +25,10 @@ public interface ProfessionalRepository extends JpaRepository<Professional, UUID
 
     Page<Professional> findAllByGeoActiveTrueAndDeletedAtIsNull(Pageable pageable);
 
+    Page<Professional> findAllByGeoActiveTrueAndVerificationStatusAndDeletedAtIsNull(
+            VerificationStatus status, Pageable pageable);
+
     List<Professional> findAllBySubscriptionPlanIdIsNotNullAndSubscriptionExpiresAtLessThanEqualAndDeletedAtIsNull(Instant expiresAt);
+
+    List<Professional> findAllByIdInAndDeletedAtIsNull(List<UUID> ids);
 }

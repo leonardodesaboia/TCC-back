@@ -1,10 +1,13 @@
 package com.allset.api.professional.domain;
 
 import com.allset.api.boilerplate.domain.PostgresEntity;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcType;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -40,8 +43,9 @@ public class Professional extends PostgresEntity {
     @Column(name = "idwall_token", length = 255)
     private String idwallToken;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "idwall_result", columnDefinition = "jsonb")
-    private String idwallResult;
+    private JsonNode idwallResult;
 
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
@@ -56,9 +60,21 @@ public class Professional extends PostgresEntity {
     @Column(name = "geo_active", nullable = false)
     private boolean geoActive = false;
 
+    @Column(name = "geo_captured_at")
+    private Instant geoCapturedAt;
+
+    @Column(name = "geo_accuracy_meters", precision = 7, scale = 2)
+    private BigDecimal geoAccuracyMeters;
+
+    @Column(name = "geo_source", length = 20)
+    private String geoSource;
+
     @Column(name = "subscription_plan_id")
     private UUID subscriptionPlanId;
 
     @Column(name = "subscription_expires_at")
     private Instant subscriptionExpiresAt;
+
+    @Column(name = "subscription_cancelled_at")
+    private Instant subscriptionCancelledAt;
 }
