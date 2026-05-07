@@ -7,13 +7,16 @@ import com.allset.api.chat.dto.MessageResponse;
 import com.allset.api.chat.dto.ReadReceiptEvent;
 import com.allset.api.chat.dto.SendMessageRequest;
 import com.allset.api.chat.event.MessageSentEvent;
+import com.allset.api.chat.exception.ConversationClosedException;
 import com.allset.api.chat.mapper.MessageMapper;
 import com.allset.api.chat.repository.MessageRepository;
+import com.allset.api.order.domain.OrderStatus;
+import com.allset.api.order.repository.OrderRepository;
 import com.allset.api.notification.domain.NotificationType;
 import com.allset.api.notification.service.NotificationService;
-import com.allset.api.shared.storage.domain.StorageBucket;
-import com.allset.api.shared.storage.domain.StoredObject;
-import com.allset.api.shared.storage.service.StorageService;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.domain.StoredObject;
+import com.allset.api.integration.storage.service.StorageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -32,6 +36,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional
 public class MessageServiceImpl implements MessageService {
+
+    private static final Set<OrderStatus> CLOSED_STATUSES = Set.of(
+            OrderStatus.completed, OrderStatus.cancelled, OrderStatus.disputed);
 
     private final MessageRepository messageRepository;
     private final MessageMapper messageMapper;
@@ -41,10 +48,12 @@ public class MessageServiceImpl implements MessageService {
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final StorageService storageService;
+    private final OrderRepository orderRepository;
 
     @Override
     public MessageResponse sendText(UUID conversationId, UUID senderId, SendMessageRequest request) {
         Conversation conversation = conversationService.requireParticipant(conversationId, senderId);
+        requireOrderOpen(conversation.getOrderId());
 
         Message message = Message.builder()
                 .conversationId(conversationId)
@@ -66,6 +75,7 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public MessageResponse sendImageMessage(UUID conversationId, UUID senderId, MultipartFile file) {
         Conversation conversation = conversationService.requireParticipant(conversationId, senderId);
+        requireOrderOpen(conversation.getOrderId());
 
         StoredObject stored = storageService.upload(StorageBucket.CHAT_ATTACHMENTS, conversationId.toString(), file);
 
@@ -130,6 +140,15 @@ public class MessageServiceImpl implements MessageService {
         }
 
         return event;
+    }
+
+    private void requireOrderOpen(UUID orderId) {
+        boolean isClosed = orderRepository.findByIdAndDeletedAtIsNull(orderId)
+                .map(order -> CLOSED_STATUSES.contains(order.getStatus()))
+                .orElse(false);
+        if (isClosed) {
+            throw new ConversationClosedException(orderId);
+        }
     }
 
     private void notifyMessageRecipient(Conversation conversation, UUID senderId, UUID messageId) {

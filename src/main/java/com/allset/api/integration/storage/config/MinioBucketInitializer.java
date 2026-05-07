@@ -1,6 +1,6 @@
-package com.allset.api.shared.storage.config;
+package com.allset.api.integration.storage.config;
 
-import com.allset.api.shared.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.domain.StorageBucket;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;

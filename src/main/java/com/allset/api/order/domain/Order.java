@@ -102,6 +102,9 @@ public class Order extends PostgresEntity {
     @Column(name = "total_amount", precision = 10, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(name = "estimated_duration_minutes")
+    private Integer estimatedDurationMinutes;
+
     @Column(name = "pro_completed_at")
     private Instant proCompletedAt;
 

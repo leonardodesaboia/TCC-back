@@ -1,6 +1,6 @@
-package com.allset.api.shared.storage.domain;
+package com.allset.api.integration.storage.domain;
 
-import com.allset.api.shared.storage.config.MinioProperties;
+import com.allset.api.integration.storage.config.MinioProperties;
 
 import java.util.Set;
 

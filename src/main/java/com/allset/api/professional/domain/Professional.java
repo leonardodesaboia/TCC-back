@@ -60,6 +60,15 @@ public class Professional extends PostgresEntity {
     @Column(name = "geo_active", nullable = false)
     private boolean geoActive = false;
 
+    @Column(name = "geo_captured_at")
+    private Instant geoCapturedAt;
+
+    @Column(name = "geo_accuracy_meters", precision = 7, scale = 2)
+    private BigDecimal geoAccuracyMeters;
+
+    @Column(name = "geo_source", length = 20)
+    private String geoSource;
+
     @Column(name = "subscription_plan_id")
     private UUID subscriptionPlanId;
 

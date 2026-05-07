@@ -2,8 +2,8 @@ package com.allset.api.dispute.mapper;
 
 import com.allset.api.dispute.domain.DisputeEvidence;
 import com.allset.api.dispute.dto.DisputeEvidenceResponse;
-import com.allset.api.shared.storage.domain.StorageBucket;
-import com.allset.api.shared.storage.service.StorageRefFactory;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.service.StorageRefFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

@@ -2,8 +2,8 @@ package com.allset.api.user.mapper;
 
 import com.allset.api.review.dto.ReviewRatingSummary;
 import com.allset.api.review.service.ReviewSummaryService;
-import com.allset.api.shared.storage.domain.StorageBucket;
-import com.allset.api.shared.storage.service.StorageRefFactory;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.service.StorageRefFactory;
 import com.allset.api.user.domain.User;
 import com.allset.api.user.dto.UserResponse;
 import lombok.RequiredArgsConstructor;

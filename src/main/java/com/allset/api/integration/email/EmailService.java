@@ -1,4 +1,4 @@
-package com.allset.api.shared.email;
+package com.allset.api.integration.email;
 
 /**
  * Contrato agnóstico de framework para envio de e-mails transacionais.

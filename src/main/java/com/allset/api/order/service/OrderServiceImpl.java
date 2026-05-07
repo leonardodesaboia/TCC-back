@@ -23,9 +23,9 @@ import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.exception.ProfessionalNotApprovedException;
 import com.allset.api.professional.repository.ProfessionalRepository;
 import com.allset.api.professional.repository.ProfessionalSpecialtyRepository;
-import com.allset.api.shared.storage.domain.StorageBucket;
-import com.allset.api.shared.storage.domain.StoredObject;
-import com.allset.api.shared.storage.service.StorageService;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.domain.StoredObject;
+import com.allset.api.integration.storage.service.StorageService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -191,12 +191,41 @@ public class OrderServiceImpl implements OrderService {
 
         JsonNode snapshot = serializeAddress(address);
 
-        BigDecimal price = resolveOfferingPrice(offering);
-        if (price == null) {
-            throw new IllegalArgumentException(
-                    "Serviço sem preço definido e sem valor/hora na especialidade vinculada");
+        Integer resolvedDurationMinutes;
+        BigDecimal price;
+
+        if (offering.getPricingType() == PricingType.hourly) {
+            BigDecimal hourlyRate = resolveOfferingPrice(offering);
+            if (hourlyRate == null) {
+                throw new IllegalArgumentException(
+                        "Serviço sem taxa horária definida e sem valor/hora na especialidade vinculada");
+            }
+            if (offering.getEstimatedDurationMinutes() != null) {
+                resolvedDurationMinutes = offering.getEstimatedDurationMinutes();
+            } else {
+                if (request.estimatedDurationMinutes() == null) {
+                    throw new IllegalArgumentException(
+                            "Duração é obrigatória para serviços por hora sem duração definida");
+                }
+                if (request.estimatedDurationMinutes() % 30 != 0) {
+                    throw new IllegalArgumentException(
+                            "Duração deve ser múltiplo de 30 minutos");
+                }
+                resolvedDurationMinutes = request.estimatedDurationMinutes();
+            }
+            price = hourlyRate
+                    .multiply(BigDecimal.valueOf(resolvedDurationMinutes))
+                    .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+        } else {
+            price = resolveOfferingPrice(offering);
+            if (price == null) {
+                throw new IllegalArgumentException(
+                        "Serviço sem preço definido e sem valor/hora na especialidade vinculada");
+            }
+            resolvedDurationMinutes = offering.getEstimatedDurationMinutes();
         }
-        BigDecimal fee = price.multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal fee   = price.multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP);
         BigDecimal total = price;
 
         Order order = Order.builder()
@@ -216,6 +245,7 @@ public class OrderServiceImpl implements OrderService {
                 .baseAmount(price)
                 .platformFee(fee)
                 .totalAmount(total)
+                .estimatedDurationMinutes(resolvedDurationMinutes)
                 .build();
 
         Order saved = orderRepository.save(order);
@@ -364,6 +394,7 @@ public class OrderServiceImpl implements OrderService {
                         pro.getId(),
                         OrderMode.express,
                         OrderStatus.pending,
+                        ProResponse.accepted,
                         pageable
                 ).map(order -> orderMapper.toResponse(
                         order,

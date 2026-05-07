@@ -2,8 +2,8 @@ package com.allset.api.catalog.mapper;
 
 import com.allset.api.catalog.domain.ServiceCategory;
 import com.allset.api.catalog.dto.ServiceCategoryResponse;
-import com.allset.api.shared.storage.domain.StorageBucket;
-import com.allset.api.shared.storage.service.StorageRefFactory;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.service.StorageRefFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

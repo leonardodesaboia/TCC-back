@@ -2,7 +2,7 @@ package com.allset.api.document.dto;
 
 import com.allset.api.document.domain.DocType;
 import com.allset.api.document.domain.DocumentSide;
-import com.allset.api.shared.storage.dto.StorageRefResponse;
+import com.allset.api.integration.storage.dto.StorageRefResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;

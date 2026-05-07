@@ -1,12 +1,12 @@
-package com.allset.api.shared.storage.service;
+package com.allset.api.integration.storage.service;
 
-import com.allset.api.shared.storage.config.MinioProperties;
-import com.allset.api.shared.storage.domain.PresignedUpload;
-import com.allset.api.shared.storage.domain.StorageBucket;
-import com.allset.api.shared.storage.domain.StoredObject;
-import com.allset.api.shared.storage.exception.FileTooLargeException;
-import com.allset.api.shared.storage.exception.InvalidFileTypeException;
-import com.allset.api.shared.storage.exception.StorageUploadException;
+import com.allset.api.integration.storage.config.MinioProperties;
+import com.allset.api.integration.storage.domain.PresignedUpload;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.domain.StoredObject;
+import com.allset.api.integration.storage.exception.FileTooLargeException;
+import com.allset.api.integration.storage.exception.InvalidFileTypeException;
+import com.allset.api.integration.storage.exception.StorageUploadException;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;

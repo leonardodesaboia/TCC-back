@@ -1,7 +1,7 @@
 package com.allset.api.chat.dto;
 
 import com.allset.api.chat.domain.MessageType;
-import com.allset.api.shared.storage.dto.StorageRefResponse;
+import com.allset.api.integration.storage.dto.StorageRefResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;

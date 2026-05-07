@@ -1,6 +1,7 @@
 package com.allset.api.shared.exception;
 
 import com.allset.api.auth.exception.InvalidCredentialsException;
+import com.allset.api.chat.exception.ConversationClosedException;
 import com.allset.api.chat.exception.ConversationNotFoundException;
 import com.allset.api.chat.exception.MessageContentInvalidException;
 import com.allset.api.auth.exception.InvalidResetCodeException;
@@ -29,10 +30,10 @@ import com.allset.api.professional.exception.ProfessionalAlreadyExistsException;
 import com.allset.api.professional.exception.ProfessionalNotApprovedException;
 import com.allset.api.professional.exception.ProfessionalNotFoundException;
 import com.allset.api.review.exception.ReviewAlreadyExistsException;
-import com.allset.api.shared.storage.exception.FileTooLargeException;
-import com.allset.api.shared.storage.exception.InvalidFileTypeException;
-import com.allset.api.shared.storage.exception.StorageObjectNotFoundException;
-import com.allset.api.shared.storage.exception.StorageUploadException;
+import com.allset.api.integration.storage.exception.FileTooLargeException;
+import com.allset.api.integration.storage.exception.InvalidFileTypeException;
+import com.allset.api.integration.storage.exception.StorageObjectNotFoundException;
+import com.allset.api.integration.storage.exception.StorageUploadException;
 import com.allset.api.subscription.exception.SubscriptionPlanNameAlreadyExistsException;
 import com.allset.api.subscription.exception.SubscriptionPlanNotFoundException;
 import com.allset.api.subscription.exception.ProfessionalSubscriptionNotFoundException;
@@ -121,7 +122,8 @@ public class GlobalExceptionHandler {
             SubscriptionPlanAlreadyActiveException.class,
             ReviewAlreadyExistsException.class,
             DisputeAlreadyExistsException.class,
-            FavoriteProfessionalAlreadyExistsException.class
+            FavoriteProfessionalAlreadyExistsException.class,
+            ConversationClosedException.class
     })
     public ResponseEntity<ApiError> handleConflict(RuntimeException ex,
                                                     HttpServletRequest request) {

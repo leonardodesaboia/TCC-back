@@ -10,12 +10,17 @@ import java.util.List;
 public class ConversationMapper {
 
     public ConversationResponse toResponse(Conversation conversation) {
+        return toResponse(conversation, null);
+    }
+
+    public ConversationResponse toResponse(Conversation conversation, String orderStatus) {
         return new ConversationResponse(
                 conversation.getId(),
                 conversation.getOrderId(),
                 conversation.getClientId(),
                 conversation.getProfessionalUserId(),
-                conversation.getCreatedAt()
+                conversation.getCreatedAt(),
+                orderStatus
         );
     }
 

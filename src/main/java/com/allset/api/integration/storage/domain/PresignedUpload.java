@@ -1,4 +1,4 @@
-package com.allset.api.shared.storage.domain;
+package com.allset.api.integration.storage.domain;
 
 import java.time.Instant;
 

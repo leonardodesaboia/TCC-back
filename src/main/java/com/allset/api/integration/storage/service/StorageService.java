@@ -1,8 +1,8 @@
-package com.allset.api.shared.storage.service;
+package com.allset.api.integration.storage.service;
 
-import com.allset.api.shared.storage.domain.PresignedUpload;
-import com.allset.api.shared.storage.domain.StorageBucket;
-import com.allset.api.shared.storage.domain.StoredObject;
+import com.allset.api.integration.storage.domain.PresignedUpload;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.domain.StoredObject;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;

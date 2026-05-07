@@ -9,8 +9,8 @@ import com.allset.api.order.dto.ExpressProposalResponse;
 import com.allset.api.order.dto.ExpressQueueEntryResponse;
 import com.allset.api.order.dto.OrderPhotoResponse;
 import com.allset.api.order.dto.OrderResponse;
-import com.allset.api.shared.storage.domain.StorageBucket;
-import com.allset.api.shared.storage.service.StorageRefFactory;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.service.StorageRefFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -63,6 +63,7 @@ public class OrderMapper {
                 order.getBaseAmount(),
                 order.getPlatformFee(),
                 order.getTotalAmount(),
+                order.getEstimatedDurationMinutes(),
                 order.getProCompletedAt(),
                 order.getDisputeDeadline(),
                 order.getCompletedAt(),

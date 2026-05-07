@@ -1,4 +1,4 @@
-package com.allset.api.shared.storage.dto;
+package com.allset.api.integration.storage.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

@@ -1,4 +1,4 @@
-package com.allset.api.shared.email;
+package com.allset.api.integration.email;
 
 import com.allset.api.config.AppProperties;
 import com.resend.Resend;

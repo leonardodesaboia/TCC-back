@@ -2,8 +2,8 @@ package com.allset.api.document.mapper;
 
 import com.allset.api.document.domain.ProfessionalDocument;
 import com.allset.api.document.dto.ProfessionalDocumentResponse;
-import com.allset.api.shared.storage.domain.StorageBucket;
-import com.allset.api.shared.storage.service.StorageRefFactory;
+import com.allset.api.integration.storage.domain.StorageBucket;
+import com.allset.api.integration.storage.service.StorageRefFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
