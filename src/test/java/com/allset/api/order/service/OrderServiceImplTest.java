@@ -584,7 +584,9 @@ class OrderServiceImplTest {
                 order.getVersion(),
                 order.getCreatedAt(),
                 order.getUpdatedAt(),
-                List.of()
+                List.of(),
+                null,
+                null
         );
     }
 }
