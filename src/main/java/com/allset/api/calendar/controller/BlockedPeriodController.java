@@ -2,6 +2,7 @@ package com.allset.api.calendar.controller;
 
 import com.allset.api.calendar.dto.BlockedPeriodResponse;
 import com.allset.api.calendar.dto.CreateBlockedPeriodRequest;
+import com.allset.api.calendar.dto.UpdateBlockedPeriodRequest;
 import com.allset.api.calendar.service.BlockedPeriodService;
 import com.allset.api.shared.exception.ApiError;
 import io.swagger.v3.oas.annotations.Operation;
@@ -62,6 +63,27 @@ public class BlockedPeriodController {
         return ResponseEntity.created(location).body(response);
     }
 
+    @Operation(summary = "Atualizar bloqueio", description = "Atualiza horários, data ou motivo de um bloqueio existente. O tipo do bloqueio não pode ser alterado.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Bloqueio atualizado com sucesso",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BlockedPeriodResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+            @ApiResponse(responseCode = "401", description = "Token ausente ou inválido", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Acesso negado", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Bloqueio não encontrado",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    public ResponseEntity<BlockedPeriodResponse> update(
+            @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId,
+            @Parameter(description = "ID do bloqueio", required = true) @PathVariable UUID id,
+            @Valid @RequestBody UpdateBlockedPeriodRequest request
+    ) {
+        return ResponseEntity.ok(blockedPeriodService.update(professionalId, id, request));
+    }
+
     @Operation(summary = "Listar bloqueios", description = "Retorna todos os bloqueios de agenda do profissional.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lista retornada com sucesso",
@@ -72,8 +94,7 @@ public class BlockedPeriodController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @GetMapping
-    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<BlockedPeriodResponse>> findAll(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId
     ) {

@@ -23,6 +23,7 @@ import com.allset.api.professional.domain.VerificationStatus;
 import com.allset.api.professional.exception.ProfessionalNotApprovedException;
 import com.allset.api.professional.repository.ProfessionalRepository;
 import com.allset.api.professional.repository.ProfessionalSpecialtyRepository;
+import com.allset.api.user.repository.UserRepository;
 import com.allset.api.integration.storage.domain.StorageBucket;
 import com.allset.api.integration.storage.domain.StoredObject;
 import com.allset.api.integration.storage.service.StorageService;
@@ -61,6 +62,7 @@ public class OrderServiceImpl implements OrderService {
     private final ProfessionalRepository     professionalRepository;
     private final ProfessionalSpecialtyRepository specialtyRepository;
     private final ProfessionalOfferingRepository offeringRepository;
+    private final UserRepository             userRepository;
     private final OrderMapper                orderMapper;
     private final ObjectMapper               objectMapper;
     private final AppProperties              appProperties;
@@ -362,7 +364,22 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderNotFoundException(orderId);
         }
 
-        return orderMapper.toResponse(order, photoRepository.findAllByOrderId(orderId), queueEntry);
+        String professionalName = null;
+        String serviceName = null;
+        if (isClient && order.getProfessionalId() != null) {
+            professionalName = professionalRepository
+                    .findByIdAndDeletedAtIsNull(order.getProfessionalId())
+                    .flatMap(pro -> userRepository.findByIdAndDeletedAtIsNull(pro.getUserId()))
+                    .map(user -> user.getName())
+                    .orElse(null);
+            if (order.getServiceId() != null) {
+                serviceName = offeringRepository
+                        .findById(order.getServiceId())
+                        .map(offering -> offering.getTitle())
+                        .orElse(null);
+            }
+        }
+        return orderMapper.toResponse(order, photoRepository.findAllByOrderId(orderId), queueEntry, professionalName, serviceName);
     }
 
     @Override
@@ -379,7 +396,24 @@ public class OrderServiceImpl implements OrderService {
         return (status != null
                 ? orderRepository.findAllByClientIdAndStatusAndDeletedAtIsNull(userId, status, pageable)
                 : orderRepository.findAllByClientIdAndDeletedAtIsNull(userId, pageable))
-                .map(orderMapper::toResponse);
+                .map(order -> {
+                    String professionalName = null;
+                    String serviceName = null;
+                    if (order.getProfessionalId() != null) {
+                        professionalName = professionalRepository
+                                .findByIdAndDeletedAtIsNull(order.getProfessionalId())
+                                .flatMap(pro -> userRepository.findByIdAndDeletedAtIsNull(pro.getUserId()))
+                                .map(user -> user.getName())
+                                .orElse(null);
+                    }
+                    if (order.getServiceId() != null) {
+                        serviceName = offeringRepository
+                                .findById(order.getServiceId())
+                                .map(offering -> offering.getTitle())
+                                .orElse(null);
+                    }
+                    return orderMapper.toResponse(order, null, null, professionalName, serviceName);
+                });
     }
 
     @Override

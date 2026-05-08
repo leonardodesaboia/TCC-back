@@ -41,5 +41,7 @@ public record OrderResponse(
         int version,
         Instant createdAt,
         Instant updatedAt,
-        List<OrderPhotoResponse> photos
+        List<OrderPhotoResponse> photos,
+        String professionalName,
+        String serviceName
 ) {}

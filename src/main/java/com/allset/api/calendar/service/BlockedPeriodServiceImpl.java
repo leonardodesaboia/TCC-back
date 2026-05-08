@@ -4,6 +4,7 @@ import com.allset.api.calendar.domain.BlockType;
 import com.allset.api.calendar.domain.BlockedPeriod;
 import com.allset.api.calendar.dto.BlockedPeriodResponse;
 import com.allset.api.calendar.dto.CreateBlockedPeriodRequest;
+import com.allset.api.calendar.dto.UpdateBlockedPeriodRequest;
 import com.allset.api.calendar.exception.BlockedPeriodNotFoundException;
 import com.allset.api.calendar.mapper.BlockedPeriodMapper;
 import com.allset.api.calendar.repository.BlockedPeriodRepository;
@@ -57,6 +58,42 @@ public class BlockedPeriodServiceImpl implements BlockedPeriodService {
         return blockedPeriodMapper.toResponseList(
                 blockedPeriodRepository.findAllByProfessionalId(professionalId)
         );
+    }
+
+    @Override
+    public BlockedPeriodResponse update(UUID professionalId, UUID id, UpdateBlockedPeriodRequest request) {
+        BlockedPeriod period = blockedPeriodRepository.findByIdAndProfessionalId(id, professionalId)
+                .orElseThrow(() -> new BlockedPeriodNotFoundException(id));
+
+        switch (period.getBlockType()) {
+            case recurring -> {
+                if (request.weekday() != null) period.setWeekday(request.weekday());
+                period.setStartsAt(request.startsAt());
+                period.setEndsAt(request.endsAt());
+            }
+            case specific_date -> {
+                if (request.specificDate() != null) period.setSpecificDate(request.specificDate());
+                period.setStartsAt(request.startsAt());
+                period.setEndsAt(request.endsAt());
+            }
+            case order -> {
+                if (request.orderStartsAt() != null) period.setOrderStartsAt(request.orderStartsAt());
+                if (request.orderEndsAt() != null) period.setOrderEndsAt(request.orderEndsAt());
+            }
+        }
+
+        if (period.getStartsAt() != null && period.getEndsAt() != null
+                && !period.getStartsAt().isBefore(period.getEndsAt())) {
+            throw new IllegalArgumentException("startsAt deve ser anterior a endsAt");
+        }
+        if (period.getOrderStartsAt() != null && period.getOrderEndsAt() != null
+                && !period.getOrderStartsAt().isBefore(period.getOrderEndsAt())) {
+            throw new IllegalArgumentException("orderStartsAt deve ser anterior a orderEndsAt");
+        }
+
+        period.setReason(request.reason());
+
+        return blockedPeriodMapper.toResponse(blockedPeriodRepository.save(period));
     }
 
     @Override
