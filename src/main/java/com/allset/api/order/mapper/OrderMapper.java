@@ -37,6 +37,11 @@ public class OrderMapper {
     }
 
     public OrderResponse toResponse(Order order, List<OrderPhoto> photos, ExpressQueueEntry queueEntry) {
+        return toResponse(order, photos, queueEntry, null, null);
+    }
+
+    public OrderResponse toResponse(Order order, List<OrderPhoto> photos, ExpressQueueEntry queueEntry,
+                                    String professionalName, String serviceName) {
         List<OrderPhotoResponse> photoResponses = photos == null ? List.of() : photos.stream()
                 .map(this::toPhotoResponse)
                 .toList();
@@ -72,7 +77,9 @@ public class OrderMapper {
                 order.getVersion(),
                 order.getCreatedAt(),
                 order.getUpdatedAt(),
-                photoResponses
+                photoResponses,
+                professionalName,
+                serviceName
         );
     }
 
