@@ -366,14 +366,12 @@ public class OrderServiceImpl implements OrderService {
 
         String professionalName = null;
         String serviceName = null;
-        if (isClient && order.getMode() == OrderMode.on_demand) {
-            if (order.getProfessionalId() != null) {
-                professionalName = professionalRepository
-                        .findByIdAndDeletedAtIsNull(order.getProfessionalId())
-                        .flatMap(pro -> userRepository.findByIdAndDeletedAtIsNull(pro.getUserId()))
-                        .map(user -> user.getName())
-                        .orElse(null);
-            }
+        if (isClient && order.getProfessionalId() != null) {
+            professionalName = professionalRepository
+                    .findByIdAndDeletedAtIsNull(order.getProfessionalId())
+                    .flatMap(pro -> userRepository.findByIdAndDeletedAtIsNull(pro.getUserId()))
+                    .map(user -> user.getName())
+                    .orElse(null);
             if (order.getServiceId() != null) {
                 serviceName = offeringRepository
                         .findById(order.getServiceId())
