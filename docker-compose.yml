@@ -5,8 +5,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
-    expose:
-      - "5432"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - postgres_data:/var/lib/postgresql/data
@@ -77,6 +77,9 @@ services:
       CHAT_MESSAGE_PAGE_SIZE: ${CHAT_MESSAGE_PAGE_SIZE:-50}
 
       SEED_ENABLED: ${SEED_ENABLED:-false}
+      SEED_PRODUCTION_ENABLED: ${SEED_PRODUCTION_ENABLED:-false}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@allset.com.br}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
 
       MINIO_ENDPOINT: http://minio:9000
       MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
