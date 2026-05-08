@@ -364,7 +364,24 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderNotFoundException(orderId);
         }
 
-        return orderMapper.toResponse(order, photoRepository.findAllByOrderId(orderId), queueEntry);
+        String professionalName = null;
+        String serviceName = null;
+        if (isClient && order.getMode() == OrderMode.on_demand) {
+            if (order.getProfessionalId() != null) {
+                professionalName = professionalRepository
+                        .findByIdAndDeletedAtIsNull(order.getProfessionalId())
+                        .flatMap(pro -> userRepository.findByIdAndDeletedAtIsNull(pro.getUserId()))
+                        .map(user -> user.getName())
+                        .orElse(null);
+            }
+            if (order.getServiceId() != null) {
+                serviceName = offeringRepository
+                        .findById(order.getServiceId())
+                        .map(offering -> offering.getTitle())
+                        .orElse(null);
+            }
+        }
+        return orderMapper.toResponse(order, photoRepository.findAllByOrderId(orderId), queueEntry, professionalName, serviceName);
     }
 
     @Override
