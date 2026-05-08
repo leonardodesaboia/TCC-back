@@ -64,6 +64,7 @@ public class ProfessionalServiceImpl implements ProfessionalService {
                 .bio(request.bio())
                 .yearsOfExperience(resolveYearsOfExperience(request.yearsOfExperience(), request.specialties()))
                 .baseHourlyRate(request.baseHourlyRate())
+                .verificationStatus(VerificationStatus.approved)
                 .build();
 
         Professional saved = professionalRepository.save(professional);
