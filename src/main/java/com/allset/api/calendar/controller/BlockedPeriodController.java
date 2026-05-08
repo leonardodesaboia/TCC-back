@@ -94,8 +94,7 @@ public class BlockedPeriodController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
     })
     @GetMapping
-    // TODO: mapear restrição de role — descomentar e ajustar quando o mapeamento de roles estiver definido
-    @PreAuthorize("hasAuthority('admin') or @professionalAuthHelper.isOwner(#professionalId, authentication)")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<BlockedPeriodResponse>> findAll(
             @Parameter(description = "ID do perfil profissional", required = true) @PathVariable UUID professionalId
     ) {
