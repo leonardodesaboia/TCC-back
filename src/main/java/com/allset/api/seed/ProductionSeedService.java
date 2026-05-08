@@ -12,11 +12,13 @@ import com.allset.api.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -26,6 +28,7 @@ import java.util.HexFormat;
 @RequiredArgsConstructor
 @Transactional
 @Slf4j
+@ConditionalOnProperty(prefix = "seed", name = "production-enabled", havingValue = "true")
 public class ProductionSeedService {
 
     @Value("${seed.admin-email}")
@@ -33,6 +36,9 @@ public class ProductionSeedService {
 
     @Value("${seed.admin-password}")
     private String adminPassword;
+
+    @Value("${seed.admin-phone}")
+    private String adminPhone;
 
     private final UserRepository userRepository;
     private final ServiceAreaRepository serviceAreaRepository;
@@ -95,8 +101,8 @@ public class ProductionSeedService {
                 .cpf("00000000000")
                 .cpfHash(sha256Hex("00000000000"))
                 .email(adminEmail)
-                .phone(null)
-                .birthDate(null)
+                .phone(adminPhone)
+                .birthDate(LocalDate.of(1990, 1, 1))
                 .password(passwordEncoder.encode(adminPassword))
                 .role(UserRole.admin)
                 .avatarUrl(null)
