@@ -57,6 +57,9 @@ geocoding-enabled: ${GEOCODING_ENABLED:true}
 # Seed
 seed:
   enabled: ${SEED_ENABLED:false}
+  production-enabled: ${SEED_PRODUCTION_ENABLED:false}
+  admin-email: ${SEED_ADMIN_EMAIL:admin@allset.com.br}
+  admin-password: ${SEED_ADMIN_PASSWORD:}
 
 # Storage / MinIO
 minio:
