@@ -57,6 +57,7 @@ public interface OrderService {
      * - Marca timeout em profissionais que não responderam no prazo.
      * - Para pedidos sem nenhuma proposta após o prazo: expande raio ou cancela.
      * - Para pedidos com propostas onde cliente não escolheu no prazo: cancela.
+     * - Auto-confirma pedidos em completed_by_pro após 24h sem ação do cliente.
      */
     void processExpiredWindows();
 }

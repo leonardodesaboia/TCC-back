@@ -81,4 +81,12 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
           AND o.expires_at <= :now
         """, nativeQuery = true)
     List<UUID> findExpressIdsToExpire(@Param("now") Instant now);
+
+    @Query(value = """
+        SELECT o.id FROM orders o
+        WHERE o.status = 'completed_by_pro'
+          AND o.deleted_at IS NULL
+          AND o.dispute_deadline <= :now
+        """, nativeQuery = true)
+    List<UUID> findIdsToAutoConfirm(@Param("now") Instant now);
 }
