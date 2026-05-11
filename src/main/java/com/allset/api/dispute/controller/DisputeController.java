@@ -274,7 +274,7 @@ public class DisputeController {
             @Parameter(description = "Arquivo de imagem (JPEG/PNG)", required = true)
             @RequestPart("file") MultipartFile file,
             @Parameter(description = "Legenda opcional para a foto")
-            @RequestPart(value = "caption", required = false) String caption,
+            @RequestParam(value = "caption", required = false) String caption,
             @CurrentUser UUID currentUserId,
             Authentication authentication
     ) {
