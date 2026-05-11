@@ -55,10 +55,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.time.Instant;
 import java.util.Map;
@@ -375,6 +378,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(new ApiError(
                 HttpStatus.BAD_REQUEST.value(),
                 "Requisição multipart inválida",
+                null,
+                Instant.now()
+        ));
+    }
+
+    @ExceptionHandler({
+            MissingServletRequestParameterException.class,
+            MissingServletRequestPartException.class,
+            MethodArgumentTypeMismatchException.class
+    })
+    public ResponseEntity<ApiError> handleMissingOrInvalidParam(Exception ex, HttpServletRequest request) {
+        log.warn("status=400 method={} path={} message={}",
+                request.getMethod(), request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity.badRequest().body(new ApiError(
+                HttpStatus.BAD_REQUEST.value(),
+                ex.getMessage(),
                 null,
                 Instant.now()
         ));
