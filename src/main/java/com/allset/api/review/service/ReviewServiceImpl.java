@@ -50,11 +50,18 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         Review review = buildReview(order, reviewerUserId, reviewerRole, request);
+
+        if ("client".equals(reviewerRole)) {
+            review.setPublishedAt(Instant.now());
+        }
+
         Review saved = reviewRepository.save(review);
 
-        Instant publishedAt = reviewPublicationService.publishOrderIfReady(orderId);
-        if (publishedAt != null) {
-            saved.setPublishedAt(publishedAt);
+        if (!"client".equals(reviewerRole)) {
+            Instant publishedAt = reviewPublicationService.publishOrderIfReady(orderId);
+            if (publishedAt != null) {
+                saved.setPublishedAt(publishedAt);
+            }
         }
 
         return reviewMapper.toResponse(saved);
@@ -120,16 +127,12 @@ public class ReviewServiceImpl implements ReviewService {
                     .map(professional -> professional.getUserId())
                     .orElseThrow(() -> new ProfessionalNotFoundException(order.getProfessionalId()));
 
-            if (request.comment() == null || request.comment().isBlank()) {
-                throw new IllegalArgumentException("Comentario e obrigatorio para a avaliacao do cliente");
-            }
-
             return Review.builder()
                     .orderId(order.getId())
                     .reviewerId(reviewerUserId)
                     .revieweeId(professionalUserId)
                     .rating(request.rating())
-                    .comment(request.comment().trim())
+                    .comment(request.comment() != null && !request.comment().isBlank() ? request.comment().trim() : null)
                     .build();
         }
 

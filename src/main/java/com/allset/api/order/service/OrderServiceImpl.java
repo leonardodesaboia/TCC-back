@@ -869,6 +869,52 @@ public class OrderServiceImpl implements OrderService {
                 log.error("event=express_cancel_expired_error orderId={} error={}", orderId, e.getMessage(), e);
             }
         }
+
+        // completed_by_pro sem confirmação após 24h → auto-confirma
+        List<UUID> toAutoConfirm = orderRepository.findIdsToAutoConfirm(now);
+
+        for (UUID orderId : toAutoConfirm) {
+            try {
+                autoConfirmOrder(orderId, now);
+            } catch (Exception e) {
+                log.error("event=order_auto_confirm_error orderId={} error={}", orderId, e.getMessage(), e);
+            }
+        }
+    }
+
+    private void autoConfirmOrder(UUID orderId, Instant now) {
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+
+        if (order.getStatus() != OrderStatus.completed_by_pro) {
+            return;
+        }
+
+        order.setCompletedAt(now);
+        order.setStatus(OrderStatus.completed);
+        orderRepository.save(order);
+
+        recordTransition(orderId, OrderStatus.completed_by_pro, OrderStatus.completed,
+                "Confirmação automática após 24h sem resposta do cliente", null);
+
+        // TODO: liberar escrow via módulo payment
+
+        notifyProfessional(
+                order.getProfessionalId(),
+                NotificationType.request_status_update,
+                "Serviço confirmado automaticamente",
+                "O prazo de confirmação encerrou e o serviço foi marcado como concluído.",
+                orderId
+        );
+        notifyClient(
+                order.getClientId(),
+                NotificationType.request_status_update,
+                "Pedido concluído automaticamente",
+                "Como não houve resposta em 24h, o pedido foi marcado como concluído.",
+                orderId
+        );
+
+        log.info("event=order_auto_confirmed orderId={}", orderId);
     }
 
     // ─────────────────────────────────────────
