@@ -73,6 +73,10 @@ Copiar `.env.example` → `.env` e preencher antes de subir. A aplicação falha
 | `GEOCODING_CACHE_TTL_SECONDS` | Não | TTL do cache de resultados positivos (padrão: `2592000` = 30 dias) |
 | `GEOCODING_NEGATIVE_CACHE_TTL_SECONDS` | Não | TTL do cache de "não localizado" (padrão: `300` = 5min) |
 | `GEOCODING_ENABLED` | Não | Kill-switch — `false` desabilita lookup e enriquecimento (padrão: `true`) |
+| `GEOCODING_MIN_INTERVAL_MS` | Não | Intervalo mínimo entre chamadas ao Nominatim (padrão: `1100`) |
+| `GEOCODING_MAX_WAIT_MS` | Não | Espera máxima na fila do rate limiter antes de 429 (padrão: `3000`) |
+| `GEOCODING_BOUNDING_BOX` | Não | `minLat,minLng,maxLat,maxLng` — descarta resultado fora da área (padrão: Ceará; vazio desliga) |
+| `REDIS_TIMEOUT` / `REDIS_CONNECT_TIMEOUT` | Não | Timeouts do Redis (padrão: `2s`) |
 
 ---
 
@@ -146,7 +150,9 @@ src/main/resources/
     ├── V9__create_professional_documents.sql
     ├── V10__create_professional_services.sql
     ├── V11__create_blocked_periods.sql
-    └── V12__create_orders.sql
+    ├── V12__create_orders.sql
+    ├── ...
+    └── V25__add_coordinate_provenance_to_saved_addresses.sql
 ```
 
 Cada módulo futuro **deve** seguir essa estrutura: `controller / service / repository / domain / mapper / dto / exception`.
@@ -327,7 +333,8 @@ Clients para Asaas, IDwall, MinIO (S3-compatible), FCM e Resend ficam em `integr
 8. **Fee da plataforma** — 20% descontado na liberação do escrow, não no pagamento inicial
 9. **KYC automático** — verificação de documentos via IDwall SDK no cadastro do profissional, sem aprovação manual
 10. **Uploads** — máx. 5MB, formatos JPG/JPEG/PNG (fotos de conclusão, evidências de disputa, avatar)
-11. **Geocoding de endereços** — endereços salvos sem `lat`/`lng` são geocodificados automaticamente via Nominatim no `POST /api/users/{userId}/addresses`. Falha do provider (timeout, 5xx, kill-switch) **não bloqueia** o cadastro — endereço é gravado com coordenadas nulas e o front pode reexecutar lookup via `POST /api/v1/geocoding/lookup` e atualizar via `PUT`. Endereço não localizável (provider devolve vazio) retorna 422.
+11. **Coordenada é do usuário, não do provider** — a API **não** geocodifica ao salvar endereço. O cliente envia `lat`/`lng` já confirmados junto com a procedência obrigatória (`coordinateSource`: `device_gps`, `user_pin` ou `geocoded`). O `POST /api/v1/geocoding/lookup` e o `POST /api/v1/geocoding/reverse` existem para **sugerir** um ponto e para preencher o endereço quando o pin se move — nunca persistem nada.
+12. **Express exige coordenada confiável** — o raio de 300 m só roda sobre coordenada de procedência aceita: `device_gps` e `user_pin` sempre; `geocoded` apenas com confiança `ROOFTOP`; `legacy` (gravada antes da V25, ou invalidada por edição do endereço sem novo pin) nunca. Recusa devolve 422 com `fields.code` = `ADDRESS_COORDINATE_MISSING` ou `ADDRESS_COORDINATE_NOT_TRUSTED`. Ver `CoordinateTrust`.
 
 ---
 
@@ -342,6 +349,8 @@ Clients para Asaas, IDwall, MinIO (S3-compatible), FCM e Resend ficam em `integr
 
 ## Referências internas
 
+- Fluxo de localização ponta a ponta (app + API), caso a caso: `docs/fluxo-localizacao.md`
+- Módulo de geocoding em detalhe: `docs/geocoding.md`
 - Schema completo do banco: `docs/schema.dbml`
 - Requisitos funcionais e regras de negócio: `docs/requisitos.pdf`
 - Decisões de arquitetura: `docs/adr/`

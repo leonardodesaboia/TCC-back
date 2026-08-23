@@ -19,6 +19,7 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.text.Normalizer;
 import java.util.Arrays;
 import java.util.List;
@@ -32,7 +33,8 @@ import java.util.Optional;
  * <p>Política exigida pelo Nominatim:
  * <ul>
  *   <li>User-Agent identificador com contato — vem de {@code AppProperties.geocodingUserAgent};</li>
- *   <li>1 req/s por IP — defendido por cache no service (não aqui).</li>
+ *   <li>1 req/s por IP — garantido pelo {@link NominatimRateLimiter} antes de cada
+ *       requisição, e aliviado pelo cache do service.</li>
  * </ul>
  */
 @Component
@@ -45,8 +47,13 @@ public class NominatimGeocodingProvider implements GeocodingProvider {
     private static final int READ_TIMEOUT_MS = 5_000;
 
     private final RestClient client;
+    private final NominatimRateLimiter rateLimiter;
+    private final String baseUrl;
 
-    public NominatimGeocodingProvider(AppProperties appProperties) {
+    public NominatimGeocodingProvider(AppProperties appProperties, NominatimRateLimiter rateLimiter) {
+        this.rateLimiter = rateLimiter;
+        this.baseUrl = appProperties.geocodingBaseUrl();
+
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(CONNECT_TIMEOUT_MS);
         factory.setReadTimeout(READ_TIMEOUT_MS);
@@ -64,36 +71,110 @@ public class NominatimGeocodingProvider implements GeocodingProvider {
         return PROVIDER_NAME;
     }
 
+    /**
+     * Monta a URI absoluta do /search.
+     *
+     * <p>Precisa ser {@link URI} e não String: o {@code RestClient} trata String
+     * como <i>template</i> e codifica de novo o que já veio codificado, virando
+     * {@code %2520} no lugar do espaço. O efeito é silencioso e total — o Nominatim
+     * responde 200 com lista vazia para todo endereço que tenha espaço no nome, ou
+     * seja, todos. Só o /reverse escapava, porque manda apenas números.
+     */
+    private UriComponentsBuilder search() {
+        return UriComponentsBuilder.fromUriString(baseUrl).path("/search");
+    }
+
     @Override
     public Optional<GeocodeResult> geocode(GeocodeQuery query) {
         String countryCode = query.country() != null ? query.country() : "BR";
 
         // 1ª tentativa: busca estruturada (mais precisa quando o OSM tem todos os campos certos).
-        NominatimResponse[] results = call(buildStructuredUri(query, countryCode));
+        GeocodeResult best = firstResult(call(buildStructuredUri(query, countryCode)));
+
+        // Refinamento por bairro. A busca estruturada do Nominatim aceita street, city,
+        // state e postalcode — não aceita bairro. Numa avenida que atravessa a cidade
+        // isso deixa o ponto cair em qualquer trecho dela: na medição com 20 endereços
+        // de Fortaleza, 8 caíram no bairro errado, um deles a 3,6 km do certo.
+        //
+        // A busca livre manda o bairro junto, e acertou 17 de 20 contra 12 de 20 da
+        // estruturada. Onde as duas concordam, concordam no mesmo metro — então só
+        // trocamos quando a livre cai no bairro que a pessoa informou.
+        //
+        // Por que importa mais do que parece: resultado impreciso faz o app exigir que
+        // a pessoa toque no mapa, e o toque promove o ponto a `user_pin`, que o Express
+        // aceita sem discutir. Abrir o mapa no trecho errado é o que transforma uma
+        // sugestão ruim em coordenada confiável.
+        if (shouldRefineByDistrict(best, query)) {
+            best = refineByDistrict(best, query, countryCode);
+        }
 
         // 2ª tentativa: busca livre (q=...). Mais tolerante a CEP ausente no OSM,
         // sigla de estado, prefixos como "Rua/Av." e variações de acentuação.
-        if (results == null || results.length == 0) {
+        if (best == null) {
             log.debug("Busca estruturada vazia, tentando busca livre");
-            results = call(buildFreeFormUri(query, countryCode));
+            best = firstResult(call(buildFreeFormUri(query, countryCode)));
         }
 
         // 3ª tentativa: busca livre street-level — sem número e sem CEP. Cobre o caso comum
         // de prédios não mapeados no OSM (apartamentos), em que a precisão prédio é impossível
         // mas o centroide da rua é suficiente para o match Express de 300 m.
-        if (results == null || results.length == 0) {
+        if (best == null) {
             log.debug("Busca livre vazia, tentando street-level (sem número e sem CEP)");
-            results = call(buildStreetLevelUri(query, countryCode));
+            best = firstResult(call(buildStreetLevelUri(query, countryCode)));
         }
 
-        if (results == null || results.length == 0) {
-            return Optional.empty();
-        }
-
-        return Optional.of(mapResult(results[0]));
+        return Optional.ofNullable(best);
     }
 
-    private NominatimResponse[] call(String uri) {
+    /**
+     * Só vale gastar a requisição extra quando há bairro para conferir e o resultado
+     * não é do edifício. Precisão de edifício já está no lugar certo por definição.
+     */
+    private static boolean shouldRefineByDistrict(GeocodeResult structured, GeocodeQuery query) {
+        return structured != null
+            && structured.confidence() != GeocodeConfidence.ROOFTOP
+            && isNotBlank(query.district());
+    }
+
+    private GeocodeResult refineByDistrict(GeocodeResult structured, GeocodeQuery query, String countryCode) {
+        GeocodeResult candidate = firstResult(call(buildFreeFormUri(query, countryCode)));
+
+        if (candidate == null || !districtMatches(candidate, query.district())) {
+            return structured;
+        }
+
+        log.info("Refinamento por bairro trocou o resultado: estruturada caiu em '{}', busca livre em '{}'",
+            districtOf(structured), districtOf(candidate));
+        return candidate;
+    }
+
+    private static boolean districtMatches(GeocodeResult result, String requestedDistrict) {
+        String found = districtOf(result);
+        if (found == null) return false;
+        return normalizeForCompare(found).equals(normalizeForCompare(requestedDistrict));
+    }
+
+    private static String districtOf(GeocodeResult result) {
+        NormalizedAddress address = result == null ? null : result.normalizedAddress();
+        return address == null ? null : address.district();
+    }
+
+    private static String normalizeForCompare(String value) {
+        if (value == null) return "";
+        return stripAccents(value).toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim();
+    }
+
+    private static boolean isNotBlank(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private GeocodeResult firstResult(NominatimResponse[] results) {
+        if (results == null || results.length == 0) return null;
+        return mapResult(results[0]);
+    }
+
+    private NominatimResponse[] call(URI uri) {
+        rateLimiter.acquire();
         try {
             return client.get()
                 .uri(uri)
@@ -120,8 +201,65 @@ public class NominatimGeocodingProvider implements GeocodingProvider {
         }
     }
 
-    private String buildStructuredUri(GeocodeQuery query, String countryCode) {
-        return UriComponentsBuilder.fromPath("/search")
+    /**
+     * Reverse geocoding: ponto → endereço escrito.
+     *
+     * <p>{@code zoom=18} pede o nível de edifício/rua. Sem ele o Nominatim tende a
+     * devolver o bairro, que é grosseiro demais para preencher um formulário.
+     */
+    @Override
+    public Optional<GeocodeResult> reverse(BigDecimal lat, BigDecimal lng) {
+        URI uri = UriComponentsBuilder.fromUriString(baseUrl).path("/reverse")
+            .queryParam("format", "jsonv2")
+            .queryParam("addressdetails", 1)
+            .queryParam("zoom", 18)
+            .queryParam("lat", lat.toPlainString())
+            .queryParam("lon", lng.toPlainString())
+            .build()
+            .encode()
+            .toUri();
+
+        NominatimResponse single = callSingle(uri);
+        if (single == null || single.lat() == null || single.lon() == null) {
+            return Optional.empty();
+        }
+        return Optional.of(mapResult(single));
+    }
+
+    /** O /reverse devolve um objeto, não um array — daí a chamada separada. */
+    private NominatimResponse callSingle(URI uri) {
+        rateLimiter.acquire();
+        try {
+            return client.get()
+                .uri(uri)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                    HttpStatus status = HttpStatus.valueOf(res.getStatusCode().value());
+                    if (status == HttpStatus.TOO_MANY_REQUESTS) {
+                        throw new GeocodingRateLimitException();
+                    }
+                    if (status == HttpStatus.NOT_FOUND) {
+                        return;
+                    }
+                    log.error("Nominatim respondeu {} para uri={}", status, uri);
+                    throw new GeocodingProviderUnavailableException();
+                })
+                .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+                    log.error("Nominatim respondeu {} para uri={}", res.getStatusCode(), uri);
+                    throw new GeocodingProviderUnavailableException();
+                })
+                .body(NominatimResponse.class);
+        } catch (RestClientResponseException ex) {
+            log.error("Falha HTTP ao chamar Nominatim status={} uri={}", ex.getStatusCode(), uri, ex);
+            throw new GeocodingProviderUnavailableException(ex);
+        } catch (ResourceAccessException ex) {
+            log.warn("Timeout/IO ao chamar Nominatim uri={}: {}", uri, ex.getMessage());
+            throw new GeocodingProviderUnavailableException(ex);
+        }
+    }
+
+    private URI buildStructuredUri(GeocodeQuery query, String countryCode) {
+        return search()
             .queryParam("format", "jsonv2")
             .queryParam("addressdetails", 1)
             .queryParam("limit", 1)
@@ -132,10 +270,10 @@ public class NominatimGeocodingProvider implements GeocodingProvider {
             .queryParam("postalcode", stripCepMask(query.zipCode()))
             .build()
             .encode()
-            .toUriString();
+            .toUri();
     }
 
-    private String buildFreeFormUri(GeocodeQuery query, String countryCode) {
+    private URI buildFreeFormUri(GeocodeQuery query, String countryCode) {
         StringBuilder q = new StringBuilder();
         appendIfPresent(q, query.street());
         appendIfPresent(q, query.number());
@@ -144,7 +282,7 @@ public class NominatimGeocodingProvider implements GeocodingProvider {
         appendIfPresent(q, query.state());
         appendIfPresent(q, stripCepMask(query.zipCode()));
 
-        return UriComponentsBuilder.fromPath("/search")
+        return search()
             .queryParam("format", "jsonv2")
             .queryParam("addressdetails", 1)
             .queryParam("limit", 1)
@@ -152,17 +290,17 @@ public class NominatimGeocodingProvider implements GeocodingProvider {
             .queryParam("q", stripAccents(q.toString().trim()))
             .build()
             .encode()
-            .toUriString();
+            .toUri();
     }
 
-    private String buildStreetLevelUri(GeocodeQuery query, String countryCode) {
+    private URI buildStreetLevelUri(GeocodeQuery query, String countryCode) {
         StringBuilder q = new StringBuilder();
         appendIfPresent(q, query.street());
         appendIfPresent(q, query.district());
         appendIfPresent(q, query.city());
         appendIfPresent(q, query.state());
 
-        return UriComponentsBuilder.fromPath("/search")
+        return search()
             .queryParam("format", "jsonv2")
             .queryParam("addressdetails", 1)
             .queryParam("limit", 1)
@@ -170,7 +308,7 @@ public class NominatimGeocodingProvider implements GeocodingProvider {
             .queryParam("q", stripAccents(q.toString().trim()))
             .build()
             .encode()
-            .toUriString();
+            .toUri();
     }
 
     /**

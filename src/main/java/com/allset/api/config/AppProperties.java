@@ -146,6 +146,34 @@ public record AppProperties(
         Integer geocodingNegativeCacheTtlSeconds,
 
         @DefaultValue("true")
-        Boolean geocodingEnabled
+        Boolean geocodingEnabled,
+
+        /**
+         * Intervalo mínimo entre requisições ao Nominatim, em milissegundos.
+         * A política pública é 1 req/s; 1100 ms dá folga para jitter de rede.
+         */
+        @DefaultValue("1100")
+        @Min(value = 0, message = "GEOCODING_MIN_INTERVAL_MS não pode ser negativo")
+        Integer geocodingMinIntervalMs,
+
+        /**
+         * Tempo máximo que um request aceita esperar na fila do rate limiter antes
+         * de receber 429. Evita segurar thread quando a fila cresce.
+         */
+        @DefaultValue("3000")
+        @Min(value = 0, message = "GEOCODING_MAX_WAIT_MS não pode ser negativo")
+        Integer geocodingMaxWaitMs,
+
+        /**
+         * Caixa delimitadora de sanidade no formato {@code minLat,minLng,maxLat,maxLng}.
+         * Resultado fora dela é descartado como se o endereço não existisse.
+         *
+         * <p>Não é restrição de escopo do produto: é rede de proteção contra provider
+         * devolvendo um ponto em outro estado para CEP inexistente (aconteceu — um CEP
+         * inválido voltou com coordenada no Paraná). O default cobre todo o Ceará.
+         * String vazia desliga a checagem.
+         */
+        @DefaultValue("-7.9,-41.5,-2.7,-37.2")
+        String geocodingBoundingBox
 
 ) {}

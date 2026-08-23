@@ -1,5 +1,7 @@
 package com.allset.api.address.dto;
 
+import com.allset.api.address.domain.CoordinateSource;
+import com.allset.api.geocoding.dto.GeocodeConfidence;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -44,6 +46,26 @@ public record SavedAddressResponse(
 
     @Schema(description = "Longitude geográfica", example = "-46.655881", nullable = true)
     BigDecimal lng,
+
+    @Schema(description = "Origem da coordenada. `legacy` indica coordenada anterior à V25, " +
+                          "não aceita pelo modo Express.",
+            example = "device_gps", nullable = true)
+    CoordinateSource coordinateSource,
+
+    @Schema(description = "Acurácia da captura em metros (apenas origem `device_gps`)",
+            example = "12.5", nullable = true)
+    BigDecimal coordinateAccuracyMeters,
+
+    @Schema(description = "Confiança do provider (apenas origem `geocoded`)",
+            example = "ROOFTOP", nullable = true)
+    GeocodeConfidence coordinateConfidence,
+
+    @Schema(description = "Momento da confirmação da coordenada (UTC)",
+            example = "2026-08-23T14:00:00Z", nullable = true)
+    java.time.Instant coordinateConfirmedAt,
+
+    @Schema(description = "Indica se a coordenada é aceita pelo modo Express", example = "true")
+    boolean expressReady,
 
     @Schema(description = "Indica se é o endereço padrão do usuário", example = "false")
     boolean isDefault,
