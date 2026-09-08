@@ -146,6 +146,7 @@ class SecurityHardeningIntegrationTest {
         int current = sequence.getAndIncrement();
         String unique = UUID.randomUUID().toString().replace("-", "");
         return userRepository.save(User.builder()
+                .birthDate(java.time.LocalDate.of(1995, 9, 15))
                 .name("Usuario " + current)
                 .cpf(unique.substring(0, 11))
                 .cpfHash((unique + unique).substring(0, 64))

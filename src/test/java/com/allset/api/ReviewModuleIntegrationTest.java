@@ -150,7 +150,7 @@ class ReviewModuleIntegrationTest {
     }
 
     @Test
-    void shouldCreateAndPublishDoubleBlindReviewsAndExposeAverages() throws Exception {
+    void shouldPublishClientReviewImmediatelyAndExposeAverages() throws Exception {
         User client = createUser(UserRole.client);
         User professionalUser = createUser(UserRole.professional);
         Professional professional = createProfessional(professionalUser.getId());
@@ -167,7 +167,7 @@ class ReviewModuleIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.rating").value(5))
                 .andExpect(jsonPath("$.comment").value("Servico excelente"))
-                .andExpect(jsonPath("$.publishedAt").isEmpty());
+                .andExpect(jsonPath("$.publishedAt").isNotEmpty());
 
         mockMvc.perform(post("/api/v1/orders/{orderId}/reviews", order.getId())
                         .with(jwtFor(professionalUser.getId(), "professional"))
@@ -210,6 +210,7 @@ class ReviewModuleIntegrationTest {
         String cpfHash = ("%064d").formatted(current);
 
         User user = User.builder()
+                .birthDate(java.time.LocalDate.of(1995, 9, 15))
                 .name("Usuario " + current)
                 .cpf(cpf)
                 .cpfHash(cpfHash)
@@ -305,6 +306,7 @@ class ReviewModuleIntegrationTest {
                 .addressSnapshot(addressSnapshot)
                 .scheduledAt(Instant.now().minusSeconds(7200))
                 .expiresAt(Instant.now().minusSeconds(3600))
+                .proposalDeadline(Instant.now().minusSeconds(5400))
                 .baseAmount(new BigDecimal("150.00"))
                 .platformFee(new BigDecimal("30.00"))
                 .totalAmount(new BigDecimal("150.00"))

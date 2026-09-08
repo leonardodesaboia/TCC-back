@@ -159,6 +159,7 @@ class NotificationModuleIntegrationTest {
         String cpfHash = ("%064d").formatted(current);
 
         User user = User.builder()
+                .birthDate(java.time.LocalDate.of(1995, 9, 15))
                 .name("Usuario " + current)
                 .cpf(cpf)
                 .cpfHash(cpfHash)

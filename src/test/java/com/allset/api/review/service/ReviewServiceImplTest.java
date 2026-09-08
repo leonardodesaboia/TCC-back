@@ -73,7 +73,7 @@ class ReviewServiceImplTest {
     }
 
     @Test
-    void createByClientShouldRequireComment() {
+    void createByClientShouldAllowBlankCommentAndPublishImmediately() {
         UUID orderId = UUID.randomUUID();
         UUID reviewerId = UUID.randomUUID();
         Order order = buildCompletedOrder(orderId);
@@ -85,10 +85,25 @@ class ReviewServiceImplTest {
         when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
         when(reviewRepository.findByOrderIdAndReviewerId(orderId, reviewerId)).thenReturn(Optional.empty());
         when(professionalRepository.findByIdAndDeletedAtIsNull(order.getProfessionalId())).thenReturn(Optional.of(professional));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(invocation -> {
+            Review review = invocation.getArgument(0);
+            review.setId(UUID.randomUUID());
+            review.setSubmittedAt(Instant.now());
+            return review;
+        });
+        when(reviewMapper.toResponse(any(Review.class))).thenAnswer(invocation -> {
+            Review review = invocation.getArgument(0);
+            return new ReviewResponse(
+                    review.getId(), review.getOrderId(), review.getReviewerId(), review.getRevieweeId(),
+                    review.getRating(), review.getComment(), review.getSubmittedAt(), review.getPublishedAt());
+        });
 
-        assertThatThrownBy(() -> reviewService.create(orderId, reviewerId, "client", new CreateReviewRequest((short) 5, " ")))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Comentario");
+        ReviewResponse response = reviewService.create(
+                orderId, reviewerId, "client", new CreateReviewRequest((short) 5, " "));
+
+        assertThat(response.comment()).isNull();
+        assertThat(response.publishedAt()).isNotNull();
+        verify(reviewPublicationService, never()).publishOrderIfReady(any());
     }
 
     @Test
@@ -110,7 +125,7 @@ class ReviewServiceImplTest {
     }
 
     @Test
-    void createByClientShouldPersistReviewAndTriggerPublicationCheck() {
+    void createByClientShouldPersistAndPublishImmediately() {
         UUID orderId = UUID.randomUUID();
         UUID clientId = UUID.randomUUID();
         UUID professionalUserId = UUID.randomUUID();
@@ -142,13 +157,12 @@ class ReviewServiceImplTest {
                     review.getPublishedAt()
             );
         });
-        when(reviewPublicationService.publishOrderIfReady(orderId)).thenReturn(null);
-
         ReviewResponse response = reviewService.create(orderId, clientId, "client", new CreateReviewRequest((short) 5, "Excelente"));
 
         assertThat(response.revieweeId()).isEqualTo(professionalUserId);
         assertThat(response.comment()).isEqualTo("Excelente");
-        verify(reviewPublicationService).publishOrderIfReady(orderId);
+        assertThat(response.publishedAt()).isNotNull();
+        verify(reviewPublicationService, never()).publishOrderIfReady(any());
     }
 
     @Test
@@ -196,7 +210,7 @@ class ReviewServiceImplTest {
 
         assertThat(responses).hasSize(1);
         assertThat(responses.getFirst().reviewerId()).isEqualTo(clientId);
-        verify(reviewPublicationService).publishExpiredReviews();
+        verify(reviewPublicationService, never()).publishExpiredReviews();
         verify(professionalRepository, never()).findByUserIdAndDeletedAtIsNull(clientId);
     }
 

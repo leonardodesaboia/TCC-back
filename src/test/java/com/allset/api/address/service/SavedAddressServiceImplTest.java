@@ -144,6 +144,40 @@ class SavedAddressServiceImplTest {
     }
 
     @Test
+    void districtChangeShouldInvalidateConfirmation() {
+        UUID userId = UUID.randomUUID();
+        UUID addressId = UUID.randomUUID();
+        SavedAddress address = address(userId, addressId);
+        address.setCoordinateSource(CoordinateSource.user_pin);
+        address.setCoordinateConfirmedAt(java.time.Instant.now());
+        stubFindAndSave(userId, addressId, address);
+
+        SavedAddressResponse response = savedAddressService.update(userId, addressId,
+                new UpdateSavedAddressRequest(null, null, null, null, "Outro bairro", null,
+                        null, null, null, null, null, null, null, null));
+
+        assertThat(response.expressReady()).isFalse();
+        assertThat(address.getCoordinateConfirmedAt()).isNull();
+    }
+
+    @Test
+    void resendingUnchangedAddressShouldPreserveConfirmation() {
+        UUID userId = UUID.randomUUID();
+        UUID addressId = UUID.randomUUID();
+        SavedAddress address = address(userId, addressId);
+        address.setCoordinateSource(CoordinateSource.user_pin);
+        stubFindAndSave(userId, addressId, address);
+
+        SavedAddressResponse response = savedAddressService.update(userId, addressId,
+                new UpdateSavedAddressRequest("Novo apelido", address.getStreet(), address.getNumber(),
+                        null, address.getDistrict(), address.getCity(), address.getState(), address.getZipCode(),
+                        null, null, null, null, null, null));
+
+        assertThat(response.expressReady()).isTrue();
+        assertThat(address.getCoordinateSource()).isEqualTo(CoordinateSource.user_pin);
+    }
+
+    @Test
     void updateShouldKeepProvenanceWhenPinIsResentWithTheNewAddress() {
         UUID userId = UUID.randomUUID();
         UUID addressId = UUID.randomUUID();

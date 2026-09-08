@@ -105,7 +105,10 @@ public class GeocodingServiceImpl implements GeocodingService {
 
         Optional<GeocodeResponse> cached = readCache(cacheKey);
         if (cached.isPresent()) {
-            return cached.get();
+            GeocodeResponse found = cached.get();
+            // A chave é arredondada; o endereço pode ser reutilizado, o pin não.
+            return new GeocodeResponse(request.lat(), request.lng(), found.displayName(),
+                found.normalizedAddress(), found.confidence(), found.provider());
         }
 
         Optional<GeocodeResult> result = provider.reverse(request.lat(), request.lng());

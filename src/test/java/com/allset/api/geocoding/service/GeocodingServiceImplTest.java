@@ -204,6 +204,22 @@ class GeocodingServiceImplTest {
         assertThat(response.normalizedAddress().street()).isEqualTo("Avenida Dom Luís");
     }
 
+    @Test
+    void reverseCacheHitShouldPreserveTheExactNewPin() throws Exception {
+        GeocodeResponse cached = new GeocodeResponse(LAT, LNG, "Avenida Dom Luís, 1233",
+                normalized(), GeocodeConfidence.ROOFTOP, "nominatim");
+        when(cacheService.get(anyString())).thenReturn(Optional.of(objectMapper.writeValueAsString(cached)));
+        BigDecimal newLat = new BigDecimal("-3.7340801");
+        BigDecimal newLng = new BigDecimal("-38.4942099");
+
+        GeocodeResponse response = service.reverse(new ReverseGeocodeRequest(newLat, newLng));
+
+        assertThat(response.lat()).isEqualByComparingTo(newLat);
+        assertThat(response.lng()).isEqualByComparingTo(newLng);
+        assertThat(response.normalizedAddress()).isEqualTo(cached.normalizedAddress());
+        verify(provider, never()).reverse(any(), any());
+    }
+
     /** Arrastar o pin um pixel não pode virar chave nova, senão o cache não serve. */
     @Test
     void reverseCacheKeyShouldRoundToAboutOneMeter() {

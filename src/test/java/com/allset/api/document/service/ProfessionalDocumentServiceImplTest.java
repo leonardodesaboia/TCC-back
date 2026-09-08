@@ -194,6 +194,11 @@ class ProfessionalDocumentServiceImplTest {
         UUID professionalId = UUID.randomUUID();
         UUID documentId = UUID.randomUUID();
 
+        when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId))
+                .thenReturn(Optional.of(Professional.builder()
+                        .userId(UUID.randomUUID())
+                        .verificationStatus(com.allset.api.professional.domain.VerificationStatus.rejected)
+                        .build()));
         when(professionalDocumentRepository.findByIdAndProfessionalId(documentId, professionalId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> professionalDocumentService.delete(professionalId, documentId))
@@ -215,6 +220,11 @@ class ProfessionalDocumentServiceImplTest {
                 .build();
         document.setId(documentId);
 
+        when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId))
+                .thenReturn(Optional.of(Professional.builder()
+                        .userId(UUID.randomUUID())
+                        .verificationStatus(com.allset.api.professional.domain.VerificationStatus.rejected)
+                        .build()));
         when(professionalDocumentRepository.findByIdAndProfessionalId(documentId, professionalId))
                 .thenReturn(Optional.of(document));
 

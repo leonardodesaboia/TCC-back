@@ -9,7 +9,6 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -48,6 +47,12 @@ services:
 
   app:
     build: .
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:$${PORT:-8080}/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     ports:
       - "${APP_PUBLIC_PORT:-8080}:${PORT:-8080}"
     environment:
@@ -105,6 +110,15 @@ services:
       GEOCODING_CACHE_TTL_SECONDS: ${GEOCODING_CACHE_TTL_SECONDS:-2592000}
       GEOCODING_NEGATIVE_CACHE_TTL_SECONDS: ${GEOCODING_NEGATIVE_CACHE_TTL_SECONDS:-300}
       GEOCODING_ENABLED: ${GEOCODING_ENABLED:-true}
+      GEOCODING_MIN_INTERVAL_MS: ${GEOCODING_MIN_INTERVAL_MS:-1100}
+      GEOCODING_MAX_WAIT_MS: ${GEOCODING_MAX_WAIT_MS:-3000}
+      GEOCODING_BOUNDING_BOX: ${GEOCODING_BOUNDING_BOX:--7.9,-41.5,-2.7,-37.2}
+      REDIS_TIMEOUT: ${REDIS_TIMEOUT:-2s}
+      REDIS_CONNECT_TIMEOUT: ${REDIS_CONNECT_TIMEOUT:-2s}
+      EXPRESS_SEARCH_RADIUS_METERS: ${EXPRESS_SEARCH_RADIUS_METERS:-300}
+      EXPRESS_PROPOSAL_WINDOW_MINUTES: ${EXPRESS_PROPOSAL_WINDOW_MINUTES:-15}
+      EXPRESS_CLIENT_WINDOW_MINUTES: ${EXPRESS_CLIENT_WINDOW_MINUTES:-30}
+      EXPRESS_MAX_QUEUE_SIZE: ${EXPRESS_MAX_QUEUE_SIZE:-10}
 
     depends_on:
       postgres:

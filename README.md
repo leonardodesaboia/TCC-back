@@ -60,6 +60,9 @@ Swagger UI disponível em `http://localhost:8080/swagger-ui.html` (apenas no per
 docker compose up --build
 ```
 
+Para subir backend e frontend juntos e consultar as evidências da sprint, veja
+[`docs/geolocation-sprint-validation.md`](docs/geolocation-sprint-validation.md).
+
 ## Seed de desenvolvimento
 
 Existe uma seed de startup para popular o backend com dados de demonstracao cobrindo usuarios, enderecos, catalogo, profissionais, documentos, ofertas, agenda, pedidos, chat, notificacoes, reviews e disputas.

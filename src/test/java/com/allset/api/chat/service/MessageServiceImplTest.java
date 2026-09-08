@@ -10,6 +10,7 @@ import com.allset.api.chat.repository.MessageRepository;
 import com.allset.api.notification.domain.NotificationType;
 import com.allset.api.notification.service.NotificationService;
 import com.allset.api.integration.storage.service.StorageService;
+import com.allset.api.order.repository.OrderRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,6 +54,9 @@ class MessageServiceImplTest {
 
     @Mock
     private StorageService storageService;
+
+    @Mock
+    private OrderRepository orderRepository;
 
     @InjectMocks
     private MessageServiceImpl messageService;

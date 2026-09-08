@@ -81,7 +81,10 @@ class ProfessionalOfferingServiceImplTest {
         );
 
         when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId))
-                .thenReturn(Optional.of(Professional.builder().userId(UUID.randomUUID()).build()));
+                .thenReturn(Optional.of(Professional.builder()
+                        .userId(UUID.randomUUID())
+                        .verificationStatus(com.allset.api.professional.domain.VerificationStatus.approved)
+                        .build()));
         when(serviceCategoryRepository.findByIdAndDeletedAtIsNull(categoryId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> professionalOfferingService.create(professionalId, request))
@@ -133,6 +136,11 @@ class ProfessionalOfferingServiceImplTest {
                 offering.getCreatedAt()
         );
 
+        when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId))
+                .thenReturn(Optional.of(Professional.builder()
+                        .userId(UUID.randomUUID())
+                        .verificationStatus(com.allset.api.professional.domain.VerificationStatus.approved)
+                        .build()));
         when(professionalOfferingRepository.findByIdAndProfessionalIdAndDeletedAtIsNull(offeringId, professionalId))
                 .thenReturn(Optional.of(offering));
         when(professionalOfferingRepository.save(offering)).thenReturn(offering);

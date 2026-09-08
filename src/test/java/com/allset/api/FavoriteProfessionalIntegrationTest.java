@@ -139,6 +139,7 @@ class FavoriteProfessionalIntegrationTest {
     private User createUser(UserRole role) {
         int current = sequence.getAndIncrement();
         User user = User.builder()
+                .birthDate(java.time.LocalDate.of(1995, 9, 15))
                 .name("Usuario " + current)
                 .cpf("1234567890" + current)
                 .cpfHash("%064d".formatted(current))

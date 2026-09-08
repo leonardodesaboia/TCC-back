@@ -198,8 +198,8 @@ class OrderServiceImplTest {
         verify(notificationService).notifyUsers(
                 List.of(proUser1, proUser2),
                 NotificationType.new_request,
-                "Nova solicitacao Express",
-                "Ha um novo pedido Express disponivel para a sua categoria.",
+                "Nova solicitação Express",
+                "Há um novo pedido Express disponível para a sua categoria.",
                 objectMapper.createObjectNode().put("orderId", orderId.toString())
         );
     }
@@ -252,8 +252,8 @@ class OrderServiceImplTest {
                 .build();
         conversation.setId(UUID.randomUUID());
 
-        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
-        when(queueRepository.findByOrderIdAndProfessionalId(orderId, chosenProfessionalId)).thenReturn(Optional.of(chosen));
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        when(queueRepository.findByOrderIdAndProfessionalIdForUpdate(orderId, chosenProfessionalId)).thenReturn(Optional.of(chosen));
         when(queueRepository.findAllByOrderIdAndProResponse(orderId, ProResponse.accepted)).thenReturn(List.of(chosen, other));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(conversationService.createForOrder(any(Order.class))).thenReturn(conversation);
@@ -290,13 +290,13 @@ class OrderServiceImplTest {
                 eq(chosenProfessionalUserId),
                 eq(NotificationType.request_accepted),
                 eq("Pedido aceito"),
-                eq("Seu orcamento foi aceito pelo cliente."),
+                eq("Seu orçamento foi aceito pelo cliente."),
                 any()
         );
         verify(notificationService).notifyUsers(
                 eq(List.of(otherProfessionalUserId)),
                 eq(NotificationType.request_rejected),
-                eq("Proposta nao selecionada"),
+                eq("Proposta não selecionada"),
                 eq("O cliente escolheu outro profissional para este pedido."),
                 any()
         );

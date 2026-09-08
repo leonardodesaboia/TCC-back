@@ -128,6 +128,9 @@ class OrderChatFlowIntegrationTest {
     private ProfessionalOfferingRepository professionalOfferingRepository;
 
     @Autowired
+    private com.allset.api.professional.repository.ProfessionalSpecialtyRepository specialtyRepository;
+
+    @Autowired
     private ProfessionalRepository professionalRepository;
 
     @Autowired
@@ -158,6 +161,7 @@ class OrderChatFlowIntegrationTest {
         expressQueueRepository.deleteAll();
         orderRepository.deleteAll();
         professionalOfferingRepository.deleteAll();
+        specialtyRepository.deleteAll();
         professionalRepository.deleteAll();
         savedAddressRepository.deleteAll();
         serviceCategoryRepository.deleteAll();
@@ -174,6 +178,7 @@ class OrderChatFlowIntegrationTest {
         ServiceArea area = createArea();
         ServiceCategory category = createCategory(area.getId());
         createOffering(professional.getId(), category.getId());
+        createSpecialty(professional.getId(), category.getId());
         SavedAddress address = createAddress(client.getId());
 
         String clientBearer = bearer(client.getId(), "client");
@@ -293,6 +298,7 @@ class OrderChatFlowIntegrationTest {
         String cpfHash = ("%064d").formatted(current);
 
         User user = User.builder()
+                .birthDate(java.time.LocalDate.of(1995, 9, 15))
                 .name("Usuario " + current)
                 .cpf(cpf)
                 .cpfHash(cpfHash)
@@ -303,6 +309,47 @@ class OrderChatFlowIntegrationTest {
                 .build();
 
         return userRepository.save(user);
+    }
+
+    private void createSpecialty(UUID professionalId, UUID categoryId) {
+        specialtyRepository.save(com.allset.api.professional.domain.ProfessionalSpecialty.builder()
+                .professionalId(professionalId).categoryId(categoryId).yearsOfExperience((short) 8).build());
+    }
+
+    @Test
+    void shouldRequireConfirmedCoordinatesAndNotifyOnlyProfessionalsWithin300Meters() throws Exception {
+        User client = createUser(UserRole.client);
+        Professional near = createProfessional(createUser(UserRole.professional).getId());
+        Professional far = createProfessional(createUser(UserRole.professional).getId());
+        far.setGeoLat(new BigDecimal("-3.740000"));
+        professionalRepository.save(far);
+        ServiceArea area = createArea();
+        ServiceCategory category = createCategory(area.getId());
+        createSpecialty(near.getId(), category.getId());
+        createSpecialty(far.getId(), category.getId());
+        SavedAddress address = createAddress(client.getId());
+        String authorization = bearer(client.getId(), "client");
+        CreateExpressOrderRequest request = new CreateExpressOrderRequest(area.getId(), category.getId(),
+                "Validar localização confirmada", address.getId(), BigDecimal.ZERO);
+
+        for (CoordinateSource source : new CoordinateSource[]{CoordinateSource.legacy, CoordinateSource.geocoded}) {
+            address.setCoordinateSource(source);
+            address.setCoordinateConfidence(com.allset.api.geocoding.dto.GeocodeConfidence.CITY);
+            savedAddressRepository.save(address);
+            mockMvc.perform(post("/api/v1/orders/express").header("Authorization", authorization)
+                    .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isUnprocessableEntity());
+            assertThat(orderRepository.count()).isZero();
+        }
+
+        address.setCoordinateSource(CoordinateSource.user_pin);
+        address.setCoordinateConfidence(null);
+        savedAddressRepository.save(address);
+        OrderResponse order = createOrder(authorization, request);
+        var queue = expressQueueRepository.findAllByOrderIdOrderByQueuePositionAsc(order.id());
+        assertThat(queue).hasSize(1);
+        assertThat(queue.getFirst().getProfessionalId()).isEqualTo(near.getId());
+        assertThat(queue.getFirst().getDistanceMeters()).isBetween(1, 300);
     }
 
     private Professional createProfessional(UUID userId) {

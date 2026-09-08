@@ -96,11 +96,12 @@ public class SavedAddressServiceImpl implements SavedAddressService {
         SavedAddress address = findOwnedAddress(userId, id);
 
         boolean addressFieldsChanged =
-            request.street()  != null
-            || request.number()  != null
-            || request.zipCode() != null
-            || request.city()    != null
-            || request.state()   != null;
+            changed(request.street(), address.getStreet())
+            || changed(request.number(), address.getNumber())
+            || changed(request.district(), address.getDistrict())
+            || changed(request.zipCode(), address.getZipCode())
+            || changed(request.city(), address.getCity())
+            || changed(request.state(), address.getState());
 
         if (request.label() != null)      { address.setLabel(request.label()); }
         if (request.street() != null)     { address.setStreet(request.street()); }
@@ -130,6 +131,7 @@ public class SavedAddressServiceImpl implements SavedAddressService {
             address.setCoordinateSource(CoordinateSource.legacy);
             address.setCoordinateAccuracyMeters(null);
             address.setCoordinateConfidence(null);
+            address.setCoordinateConfirmedAt(null);
         }
 
         if (request.isDefault() != null) {
@@ -162,6 +164,10 @@ public class SavedAddressServiceImpl implements SavedAddressService {
      * O mesmo 404 é lançado tanto para "não existe" quanto para "pertence a outro usuário",
      * evitando information leakage sobre a existência do recurso.
      */
+    private static boolean changed(String supplied, String current) {
+        return supplied != null && !supplied.equals(current);
+    }
+
     private SavedAddress findOwnedAddress(UUID userId, UUID id) {
         return savedAddressRepository.findByIdAndUserId(id, userId)
             .orElseThrow(() -> new SavedAddressNotFoundException(id));

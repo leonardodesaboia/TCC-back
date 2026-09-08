@@ -229,6 +229,7 @@ class AuthUserAddressIntegrationTest {
     @Test
     void shouldResetPasswordAndAllowLoginWithNewPassword() throws Exception {
         User user = userRepository.save(User.builder()
+                .birthDate(java.time.LocalDate.of(1995, 9, 15))
                 .name("Felipe")
                 .cpf("11144477735")
                 .cpfHash("b".repeat(64))

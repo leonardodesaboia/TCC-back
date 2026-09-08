@@ -1,0 +1,2 @@
+# Integration tests do not call public geocoders, but must satisfy config validation.
+geocoding-user-agent: AllSet-IntegrationTests/1.0 (https://github.com/leonardodesaboia/TCC-back)

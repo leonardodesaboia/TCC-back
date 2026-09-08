@@ -98,7 +98,7 @@ public record AppProperties(
         @Min(value = 1, message = "EXPRESS_CLIENT_WINDOW_MINUTES deve ser maior que 0")
         Integer expressClientWindowMinutes,
 
-        @DefaultValue("5000")
+        @DefaultValue("300")
         @Min(value = 1, message = "EXPRESS_SEARCH_RADIUS_METERS deve ser maior que 0")
         @Max(value = 5000, message = "EXPRESS_SEARCH_RADIUS_METERS não pode exceder 5000")
         Integer expressSearchRadiusMeters,
