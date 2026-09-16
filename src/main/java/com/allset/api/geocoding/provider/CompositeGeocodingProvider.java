@@ -1,5 +1,6 @@
 package com.allset.api.geocoding.provider;
 
+import com.allset.api.geocoding.dto.GeocodeConfidence;
 import com.allset.api.geocoding.dto.NormalizedAddress;
 import com.allset.api.geocoding.exception.GeocodingProviderUnavailableException;
 import com.allset.api.geocoding.exception.GeocodingRateLimitException;
@@ -9,20 +10,27 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 /**
- * Encadeia os providers para maximizar o hit rate em endereços brasileiros.
+ * Encadeia os providers dando a cada um o papel que ele realmente sabe cumprir.
  *
- * <p>Estratégia para query <b>com CEP</b>:
- * <ol>
- *   <li>BrasilAPI v2 retorna endereço + coords → usa direto;</li>
- *   <li>BrasilAPI retorna endereço <b>sem</b> coords (fonte interna ViaCEP/open-cep parcial)
- *       → enriquece a query original com rua/bairro da BrasilAPI e chama Nominatim;</li>
- *   <li>BrasilAPI não tem o CEP ou caiu → Nominatim com a query original.</li>
- * </ol>
+ * <p><b>Quem manda na coordenada é o Nominatim.</b> A BrasilAPI entra antes só
+ * para <i>enriquecer</i> a busca com rua e bairro do CEP — informação que o
+ * usuário costuma não digitar e que melhora muito o acerto do Nominatim.
  *
- * <p>Para query <b>sem CEP</b>: vai direto para o Nominatim em busca livre.
+ * <p>A ordem já foi a inversa, e o resultado medido foi ruim: a BrasilAPI vencia
+ * sempre que trouxesse qualquer coordenada, e o backend {@code open-cep} devolve
+ * o centroide do município como preenchimento. Em 20 endereços reais de Fortaleza,
+ * 16 voltaram no mesmo ponto, com erro de 2 a 11 km — o suficiente para o raio
+ * curto do Express não achar ninguém. Nos mesmos 20 endereços, o Nominatim
+ * resolveu todos, 8 deles com precisão de edifício.
+ *
+ * <p>A coordenada da BrasilAPI sobrou como último recurso, quando o Nominatim não
+ * acha nada ou está fora do ar, e sempre marcada como {@link GeocodeConfidence#CITY}:
+ * é honestamente o que ela é, e essa marcação já basta para o Express recusar o
+ * ponto sem confirmação humana.
  *
  * <p>Falhas operacionais (timeout, 5xx, 429) de um provider não derrubam o lookup —
  * caem no próximo. Só lançamos {@link GeocodingProviderUnavailableException} quando
@@ -55,44 +63,104 @@ public class CompositeGeocodingProvider implements GeocodingProvider {
         boolean hasCep = query.zipCode() != null && !query.zipCode().isBlank();
 
         if (!hasCep) {
-            log.info("Query sem CEP, indo direto para Nominatim");
+            log.debug("Query sem CEP, indo direto para Nominatim");
             return nominatim.geocode(query);
         }
 
-        Optional<CepLookup> lookup = Optional.empty();
-        boolean brasilApiFailed = false;
-        try {
-            lookup = brasilApi.lookup(query.zipCode());
-        } catch (GeocodingProviderUnavailableException | GeocodingRateLimitException ex) {
-            log.warn("BrasilAPI indisponível ({}), seguindo só com Nominatim",
-                ex.getClass().getSimpleName());
-            brasilApiFailed = true;
-        }
+        Optional<CepLookup> lookup = lookupCep(query.zipCode());
 
-        // 1. BrasilAPI tem endereço + coords → resposta direta
-        if (lookup.isPresent() && lookup.get().hasCoords()) {
-            log.info("Geocoding via BrasilAPI cep={} service={}",
-                query.zipCode(), lookup.get().service());
-            return brasilApi.geocode(query);
-        }
-
-        // 2. BrasilAPI tem endereço sem coords → enriquece query do Nominatim
         GeocodeQuery effectiveQuery = lookup
             .map(l -> {
-                log.info("BrasilAPI sem coords (service={}), enriquecendo Nominatim com street='{}', district='{}'",
+                log.debug("Enriquecendo query com BrasilAPI (service={}, street='{}', district='{}')",
                     l.service(), l.address().street(), l.address().district());
                 return enrichQuery(query, l.address());
             })
             .orElse(query);
 
         try {
-            return nominatim.geocode(effectiveQuery);
-        } catch (GeocodingProviderUnavailableException | GeocodingRateLimitException ex) {
-            if (brasilApiFailed) {
-                log.error("Toda a chain de geocoding está indisponível");
+            Optional<GeocodeResult> result = nominatim.geocode(effectiveQuery);
+            if (result.isPresent()) {
+                return result.map(r -> fillGaps(r, lookup.orElse(null)));
             }
-            throw ex;
+            log.info("Nominatim sem resultado para cep={}, tentando coordenada aproximada do CEP",
+                query.zipCode());
+        } catch (GeocodingProviderUnavailableException | GeocodingRateLimitException ex) {
+            log.warn("Nominatim indisponível ({}), tentando coordenada aproximada do CEP",
+                ex.getClass().getSimpleName());
+            if (lookup.isEmpty()) {
+                log.error("Toda a chain de geocoding está indisponível");
+                throw ex;
+            }
         }
+
+        return lookup
+            .filter(CepLookup::hasCoords)
+            .map(CompositeGeocodingProvider::toApproximateResult);
+    }
+
+    /**
+     * Reverse é exclusividade do Nominatim — a BrasilAPI só sabe consultar por CEP.
+     */
+    @Override
+    public Optional<GeocodeResult> reverse(BigDecimal lat, BigDecimal lng) {
+        return nominatim.reverse(lat, lng);
+    }
+
+    // -------------------------------------------------------------------------
+
+    private Optional<CepLookup> lookupCep(String zipCode) {
+        try {
+            return brasilApi.lookup(zipCode);
+        } catch (GeocodingProviderUnavailableException | GeocodingRateLimitException ex) {
+            log.warn("BrasilAPI indisponível ({}), seguindo só com Nominatim",
+                ex.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * A coordenada do CEP é, na melhor das hipóteses, o meio da via — e na pior, o
+     * centro do município. Vai marcada como {@code CITY} para que ninguém a trate
+     * como ponto de atendimento sem alguém olhar o mapa antes.
+     */
+    private static GeocodeResult toApproximateResult(CepLookup lookup) {
+        return new GeocodeResult(
+            lookup.lat(),
+            lookup.lng(),
+            lookup.displayName(),
+            lookup.address(),
+            GeocodeConfidence.CITY,
+            "brasilapi"
+        );
+    }
+
+    /**
+     * O Nominatim acertou o ponto, mas às vezes deixa rua ou bairro em branco no
+     * endereço normalizado. Preenche essas lacunas com o que o CEP já trouxe —
+     * sem tocar no que o Nominatim afirmou, e sem tocar na coordenada.
+     */
+    private static GeocodeResult fillGaps(GeocodeResult result, CepLookup lookup) {
+        if (lookup == null || result.normalizedAddress() == null) {
+            return result;
+        }
+        NormalizedAddress n = result.normalizedAddress();
+        NormalizedAddress c = lookup.address();
+
+        return new GeocodeResult(
+            result.lat(),
+            result.lng(),
+            result.displayName(),
+            new NormalizedAddress(
+                firstNonBlank(n.street(),   c.street()),
+                n.number(),
+                firstNonBlank(n.district(), c.district()),
+                firstNonBlank(n.city(),     c.city()),
+                firstNonBlank(n.state(),    c.state()),
+                firstNonBlank(n.zipCode(),  c.zipCode())
+            ),
+            result.confidence(),
+            result.provider()
+        );
     }
 
     /**

@@ -53,6 +53,9 @@ geocoding-user-agent: ${GEOCODING_USER_AGENT:}
 geocoding-cache-ttl-seconds: ${GEOCODING_CACHE_TTL_SECONDS:2592000}
 geocoding-negative-cache-ttl-seconds: ${GEOCODING_NEGATIVE_CACHE_TTL_SECONDS:300}
 geocoding-enabled: ${GEOCODING_ENABLED:true}
+geocoding-min-interval-ms: ${GEOCODING_MIN_INTERVAL_MS:1100}
+geocoding-max-wait-ms: ${GEOCODING_MAX_WAIT_MS:3000}
+geocoding-bounding-box: ${GEOCODING_BOUNDING_BOX:-7.9,-41.5,-2.7,-37.2}
 
 # Seed
 seed:
@@ -102,6 +105,10 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # Sem timeout explícito o Lettuce espera o default do SO. Com o Redis fora do
+      # ar, um lookup de geocoding ficou 60s pendurado antes de devolver 500.
+      timeout: ${REDIS_TIMEOUT:2s}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
 
 server:
   port: ${PORT:8080}
@@ -134,6 +141,8 @@ spring:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT:2s}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
 
 server:
   port: ${PORT:8080}

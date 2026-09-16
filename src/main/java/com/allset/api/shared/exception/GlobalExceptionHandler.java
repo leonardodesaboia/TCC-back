@@ -25,6 +25,7 @@ import com.allset.api.dispute.exception.DisputeWindowExpiredException;
 import com.allset.api.document.exception.ProfessionalDocumentNotFoundException;
 import com.allset.api.favorite.exception.FavoriteProfessionalAlreadyExistsException;
 import com.allset.api.favorite.exception.FavoriteProfessionalNotFoundException;
+import com.allset.api.address.exception.AddressCoordinateNotTrustedException;
 import com.allset.api.geocoding.exception.AddressNotGeocodableException;
 import com.allset.api.geocoding.exception.GeocodingProviderUnavailableException;
 import com.allset.api.geocoding.exception.GeocodingRateLimitException;
@@ -299,6 +300,25 @@ public class GlobalExceptionHandler {
             HttpStatus.UNPROCESSABLE_ENTITY.value(),
             ex.getMessage(),
             null,
+            Instant.now()
+        ));
+    }
+
+    /**
+     * Coordenada ausente ou de procedência insuficiente para o Express.
+     * O código estável vai em {@code fields.code} para o app decidir a tela de
+     * destino sem depender do texto da mensagem.
+     */
+    @ExceptionHandler(AddressCoordinateNotTrustedException.class)
+    public ResponseEntity<ApiError> handleCoordinateNotTrusted(AddressCoordinateNotTrustedException ex,
+                                                               HttpServletRequest request) {
+        log.warn("status=422 method={} path={} code={} addressId={} source={}",
+            request.getMethod(), request.getRequestURI(), ex.getCode(), ex.getAddressId(), ex.getSource());
+
+        return ResponseEntity.unprocessableEntity().body(new ApiError(
+            HttpStatus.UNPROCESSABLE_ENTITY.value(),
+            ex.getMessage(),
+            Map.of("code", ex.getCode()),
             Instant.now()
         ));
     }
