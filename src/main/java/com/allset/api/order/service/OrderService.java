@@ -48,6 +48,25 @@ public interface OrderService {
     /** Cancela o pedido (cliente ou profissional). */
     OrderResponse cancelOrder(UUID orderId, UUID requesterId, CancelOrderRequest request);
 
+    /**
+     * Profissional sinaliza que o escopo descoberto no local diverge do descrito na
+     * criação do pedido. Cancela o pedido sem custo e marca scopeMismatch = true.
+     * Só permitido a partir do status accepted.
+     */
+    OrderResponse reportScopeMismatch(UUID orderId, UUID professionalUserId, ReportScopeMismatchRequest request);
+
+    /**
+     * Express apenas. Profissional propõe um novo preço para um pedido accepted em vez de
+     * cancelar direto. Fica pendente no pedido até o cliente responder.
+     */
+    OrderResponse proposeNewPrice(UUID orderId, UUID professionalUserId, ProposeNewPriceRequest request);
+
+    /**
+     * Cliente aceita (recalcula valores) ou recusa (cancela sem custo, scopeMismatch=true)
+     * uma proposta de novo preço pendente.
+     */
+    OrderResponse respondNewPrice(UUID orderId, UUID clientId, RespondNewPriceRequest request);
+
     /** Faz upload de uma foto vinculada ao pedido (request, completion_proof, etc.). */
     OrderPhotoResponse uploadPhoto(UUID orderId, UUID requesterUserId, String requesterRole,
                                    PhotoType type, MultipartFile file);

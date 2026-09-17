@@ -1,0 +1,1 @@
+ALTER TABLE orders ADD COLUMN scope_mismatch BOOLEAN NOT NULL DEFAULT false;

@@ -120,4 +120,25 @@ public class Order extends PostgresEntity {
 
     @Column(name = "cancel_reason", columnDefinition = "TEXT")
     private String cancelReason;
+
+    /**
+     * true quando o cancelamento decorre do profissional sinalizar que o escopo
+     * descoberto no local diverge do descrito na criação do pedido — usado pelo
+     * futuro módulo payment para isentar a multa de cancelamento.
+     */
+    @Column(name = "scope_mismatch", nullable = false)
+    private boolean scopeMismatch;
+
+    /**
+     * Proposta de novo preço pendente (só Express) — enquanto não-nula, o pedido
+     * continua accepted mas aguarda resposta do cliente. No máximo uma por vez.
+     */
+    @Column(name = "pending_price_amount", precision = 10, scale = 2)
+    private BigDecimal pendingPriceAmount;
+
+    @Column(name = "pending_price_reason", columnDefinition = "TEXT")
+    private String pendingPriceReason;
+
+    @Column(name = "pending_price_proposed_at")
+    private Instant pendingPriceProposedAt;
 }

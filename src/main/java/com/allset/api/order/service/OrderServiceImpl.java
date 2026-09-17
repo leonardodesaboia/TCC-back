@@ -661,6 +661,9 @@ public class OrderServiceImpl implements OrderService {
         if (order.getStatus() != OrderStatus.accepted) {
             throw new OrderStatusTransitionException(order.getStatus(), "conclusão pelo profissional");
         }
+        if (order.getPendingPriceAmount() != null) {
+            throw new OrderStatusTransitionException(order.getStatus(), "conclusão com proposta de preço pendente");
+        }
 
         UUID proUserId = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
                 .map(p -> p.getUserId())
@@ -777,10 +780,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = findActive(orderId);
 
         boolean isClient = requesterId.equals(order.getClientId());
-        boolean isPro    = professionalRepository.findByUserIdAndDeletedAtIsNull(requesterId)
-                .map(Professional::getId)
-                .map(professionalId -> professionalId.equals(order.getProfessionalId()))
-                .orElse(false);
+        boolean isPro    = isAssignedProfessional(order, requesterId);
 
         if (!isClient && !isPro) {
             throw new OrderNotFoundException(orderId);
@@ -796,6 +796,7 @@ public class OrderServiceImpl implements OrderService {
         order.setCancelledAt(now);
         order.setCancelReason(request.reason());
         order.setStatus(OrderStatus.cancelled);
+        clearPendingPriceProposal(order);
 
         Order saved = orderRepository.save(order);
         recordTransition(orderId, current, OrderStatus.cancelled, request.reason(), requesterId);
@@ -837,6 +838,147 @@ public class OrderServiceImpl implements OrderService {
 
         log.info("event=order_cancelled orderId={} by={}", orderId, requesterId);
         return orderMapper.toResponse(saved);
+    }
+
+    @Override
+    public OrderResponse reportScopeMismatch(UUID orderId, UUID professionalUserId, ReportScopeMismatchRequest request) {
+        Order order = findActive(orderId);
+
+        if (!isAssignedProfessional(order, professionalUserId)) {
+            throw new OrderNotFoundException(orderId);
+        }
+
+        if (order.getStatus() != OrderStatus.accepted) {
+            throw new OrderStatusTransitionException(order.getStatus(), "sinalização de escopo divergente");
+        }
+
+        Order saved = cancelDueToScopeMismatch(order, request.description(), professionalUserId);
+
+        notifyClient(
+                order.getClientId(),
+                NotificationType.request_status_update,
+                "Pedido cancelado",
+                "O profissional identificou que o servico e diferente do descrito e cancelou o pedido sem custo.",
+                orderId
+        );
+
+        log.info("event=order_scope_mismatch orderId={} by={}", orderId, professionalUserId);
+        return orderMapper.toResponse(saved);
+    }
+
+    @Override
+    public OrderResponse proposeNewPrice(UUID orderId, UUID professionalUserId, ProposeNewPriceRequest request) {
+        Order order = findActive(orderId);
+
+        if (!isAssignedProfessional(order, professionalUserId)) {
+            throw new OrderNotFoundException(orderId);
+        }
+
+        if (order.getMode() != OrderMode.express) {
+            throw new OrderStatusTransitionException(order.getStatus(), "proposta de novo preço em pedido não Express");
+        }
+
+        if (order.getStatus() != OrderStatus.accepted) {
+            throw new OrderStatusTransitionException(order.getStatus(), "proposta de novo preço");
+        }
+
+        if (order.getPendingPriceAmount() != null) {
+            throw new OrderStatusTransitionException(order.getStatus(), "proposta de novo preço com proposta já pendente");
+        }
+
+        order.setPendingPriceAmount(request.newAmount());
+        order.setPendingPriceReason(request.reason());
+        order.setPendingPriceProposedAt(Instant.now());
+
+        Order saved = orderRepository.save(order);
+
+        notifyClient(
+                order.getClientId(),
+                NotificationType.request_status_update,
+                "Novo preço proposto",
+                "O profissional propôs um novo valor para o seu pedido.",
+                orderId
+        );
+
+        log.info("event=order_new_price_proposed orderId={} by={}", orderId, professionalUserId);
+        return orderMapper.toResponse(saved);
+    }
+
+    @Override
+    public OrderResponse respondNewPrice(UUID orderId, UUID clientId, RespondNewPriceRequest request) {
+        Order order = findActive(orderId);
+
+        if (!clientId.equals(order.getClientId())) {
+            throw new OrderNotFoundException(orderId);
+        }
+
+        if (order.getMode() != OrderMode.express || order.getStatus() != OrderStatus.accepted) {
+            throw new OrderStatusTransitionException(order.getStatus(), "resposta a proposta de novo preço");
+        }
+
+        if (order.getPendingPriceAmount() == null) {
+            throw new OrderStatusTransitionException(order.getStatus(), "resposta a proposta de novo preço sem proposta pendente");
+        }
+
+        if (request.accepted()) {
+            BigDecimal newBase  = order.getPendingPriceAmount();
+            BigDecimal newFee   = newBase.multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal urgency  = order.getUrgencyFee() != null ? order.getUrgencyFee() : BigDecimal.ZERO;
+
+            order.setBaseAmount(newBase);
+            order.setPlatformFee(newFee);
+            order.setTotalAmount(newBase.add(urgency));
+            clearPendingPriceProposal(order);
+
+            Order saved = orderRepository.save(order);
+
+            notifyProfessional(
+                    order.getProfessionalId(),
+                    NotificationType.request_status_update,
+                    "Novo preço aceito",
+                    "O cliente aceitou o novo preço proposto.",
+                    orderId
+            );
+
+            log.info("event=order_new_price_accepted orderId={} by={}", orderId, clientId);
+            return orderMapper.toResponse(saved);
+        }
+
+        Order saved = cancelDueToScopeMismatch(order, "Cliente recusou o novo preço proposto", clientId);
+
+        notifyProfessional(
+                order.getProfessionalId(),
+                NotificationType.request_status_update,
+                "Pedido cancelado",
+                "O cliente recusou o novo preço proposto e o pedido foi cancelado sem custo.",
+                orderId
+        );
+
+        log.info("event=order_new_price_rejected orderId={} by={}", orderId, clientId);
+        return orderMapper.toResponse(saved);
+    }
+
+    private void clearPendingPriceProposal(Order order) {
+        order.setPendingPriceAmount(null);
+        order.setPendingPriceReason(null);
+        order.setPendingPriceProposedAt(null);
+    }
+
+    /**
+     * Cancela o pedido por escopo divergente (sinalizado direto pelo profissional ou por
+     * recusa do cliente a uma proposta de novo preço) — sempre sem custo, sempre marcando
+     * scopeMismatch, sempre limpando qualquer proposta de preço pendente.
+     */
+    private Order cancelDueToScopeMismatch(Order order, String reason, UUID changedBy) {
+        clearPendingPriceProposal(order);
+        order.setCancelledAt(Instant.now());
+        order.setCancelReason(reason);
+        order.setStatus(OrderStatus.cancelled);
+        order.setScopeMismatch(true);
+
+        Order saved = orderRepository.save(order);
+        recordTransition(order.getId(), OrderStatus.accepted, OrderStatus.cancelled, reason, changedBy);
+        return saved;
     }
 
     // ─────────────────────────────────────────
@@ -924,6 +1066,13 @@ public class OrderServiceImpl implements OrderService {
     private Order findActive(UUID id) {
         return orderRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new OrderNotFoundException(id));
+    }
+
+    private boolean isAssignedProfessional(Order order, UUID requesterId) {
+        return professionalRepository.findByUserIdAndDeletedAtIsNull(requesterId)
+                .map(Professional::getId)
+                .map(professionalId -> professionalId.equals(order.getProfessionalId()))
+                .orElse(false);
     }
 
     private void recordTransition(UUID orderId, OrderStatus from, OrderStatus to,
