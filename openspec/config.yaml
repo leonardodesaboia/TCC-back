@@ -1,0 +1,149 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Verified against the actual codebase in 2026-09. CLAUDE.md was updated in the same pass
+# to match — but code moves faster than docs, so when in doubt, trust the code (grep/read
+# src) over any prose, including this file.
+context: |
+  AllSet API — marketplace de serviços autônomos (Fortaleza/CE), modos Agendado e Express.
+  Stack: Java 21, Spring Boot 3.5.x, Maven, PostgreSQL 16, Redis 7,
+  Flyway, JWT HS256 (OAuth2 Resource Server), SpringDoc/Swagger, Docker Compose.
+  Nota: CLAUDE.md cita "virtual threads habilitado", mas não há nenhum uso real no código
+  (application.yml, pom.xml e Java fontes não têm nada relacionado) — não assumir que está
+  ativo sem confirmar com o usuário.
+  Integrações externas já implementadas: IDwall (KYC), MinIO (S3-compatible), FCM (push),
+  WebSocket/STOMP (chat), Resend (email), Nominatim (geocoding). Asaas (pagamentos/escrow)
+  ainda NÃO tem nenhum código — é o módulo greenfield mais crítico pendente.
+
+  Estrutura de módulo canônica: controller / service / repository / domain / mapper / dto / exception
+  (ver src/main/java/com/allset/api). Toda entidade estende PostgresEntity (UUID, auditoria, soft delete).
+  IDs sempre UUID gerados pelo banco; timestamps sempre Instant (UTC); nunca ddl-auto fora de testes.
+  DTOs sempre via MapStruct; nunca serializar entidade JPA diretamente.
+  Erros centralizados em GlobalExceptionHandler retornando ApiError — controllers nunca
+  retornam ResponseEntity para erros; toda exceção nova deve ser registrada lá.
+  Roles JWT sem prefixo ROLE_ — usar hasAuthority(), nunca hasRole().
+
+  Estado real dos módulos (verificado no código, não no CLAUDE.md):
+    Implementados e completos: user, address, auth, professional, document, offering,
+    catalog, subscription, calendar, favorite, order, geocoding, chat, review, dispute,
+    notification. Todos com testes (unit + integration via Testcontainers), exceto dispute
+    e geocoding, que ainda não têm cobertura de teste.
+    Genuinamente pendentes (zero código): payment (Asaas) e admin (hoje é ad hoc via
+    hasAuthority('admin') espalhado em user/catalog/dispute — não é módulo dedicado).
+
+  Prefixo de rota: /api/v1/ é o padrão para todo módulo novo. Exceções legadas (não seguir
+  como exemplo): user, address e auth usam /api/ puro (sem versão).
+
+  Migrations Flyway: até V24 (src/main/resources/db/migration). Próxima migration de
+  qualquer change DEVE começar em V25, numerada sequencialmente sem gaps.
+
+  Padrões de arquitetura verificados no código (seguir estes, não inventar variação nova):
+    - Efeito colateral pós-commit (broadcast, limpeza de storage): publicar evento de domínio
+      e consumir com @TransactionalEventListener(phase = AFTER_COMMIT). Nunca @Async — não é
+      usado em nenhum lugar do projeto. Ex: ObjectDeletionRequestedEvent, MessageSentEvent.
+    - Scheduler: @Component fino que delega pra um método de service, cron via property
+      (${x-cron}) validada em AppProperties. Duas formas aceitas — bulk query→saveAll/deleteAll
+      quando falha parcial não é um problema, ou loop com try/catch por item (como
+      ExpressTimeoutScheduler) quando uma falha não pode derrubar os outros itens do lote.
+    - Transição de status: sem máquina de estados centralizada — guard inline no service
+      (if status != esperado, lança XStatusTransitionException dedicada do módulo). Todo
+      módulo novo com status (ex: payment) deve seguir essa mesma convenção: exception própria
+      + guards inline, não uma lib de state machine.
+    - Cache: usar a interface CacheService (shared/cache) + RedisCacheService — nunca
+      @Cacheable do Spring. increment() já é atômico com TTL, serve para rate limiting.
+    - Validação custom: annotation + ConstraintValidator (Bean Validation SPI) em
+      shared/validation/ — é o único lugar do projeto com esse padrão; reaproveitar essa pasta
+      para validações novas (ex: valor monetário do payment), não criar padrão paralelo.
+    - Ownership: query única findByIdAnd<Owner>(id, ownerId) é convenção em ~10 repositories
+      (address, calendar, chat, notification, offering, document, etc.) — replicar em módulo
+      novo, nunca buscar por ID e checar ownership em código separado (vaza timing/mensagem).
+    - Extração do usuário logado: @CurrentUser + CurrentUserArgumentResolver (injeta UUID do
+      claim sub). Checagem de múltiplos papéis no método: @RequiresAnyRole + aspect. Regra
+      grosseira de rota: hasAuthority() no SecurityConfig.
+    - Transação: @Transactional de classe no ServiceImpl é o padrão; @Transactional(readOnly
+      = true) em métodos de query pura. Em hotspot de escrita concorrente (ex: fila Express),
+      usar @Version (lock otimista) na entidade E @Lock(PESSIMISTIC_WRITE) com @QueryHints de
+      timeout no repository antes de mutar — ver Order/ExpressQueueRepository como referência
+      direta para qualquer novo fluxo com concorrência (ex: liberação de escrow no payment).
+      Em loop de scheduler que processa itens independentes, usar
+      @Transactional(propagation = REQUIRES_NEW) por item.
+    - DTOs: sempre record. Campo de texto livre sempre com @NotBlank + @Size + @NoHtml juntos.
+    - Soft delete NÃO é automático — PostgresEntity só guarda a coluna deletedAt, cada query
+      precisa do sufixo AndDeletedAtIsNull manualmente. Um repository novo que esquecer isso
+      vaza registro soft-deleted silenciosamente — checar isso em toda review de código novo.
+    - WebSocket/chat é push unidirecional: criação de mensagem é REST normal, o evento pós-commit
+      dispara o broadcast STOMP; não há @MessageMapping (cliente nunca envia pelo socket).
+      Autorização de subscribe é feita reaproveitando o mesmo padrão de ownership query.
+
+  Testes: existe suíte real com Testcontainers (PostgreSQL) — TestcontainersConfiguration.java,
+  testes de service por módulo, testes de scheduler, testes de integração cross-módulo
+  (ex: OrderChatFlowIntegrationTest). Toda change de módulo com service/repository deve
+  incluir testes seguindo esse padrão existente, não pular.
+
+  Docs internas reais (pasta docs/ na raiz — docs/adr/ e docs/schema.dbml NÃO existem):
+  architecture.md, api-analysis.md, chat.md, chat-details.md, dispute.md, geocoding.md,
+  minio-storage.md, professional-backend-model.md, test-flows.md, dependencies.md,
+  EXPRESS_MATCHING_SPEC.md, EXPRESS_MATCHING_IMPLEMENTATION_PLAN.md,
+  express-radius-simplification.md. Consultar o arquivo relevante ao módulo antes de propor.
+
+  Convenções e regras de negócio completas em CLAUDE.md na raiz do repo (atualizado em
+  2026-09 para refletir o código real — módulos implementados, raio Express 5000m,
+  env vars corretas) — sempre consultar antes de propor specs ou changes.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+rules:
+  proposal:
+    - Antes de propor, verificar no código (não só no CLAUDE.md) se o módulo já existe —
+      chat, review, dispute e notification já estão implementados; só payment e admin são
+      greenfield
+    - Se o módulo é novo, seguir o template controller/service/repository/domain/mapper/dto/exception
+    - Citar explicitamente quais das 11 regras de negócio críticas do CLAUDE.md a change afeta (ex - escrow, double-blind, janela Express)
+    - Endpoints novos devem usar prefixo /api/v1/ (não seguir o padrão legado de user/address/auth)
+    - Incluir sempre uma seção "Fora de escopo" além do que a change faz — se o revisor não
+      conseguir entender a proposta numa leitura rápida, quebrar a change ou cortar escopo
+    - Reaproveitar o mesmo nome de capability quando a change estende um domínio já existente
+      (ex - uma change de pagamento dentro do fluxo de order deve nomear a capability "order",
+      não "order-payment") — evita fragmentar a spec do mesmo domínio em vários documentos
+  design:
+    - Toda mudança de schema precisa listar a migration Flyway (V{n}__descricao_snake_case.sql); a próxima disponível é V25
+    - Exceções novas devem indicar como serão registradas no GlobalExceptionHandler e o HTTP status retornado
+    - Se o design envolve integração externa (Asaas, IDwall, MinIO, FCM, Resend), especificar o client em integration/ e a estratégia de retry/fallback
+    - Se a change introduz env var nova, especificar o campo correspondente em AppProperties (nunca System.getenv direto)
+    - Se a change tem hotspot de escrita concorrente (ex - liberação de escrow, fila de propostas), especificar lock otimista (@Version) e/ou pessimista (@Lock(PESSIMISTIC_WRITE)) seguindo o padrão de Order/ExpressQueueRepository
+    - Se a change dispara efeito colateral após persistir (notificação, broadcast, limpeza de storage), usar @TransactionalEventListener(phase = AFTER_COMMIT) — nunca @Async, não é usado em nenhum lugar do projeto
+  specs:
+    - Escrever cenários em formato Dado/Quando/Então, nunca em adjetivos vagos ("deve validar
+      corretamente") — o cenário é o contrato que a implementação precisa satisfazer
+    - Profundidade proporcional ao risco — módulos que tocam dinheiro/escrow (payment) ou dados
+      sensíveis (KYC, CPF) exigem cenários mais exaustivos que um CRUD simples
+  tasks:
+    - Quebrar tarefas de banco (migration) separadas das tarefas de código
+    - Incluir tarefa explícita de registrar exceções novas no GlobalExceptionHandler quando aplicável
+    - Incluir tarefa de mapper MapStruct sempre que houver DTO novo
+    - Incluir tarefas de teste (service unit test + integration test com Testcontainers) seguindo o padrão existente em src/test — não omitir mesmo em módulos que hoje têm baixa cobertura (dispute, geocoding)
+    - Numerar passos em ordem de dependência (ex - migration antes de código que a usa) e manter
+      cada passo verificável isoladamente — evitar tarefas monolíticas que geram diffs enormes
+    - Se a entidade tem soft delete, incluir tarefa de conferir que toda query nova usa o sufixo AndDeletedAtIsNull — não há filtro automático, é um erro fácil de esquecer
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+operations:
+  apply:
+    guidance:
+      - Rodar ./mvnw clean package -DskipTests para checagem rápida de compilação durante o desenvolvimento
+      - Antes de finalizar, rodar a suíte completa (./mvnw test) — o projeto já tem testes reais com Testcontainers, não assumir que "testes não existem"
+      - Nunca usar ddl-auto=update/create-drop; toda alteração de schema via nova migration Flyway
+      - Nunca acessar System.getenv() diretamente — variáveis novas entram em AppProperties
+      - Toda correção não-planejada durante a implementação (algo que a spec não previu) é sinal
+        de gap na spec — atualizar specs/design antes de arquivar, não só o código
+      - Em changes de maior risco (payment/escrow, KYC), preferir revisão com sessão/agente
+        separado do que implementou antes do archive — "fresh eyes" pegam o que a sessão
+        original não vê
+  archive:
+    guidance:
+      - Confirmar que a spec arquivada reflete o estado final do código, não o plano original
+      - Se a change adicionou migrations, atualizar o número "próxima migration disponível" no context deste arquivo
+      - Se a change mudou algo descrito no context (módulos, prefixos de rota, env vars), atualizar este config.yaml junto

@@ -36,8 +36,11 @@ docker compose up -d postgres redis
 # Build da imagem completa
 docker compose up --build
 
-# Build do JAR sem testes (ainda não implementados)
+# Build do JAR pulando testes (checagem rápida de compilação)
 ./mvnw clean package -DskipTests
+
+# Rodar a suíte de testes (Testcontainers — sobe Postgres em container)
+./mvnw test
 ```
 
 Swagger UI disponível em `http://localhost:8080/swagger-ui.html` apenas no perfil `dev`.
@@ -57,14 +60,17 @@ Copiar `.env.example` → `.env` e preencher antes de subir. A aplicação falha
 | `REDIS_HOST` / `REDIS_PORT` | Não | Padrão: `localhost:6379` |
 | `PORT` | Não | Padrão: `8080` |
 | `USER_PURGE_CRON` | Não | Cron do job de purga (padrão: `0 0 2 * * *`) |
+| `PUSH_TOKEN_PRUNE_CRON` | Não | Cron de limpeza de push tokens expirados (padrão: `0 0 3 * * *`) |
+| `REVIEW_PUBLICATION_CRON` | Não | Cron de publicação de avaliações double-blind expiradas (padrão: `0 0 * * * *`) |
 | `RESEND_API_KEY` | Sim | API key do Resend para envio de e-mails |
 | `EMAIL_FROM` | Sim | Endereço de origem dos e-mails (ex: `noreply@allset.com.br`) |
 | `SPRING_PROFILES_ACTIVE` | Não | `dev` ou `prod` (padrão: `dev`) |
 | `ACCESS_TOKEN_TTL_MINUTES` | Não | TTL do access token (padrão: `15`) |
 | `REFRESH_TOKEN_TTL_DAYS` | Não | TTL do refresh token (padrão: `7`) |
 | `RESET_CODE_TTL_MINUTES` | Não | TTL do código de recuperação de senha (padrão: `10`) |
-| `SUBSCRIPTION_EXPIRATION_CRON` | Não | Cron do job de expiração de assinaturas (padrão: `0 */30 * * * *`) |
-| `EXPRESS_SEARCH_RADIUS_METERS` | Não | Raio único de busca Express, em metros (padrão: `300`) |
+| `EXPRESS_SEARCH_RADIUS_METERS` | Não | Raio de busca Express, em metros (padrão: `5000`, máximo `5000`) |
+| `CHAT_MESSAGE_MAX_LENGTH` | Não | Tamanho máximo de mensagem de chat (padrão: `4000`, máximo `10000`) |
+| `CHAT_MESSAGE_PAGE_SIZE` | Não | Tamanho de página no histórico de chat (padrão: `50`, máximo `200`) |
 | `EXPRESS_PROPOSAL_WINDOW_MINUTES` | Não | Janela em que profissionais podem propor no Express (padrão: `15`) |
 | `EXPRESS_CLIENT_WINDOW_MINUTES` | Não | Janela após o fim das propostas para o cliente escolher (padrão: `30`) |
 | `EXPRESS_MAX_QUEUE_SIZE` | Não | Máximo de profissionais notificados (padrão: `10`) |
@@ -114,6 +120,14 @@ src/main/java/com/allset/api/
 │   └── scheduler/SubscriptionExpirationScheduler.java
 ├── calendar/                                # Calendário de disponibilidade do profissional
 ├── favorite/                                # Profissionais favoritos do cliente
+├── geocoding/                               # Lookup de endereço → lat/lng (Nominatim + cache Redis)
+├── chat/                                    # Mensagens em tempo real via WebSocket/STOMP
+│   └── event/ e websocket/                  # infra de push de mensagem em tempo real
+├── review/                                  # Avaliação bilateral double-blind
+│   └── scheduler/ReviewPublicationScheduler.java
+├── dispute/                                 # Disputas pós-conclusão, evidências (MinIO)
+├── notification/                            # Notificações + push tokens (FCM)
+│   └── scheduler/                           # limpeza de push tokens expirados
 └── order/                                   # Pedidos Express — ciclo completo
     ├── controller/OrderController.java
     ├── service/OrderServiceImpl.java
@@ -134,19 +148,8 @@ src/main/java/com/allset/api/
 
 src/main/resources/
 ├── application.yml
-└── db/migration/
-    ├── V1__init.sql
-    ├── V2__create_users.sql
-    ├── V3__create_saved_addresses.sql
-    ├── V4__alter_saved_addresses_state_to_varchar.sql
-    ├── V5__create_subscription_plans.sql
-    ├── V6__create_service_areas.sql
-    ├── V7__create_service_categories.sql
-    ├── V8__create_professionals.sql
-    ├── V9__create_professional_documents.sql
-    ├── V10__create_professional_services.sql
-    ├── V11__create_blocked_periods.sql
-    └── V12__create_orders.sql
+└── db/migration/                            # Flyway, numeração sequencial V{n}__descricao.sql
+                                              # (ver pasta para a lista atual — não fixar números aqui)
 ```
 
 Cada módulo futuro **deve** seguir essa estrutura: `controller / service / repository / domain / mapper / dto / exception`.
@@ -181,7 +184,7 @@ Todas as entidades **devem** estender `PostgresEntity`. Nunca criar entidade sem
 - **Roles:** claim `"role"` no token, **sem** prefixo `ROLE_` — usar `hasAuthority('admin')` nas anotações, nunca `hasRole()`
 - **Sub:** claim `sub` = UUID do usuário como String — regras self: `#id.toString() == authentication.name`
 - **BCrypt:** fator 10
-- Geração de tokens implementada no módulo `auth` (a criar). Access token curto + refresh token longo (persistir refresh no Redis com TTL)
+- Geração de tokens implementada no módulo `auth`. Access token curto + refresh token longo (persistir refresh no Redis com TTL)
 
 ### Tratamento de erros
 
@@ -210,6 +213,10 @@ Ao criar exceções novas em módulos futuros, **sempre** registrá-las no `Glob
 ---
 
 ## Módulos implementados
+
+Todos os módulos da árvore de pacotes acima estão implementados. Esta seção documenta em
+detalhe apenas os que têm regras de negócio não-óbvias; para os demais, ver `docs/` e o
+código-fonte diretamente.
 
 ### Usuários (`/api/users`)
 
@@ -272,15 +279,13 @@ Apenas clientes (`hasAuthority('client')`) gerenciam seus próprios favoritos. O
 
 ## Domínios a implementar
 
+Todos os módulos listados na árvore de pacotes acima já estão implementados (geocoding, chat,
+review, dispute e notification incluídos). Restam apenas:
+
 | Módulo | Responsabilidade |
 |---|---|
 | `payment` | Asaas — criação de cobrança, escrow, liberação com fee 20%, reembolso, webhook Asaas |
-| ~~`geocoding`~~ | ~~Conversão de endereço escrito em coordenadas via provider externo (Nominatim/OSM) com cache Redis~~ — implementado |
-| `chat` | WebSocket em tempo real, persistência de mensagens, histórico acessível pós-conclusão |
-| `review` | Avaliação bilateral double-blind — publica quando ambos submetem ou 7 dias expiram |
-| `dispute` | Abertura em até 24h pós-conclusão, evidências (S3), resolução exclusiva por admin |
-| `notification` | Push via FCM, persistência, preferências do usuário |
-| `admin` | Moderação, métricas, resolução de disputas |
+| `admin` | Hoje é ad hoc via `hasAuthority('admin')` espalhado em `user`/`catalog`/`dispute`. Módulo dedicado faltando: moderação, métricas, painel de resolução de disputas |
 
 ---
 
@@ -319,7 +324,7 @@ Clients para Asaas, IDwall, MinIO (S3-compatible), FCM e Resend ficam em `integr
 
 1. **Escrow obrigatório** — cliente paga ao criar o pedido; valor nunca vai direto ao profissional
 2. **Conclusão dupla** — pedido só fecha quando AMBOS confirmam; profissional obriga envio de foto comprobatória
-3. **Express — broadcast hiper-local** — todos os profissionais aprovados em um raio fixo de **300 metros** (configurável em `EXPRESS_SEARCH_RADIUS_METERS`) são notificados simultaneamente via Haversine. Cada um envia sua proposta de preço **dentro de 15 minutos** (`EXPRESS_PROPOSAL_WINDOW_MINUTES`). Após esse prazo, novas propostas são bloqueadas; o cliente tem **mais 30 minutos** (`EXPRESS_CLIENT_WINDOW_MINUTES`) para escolher entre as propostas recebidas (45 min totais). Se ninguém propõe nos primeiros 15 min ou se o cliente não escolhe em 45 min, o pedido é cancelado automaticamente. **Não há expansão de raio.** Prioridade na fila: assinantes Pro primeiro, depois proximidade. O status permanece `pending` durante toda a janela de 45 min; a discriminação entre "fase de propostas" e "fase de escolha" é feita comparando `now()` com `proposalDeadline` e `expiresAt`.
+3. **Express — broadcast hiper-local** — todos os profissionais aprovados em um raio fixo de **5000 metros** (configurável em `EXPRESS_SEARCH_RADIUS_METERS`, máximo 5000) são notificados simultaneamente via Haversine. Cada um envia sua proposta de preço **dentro de 15 minutos** (`EXPRESS_PROPOSAL_WINDOW_MINUTES`). Após esse prazo, novas propostas são bloqueadas; o cliente tem **mais 30 minutos** (`EXPRESS_CLIENT_WINDOW_MINUTES`) para escolher entre as propostas recebidas (45 min totais). Se ninguém propõe nos primeiros 15 min ou se o cliente não escolhe em 45 min, o pedido é cancelado automaticamente. **Não há expansão de raio.** Prioridade na fila: assinantes Pro primeiro, depois proximidade. O status permanece `pending` durante toda a janela de 45 min; a discriminação entre "fase de propostas" e "fase de escolha" é feita comparando `now()` com `proposalDeadline` e `expiresAt`.
 4. **Localização nunca exposta** — exibir apenas a quantidade de profissionais no raio e a **faixa de distância** (terço do raio configurado) por proposta; nunca coordenadas exatas nem distância numérica em metros ao cliente
 5. **Double-blind** — avaliações só ficam visíveis após ambas as partes submeterem ou 7 dias expirarem
 6. **Janela de disputa** — 24h após conclusão; resolvida exclusivamente por admin
@@ -342,9 +347,10 @@ Clients para Asaas, IDwall, MinIO (S3-compatible), FCM e Resend ficam em `integr
 
 ## Referências internas
 
-- Schema completo do banco: `docs/schema.dbml`
-- Requisitos funcionais e regras de negócio: `docs/requisitos.pdf`
-- Decisões de arquitetura: `docs/adr/`
+- Documentação funcional por módulo/feature: pasta `docs/` na raiz (ex: `architecture.md`,
+  `EXPRESS_MATCHING_SPEC.md`, `chat.md`, `dispute.md`, `geocoding.md`, `minio-storage.md`) —
+  consultar o arquivo relevante ao módulo antes de propor mudanças
+- OpenSpec (`openspec/`): contexto e regras adicionais para changes/specs — ver `openspec/config.yaml`
 
 ---
 
