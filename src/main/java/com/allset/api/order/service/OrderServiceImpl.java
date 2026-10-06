@@ -193,39 +193,9 @@ public class OrderServiceImpl implements OrderService {
 
         JsonNode snapshot = serializeAddress(address);
 
-        Integer resolvedDurationMinutes;
-        BigDecimal price;
-
-        if (offering.getPricingType() == PricingType.hourly) {
-            BigDecimal hourlyRate = resolveOfferingPrice(offering);
-            if (hourlyRate == null) {
-                throw new IllegalArgumentException(
-                        "Serviço sem taxa horária definida e sem valor/hora na especialidade vinculada");
-            }
-            if (offering.getEstimatedDurationMinutes() != null) {
-                resolvedDurationMinutes = offering.getEstimatedDurationMinutes();
-            } else {
-                if (request.estimatedDurationMinutes() == null) {
-                    throw new IllegalArgumentException(
-                            "Duração é obrigatória para serviços por hora sem duração definida");
-                }
-                if (request.estimatedDurationMinutes() % 30 != 0) {
-                    throw new IllegalArgumentException(
-                            "Duração deve ser múltiplo de 30 minutos");
-                }
-                resolvedDurationMinutes = request.estimatedDurationMinutes();
-            }
-            price = hourlyRate
-                    .multiply(BigDecimal.valueOf(resolvedDurationMinutes))
-                    .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
-        } else {
-            price = resolveOfferingPrice(offering);
-            if (price == null) {
-                throw new IllegalArgumentException(
-                        "Serviço sem preço definido e sem valor/hora na especialidade vinculada");
-            }
-            resolvedDurationMinutes = offering.getEstimatedDurationMinutes();
-        }
+        OrderPricing pricing = resolveOrderPricing(offering, request.estimatedDurationMinutes());
+        BigDecimal price = pricing.price();
+        Integer resolvedDurationMinutes = pricing.estimatedDurationMinutes();
 
         BigDecimal fee   = price.multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP);
         BigDecimal total = price;
@@ -664,6 +634,9 @@ public class OrderServiceImpl implements OrderService {
         if (order.getPendingPriceAmount() != null) {
             throw new OrderStatusTransitionException(order.getStatus(), "conclusão com proposta de preço pendente");
         }
+        if (order.getPendingServiceId() != null) {
+            throw new OrderStatusTransitionException(order.getStatus(), "conclusão com proposta de troca de serviço pendente");
+        }
 
         UUID proUserId = professionalRepository.findByIdAndDeletedAtIsNull(professionalId)
                 .map(p -> p.getUserId())
@@ -796,7 +769,7 @@ public class OrderServiceImpl implements OrderService {
         order.setCancelledAt(now);
         order.setCancelReason(request.reason());
         order.setStatus(OrderStatus.cancelled);
-        clearPendingPriceProposal(order);
+        clearPendingProposals(order);
 
         Order saved = orderRepository.save(order);
         recordTransition(orderId, current, OrderStatus.cancelled, request.reason(), requesterId);
@@ -928,7 +901,7 @@ public class OrderServiceImpl implements OrderService {
             order.setBaseAmount(newBase);
             order.setPlatformFee(newFee);
             order.setTotalAmount(newBase.add(urgency));
-            clearPendingPriceProposal(order);
+            clearPendingProposals(order);
 
             Order saved = orderRepository.save(order);
 
@@ -958,19 +931,148 @@ public class OrderServiceImpl implements OrderService {
         return orderMapper.toResponse(saved);
     }
 
-    private void clearPendingPriceProposal(Order order) {
+    @Override
+    public OrderResponse proposeServiceChange(UUID orderId, UUID professionalUserId, ProposeServiceChangeRequest request) {
+        Order order = findActive(orderId);
+
+        if (!isAssignedProfessional(order, professionalUserId)) {
+            throw new OrderNotFoundException(orderId);
+        }
+
+        if (order.getMode() != OrderMode.on_demand) {
+            throw new OrderStatusTransitionException(order.getStatus(), "proposta de troca de serviço em pedido não On Demand");
+        }
+
+        if (order.getStatus() != OrderStatus.accepted) {
+            throw new OrderStatusTransitionException(order.getStatus(), "proposta de troca de serviço");
+        }
+
+        if (order.getPendingServiceId() != null) {
+            throw new OrderStatusTransitionException(order.getStatus(), "proposta de troca de serviço com proposta já pendente");
+        }
+
+        ProfessionalOffering newOffering = offeringRepository.findById(request.newServiceId())
+                .filter(o -> o.getDeletedAt() == null)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Serviço não encontrado: " + request.newServiceId()));
+
+        if (!newOffering.isActive()) {
+            throw new IllegalArgumentException("Serviço não está ativo: " + request.newServiceId());
+        }
+
+        if (!newOffering.getProfessionalId().equals(order.getProfessionalId())) {
+            throw new IllegalArgumentException("Serviço não pertence ao profissional designado no pedido");
+        }
+
+        // Valida preço/duração agora para falhar rápido — o resultado real só é aplicado em respondServiceChange.
+        resolveOrderPricing(newOffering, request.estimatedDurationMinutes());
+
+        order.setPendingServiceId(newOffering.getId());
+        order.setPendingServiceReason(request.reason());
+        order.setPendingServiceEstimatedDurationMinutes(request.estimatedDurationMinutes());
+        order.setPendingServiceProposedAt(Instant.now());
+
+        Order saved = orderRepository.save(order);
+
+        notifyClient(
+                order.getClientId(),
+                NotificationType.request_status_update,
+                "Troca de serviço proposta",
+                "O profissional propôs trocar o serviço do seu pedido.",
+                orderId
+        );
+
+        log.info("event=order_service_change_proposed orderId={} by={}", orderId, professionalUserId);
+        return orderMapper.toResponse(saved);
+    }
+
+    @Override
+    public OrderResponse respondServiceChange(UUID orderId, UUID clientId, RespondServiceChangeRequest request) {
+        Order order = findActive(orderId);
+
+        if (!clientId.equals(order.getClientId())) {
+            throw new OrderNotFoundException(orderId);
+        }
+
+        if (order.getMode() != OrderMode.on_demand || order.getStatus() != OrderStatus.accepted) {
+            throw new OrderStatusTransitionException(order.getStatus(), "resposta a proposta de troca de serviço");
+        }
+
+        if (order.getPendingServiceId() == null) {
+            throw new OrderStatusTransitionException(order.getStatus(), "resposta a proposta de troca de serviço sem proposta pendente");
+        }
+
+        if (request.accepted()) {
+            ProfessionalOffering newOffering = offeringRepository.findById(order.getPendingServiceId())
+                    .filter(o -> o.getDeletedAt() == null)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Serviço não encontrado: " + order.getPendingServiceId()));
+
+            OrderPricing pricing = resolveOrderPricing(newOffering, order.getPendingServiceEstimatedDurationMinutes());
+
+            UUID newAreaId = categoryRepository.findByIdAndDeletedAtIsNull(newOffering.getCategoryId())
+                    .map(category -> category.getAreaId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Categoria do serviço não encontrada: " + newOffering.getCategoryId()));
+
+            BigDecimal newBase = pricing.price();
+            BigDecimal newFee  = newBase.multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal urgency = order.getUrgencyFee() != null ? order.getUrgencyFee() : BigDecimal.ZERO;
+
+            order.setServiceId(newOffering.getId());
+            order.setAreaId(newAreaId);
+            order.setCategoryId(newOffering.getCategoryId());
+            order.setEstimatedDurationMinutes(pricing.estimatedDurationMinutes());
+            order.setBaseAmount(newBase);
+            order.setPlatformFee(newFee);
+            order.setTotalAmount(newBase.add(urgency));
+            clearPendingProposals(order);
+
+            Order saved = orderRepository.save(order);
+
+            notifyProfessional(
+                    order.getProfessionalId(),
+                    NotificationType.request_status_update,
+                    "Troca de serviço aceita",
+                    "O cliente aceitou a troca de serviço proposta.",
+                    orderId
+            );
+
+            log.info("event=order_service_change_accepted orderId={} by={}", orderId, clientId);
+            return orderMapper.toResponse(saved);
+        }
+
+        Order saved = cancelDueToScopeMismatch(order, "Cliente recusou a troca de serviço proposta", clientId);
+
+        notifyProfessional(
+                order.getProfessionalId(),
+                NotificationType.request_status_update,
+                "Pedido cancelado",
+                "O cliente recusou a troca de serviço proposta e o pedido foi cancelado sem custo.",
+                orderId
+        );
+
+        log.info("event=order_service_change_rejected orderId={} by={}", orderId, clientId);
+        return orderMapper.toResponse(saved);
+    }
+
+    private void clearPendingProposals(Order order) {
         order.setPendingPriceAmount(null);
         order.setPendingPriceReason(null);
         order.setPendingPriceProposedAt(null);
+        order.setPendingServiceId(null);
+        order.setPendingServiceReason(null);
+        order.setPendingServiceEstimatedDurationMinutes(null);
+        order.setPendingServiceProposedAt(null);
     }
 
     /**
      * Cancela o pedido por escopo divergente (sinalizado direto pelo profissional ou por
-     * recusa do cliente a uma proposta de novo preço) — sempre sem custo, sempre marcando
-     * scopeMismatch, sempre limpando qualquer proposta de preço pendente.
+     * recusa do cliente a uma proposta de novo preço ou de troca de serviço) — sempre sem
+     * custo, sempre marcando scopeMismatch, sempre limpando qualquer proposta pendente.
      */
     private Order cancelDueToScopeMismatch(Order order, String reason, UUID changedBy) {
-        clearPendingPriceProposal(order);
+        clearPendingProposals(order);
         order.setCancelledAt(Instant.now());
         order.setCancelReason(reason);
         order.setStatus(OrderStatus.cancelled);
@@ -1141,6 +1243,52 @@ public class OrderServiceImpl implements OrderService {
                 address.getComplement(), address.getDistrict(), address.getCity(),
                 address.getState(), address.getZipCode(), address.getLat(), address.getLng()
         ));
+    }
+
+    private record OrderPricing(BigDecimal price, Integer estimatedDurationMinutes) {}
+
+    /**
+     * Resolve preço e duração estimada de um ProfessionalOffering — compartilhado entre
+     * createOnDemandOrder (duração vem do cliente no CreateOnDemandOrderRequest) e
+     * proposeServiceChange/respondServiceChange (duração vem do profissional no
+     * ProposeServiceChangeRequest, já que não há turno do cliente antes do aceite).
+     */
+    private OrderPricing resolveOrderPricing(ProfessionalOffering offering, Integer requestedDurationMinutes) {
+        Integer resolvedDurationMinutes;
+        BigDecimal price;
+
+        if (offering.getPricingType() == PricingType.hourly) {
+            BigDecimal hourlyRate = resolveOfferingPrice(offering);
+            if (hourlyRate == null) {
+                throw new IllegalArgumentException(
+                        "Serviço sem taxa horária definida e sem valor/hora na especialidade vinculada");
+            }
+            if (offering.getEstimatedDurationMinutes() != null) {
+                resolvedDurationMinutes = offering.getEstimatedDurationMinutes();
+            } else {
+                if (requestedDurationMinutes == null) {
+                    throw new IllegalArgumentException(
+                            "Duração é obrigatória para serviços por hora sem duração definida");
+                }
+                if (requestedDurationMinutes % 30 != 0) {
+                    throw new IllegalArgumentException(
+                            "Duração deve ser múltiplo de 30 minutos");
+                }
+                resolvedDurationMinutes = requestedDurationMinutes;
+            }
+            price = hourlyRate
+                    .multiply(BigDecimal.valueOf(resolvedDurationMinutes))
+                    .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+        } else {
+            price = resolveOfferingPrice(offering);
+            if (price == null) {
+                throw new IllegalArgumentException(
+                        "Serviço sem preço definido e sem valor/hora na especialidade vinculada");
+            }
+            resolvedDurationMinutes = offering.getEstimatedDurationMinutes();
+        }
+
+        return new OrderPricing(price, resolvedDurationMinutes);
     }
 
     private BigDecimal resolveOfferingPrice(ProfessionalOffering offering) {

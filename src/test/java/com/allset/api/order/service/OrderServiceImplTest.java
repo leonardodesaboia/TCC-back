@@ -20,8 +20,10 @@ import com.allset.api.order.dto.CreateExpressOrderRequest;
 import com.allset.api.order.dto.CreateOnDemandOrderRequest;
 import com.allset.api.order.dto.OrderResponse;
 import com.allset.api.order.dto.ProposeNewPriceRequest;
+import com.allset.api.order.dto.ProposeServiceChangeRequest;
 import com.allset.api.order.dto.ReportScopeMismatchRequest;
 import com.allset.api.order.dto.RespondNewPriceRequest;
+import com.allset.api.order.dto.RespondServiceChangeRequest;
 import com.allset.api.order.exception.NoProfessionalsAvailableException;
 import com.allset.api.order.exception.OrderNotFoundException;
 import com.allset.api.order.exception.OrderStatusTransitionException;
@@ -895,6 +897,686 @@ class OrderServiceImplTest {
     }
 
     @Test
+    void completeByProShouldThrowWhenPendingServiceChangeProposalExists() {
+        UUID orderId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(UUID.randomUUID())
+                .professionalId(professionalId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .pendingServiceId(UUID.randomUUID())
+                .pendingServiceReason("Era manutencao, nao instalacao")
+                .pendingServiceProposedAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+
+        MultipartFile file = mock(MultipartFile.class);
+
+        assertThatThrownBy(() -> orderService.completeByPro(orderId, professionalId, file))
+                .isInstanceOf(OrderStatusTransitionException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(storageService, never()).upload(any(), any(), any(MultipartFile.class));
+    }
+
+    @Test
+    void cancelOrderShouldClearPendingServiceChangeProposal() {
+        UUID orderId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(clientId)
+                .professionalId(professionalId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .pendingServiceId(UUID.randomUUID())
+                .pendingServiceReason("Era manutencao, nao instalacao")
+                .pendingServiceEstimatedDurationMinutes(60)
+                .pendingServiceProposedAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderMapper.toResponse(any(Order.class))).thenAnswer(invocation -> toResponse(invocation.getArgument(0)));
+
+        CancelOrderRequest request = new CancelOrderRequest("Cliente desistiu");
+
+        orderService.cancelOrder(orderId, clientId, request);
+
+        assertThat(order.getPendingServiceId()).isNull();
+        assertThat(order.getPendingServiceReason()).isNull();
+        assertThat(order.getPendingServiceEstimatedDurationMinutes()).isNull();
+        assertThat(order.getPendingServiceProposedAt()).isNull();
+    }
+
+    @Test
+    void proposeServiceChangeShouldStorePendingProposalAndNotifyClient() {
+        UUID orderId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID professionalUserId = UUID.randomUUID();
+        UUID currentServiceId = UUID.randomUUID();
+        UUID newServiceId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(clientId)
+                .professionalId(professionalId)
+                .serviceId(currentServiceId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .baseAmount(new BigDecimal("100.00"))
+                .platformFee(new BigDecimal("20.00"))
+                .totalAmount(new BigDecimal("100.00"))
+                .build();
+        order.setId(orderId);
+
+        ProfessionalOffering newOffering = ProfessionalOffering.builder()
+                .professionalId(professionalId).categoryId(categoryId).title("Manutencao eletrica")
+                .pricingType(PricingType.fixed).price(new BigDecimal("180.00")).active(true).build();
+        newOffering.setId(newServiceId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(professionalRepository.findByUserIdAndDeletedAtIsNull(professionalUserId))
+                .thenReturn(Optional.of(professional(professionalId, professionalUserId)));
+        when(offeringRepository.findById(newServiceId)).thenReturn(Optional.of(newOffering));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderMapper.toResponse(any(Order.class))).thenAnswer(invocation -> toResponse(invocation.getArgument(0)));
+
+        ProposeServiceChangeRequest request = new ProposeServiceChangeRequest(newServiceId, "Era manutencao, nao instalacao", null);
+
+        OrderResponse response = orderService.proposeServiceChange(orderId, professionalUserId, request);
+
+        assertThat(response.status()).isEqualTo(OrderStatus.accepted);
+        assertThat(order.getPendingServiceId()).isEqualTo(newServiceId);
+        assertThat(order.getPendingServiceReason()).isEqualTo(request.reason());
+        assertThat(order.getPendingServiceProposedAt()).isNotNull();
+        assertThat(order.getServiceId()).isEqualTo(currentServiceId);
+        assertThat(order.getBaseAmount()).isEqualByComparingTo("100.00");
+        verify(notificationService).notifyUser(
+                eq(clientId),
+                eq(NotificationType.request_status_update),
+                any(),
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void proposeServiceChangeShouldThrowWhenNewServiceDoesNotExist() {
+        UUID orderId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID professionalUserId = UUID.randomUUID();
+        UUID newServiceId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(UUID.randomUUID())
+                .professionalId(professionalId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(professionalRepository.findByUserIdAndDeletedAtIsNull(professionalUserId))
+                .thenReturn(Optional.of(professional(professionalId, professionalUserId)));
+        when(offeringRepository.findById(newServiceId)).thenReturn(Optional.empty());
+
+        ProposeServiceChangeRequest request = new ProposeServiceChangeRequest(newServiceId, "Divergencia", null);
+
+        assertThatThrownBy(() -> orderService.proposeServiceChange(orderId, professionalUserId, request))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void proposeServiceChangeShouldThrowWhenNewServiceBelongsToAnotherProfessional() {
+        UUID orderId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID professionalUserId = UUID.randomUUID();
+        UUID newServiceId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(UUID.randomUUID())
+                .professionalId(professionalId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        ProfessionalOffering otherProfessionalsOffering = ProfessionalOffering.builder()
+                .professionalId(UUID.randomUUID()).categoryId(categoryId).title("Manutencao eletrica")
+                .pricingType(PricingType.fixed).price(new BigDecimal("180.00")).active(true).build();
+        otherProfessionalsOffering.setId(newServiceId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(professionalRepository.findByUserIdAndDeletedAtIsNull(professionalUserId))
+                .thenReturn(Optional.of(professional(professionalId, professionalUserId)));
+        when(offeringRepository.findById(newServiceId)).thenReturn(Optional.of(otherProfessionalsOffering));
+
+        ProposeServiceChangeRequest request = new ProposeServiceChangeRequest(newServiceId, "Divergencia", null);
+
+        assertThatThrownBy(() -> orderService.proposeServiceChange(orderId, professionalUserId, request))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void proposeServiceChangeShouldThrowWhenNewServiceIsInactive() {
+        UUID orderId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID professionalUserId = UUID.randomUUID();
+        UUID newServiceId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(UUID.randomUUID())
+                .professionalId(professionalId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        ProfessionalOffering inactiveOffering = ProfessionalOffering.builder()
+                .professionalId(professionalId).categoryId(categoryId).title("Manutencao eletrica")
+                .pricingType(PricingType.fixed).price(new BigDecimal("180.00")).active(false).build();
+        inactiveOffering.setId(newServiceId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(professionalRepository.findByUserIdAndDeletedAtIsNull(professionalUserId))
+                .thenReturn(Optional.of(professional(professionalId, professionalUserId)));
+        when(offeringRepository.findById(newServiceId)).thenReturn(Optional.of(inactiveOffering));
+
+        ProposeServiceChangeRequest request = new ProposeServiceChangeRequest(newServiceId, "Divergencia", null);
+
+        assertThatThrownBy(() -> orderService.proposeServiceChange(orderId, professionalUserId, request))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void proposeServiceChangeShouldThrowWhenHourlyOfferingHasNoDurationAndNoneProvided() {
+        UUID orderId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID professionalUserId = UUID.randomUUID();
+        UUID newServiceId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(UUID.randomUUID())
+                .professionalId(professionalId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        // price setado direto na oferta evita depender de ProfessionalSpecialty para o hourlyRate.
+        ProfessionalOffering hourlyOffering = ProfessionalOffering.builder()
+                .professionalId(professionalId).categoryId(categoryId).title("Consultoria eletrica")
+                .pricingType(PricingType.hourly).price(new BigDecimal("80.00"))
+                .estimatedDurationMinutes(null).active(true).build();
+        hourlyOffering.setId(newServiceId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(professionalRepository.findByUserIdAndDeletedAtIsNull(professionalUserId))
+                .thenReturn(Optional.of(professional(professionalId, professionalUserId)));
+        when(offeringRepository.findById(newServiceId)).thenReturn(Optional.of(hourlyOffering));
+
+        ProposeServiceChangeRequest request = new ProposeServiceChangeRequest(newServiceId, "Divergencia", null);
+
+        assertThatThrownBy(() -> orderService.proposeServiceChange(orderId, professionalUserId, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Duração é obrigatória");
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void proposeServiceChangeShouldThrowWhenProvidedDurationIsNotMultipleOf30() {
+        UUID orderId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID professionalUserId = UUID.randomUUID();
+        UUID newServiceId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(UUID.randomUUID())
+                .professionalId(professionalId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        ProfessionalOffering hourlyOffering = ProfessionalOffering.builder()
+                .professionalId(professionalId).categoryId(categoryId).title("Consultoria eletrica")
+                .pricingType(PricingType.hourly).price(new BigDecimal("80.00"))
+                .estimatedDurationMinutes(null).active(true).build();
+        hourlyOffering.setId(newServiceId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(professionalRepository.findByUserIdAndDeletedAtIsNull(professionalUserId))
+                .thenReturn(Optional.of(professional(professionalId, professionalUserId)));
+        when(offeringRepository.findById(newServiceId)).thenReturn(Optional.of(hourlyOffering));
+
+        ProposeServiceChangeRequest request = new ProposeServiceChangeRequest(newServiceId, "Divergencia", 45);
+
+        assertThatThrownBy(() -> orderService.proposeServiceChange(orderId, professionalUserId, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("múltiplo de 30");
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void proposeServiceChangeShouldThrowWhenProposalAlreadyPending() {
+        UUID orderId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID professionalUserId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(UUID.randomUUID())
+                .professionalId(professionalId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .pendingServiceId(UUID.randomUUID())
+                .pendingServiceReason("Proposta anterior")
+                .pendingServiceProposedAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(professionalRepository.findByUserIdAndDeletedAtIsNull(professionalUserId))
+                .thenReturn(Optional.of(professional(professionalId, professionalUserId)));
+
+        ProposeServiceChangeRequest request = new ProposeServiceChangeRequest(UUID.randomUUID(), "Outra divergencia", null);
+
+        assertThatThrownBy(() -> orderService.proposeServiceChange(orderId, professionalUserId, request))
+                .isInstanceOf(OrderStatusTransitionException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(offeringRepository, never()).findById(any());
+    }
+
+    @Test
+    void proposeServiceChangeShouldThrowWhenOrderModeIsExpress() {
+        UUID orderId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID professionalUserId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(UUID.randomUUID())
+                .professionalId(professionalId)
+                .mode(OrderMode.express)
+                .status(OrderStatus.accepted)
+                .description("Trocar tomada")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(professionalRepository.findByUserIdAndDeletedAtIsNull(professionalUserId))
+                .thenReturn(Optional.of(professional(professionalId, professionalUserId)));
+
+        ProposeServiceChangeRequest request = new ProposeServiceChangeRequest(UUID.randomUUID(), "Divergencia", null);
+
+        assertThatThrownBy(() -> orderService.proposeServiceChange(orderId, professionalUserId, request))
+                .isInstanceOf(OrderStatusTransitionException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void proposeServiceChangeShouldThrowWhenOrderStatusIsNotAccepted() {
+        UUID orderId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID professionalUserId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(UUID.randomUUID())
+                .professionalId(professionalId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.pending)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(professionalRepository.findByUserIdAndDeletedAtIsNull(professionalUserId))
+                .thenReturn(Optional.of(professional(professionalId, professionalUserId)));
+
+        ProposeServiceChangeRequest request = new ProposeServiceChangeRequest(UUID.randomUUID(), "Divergencia", null);
+
+        assertThatThrownBy(() -> orderService.proposeServiceChange(orderId, professionalUserId, request))
+                .isInstanceOf(OrderStatusTransitionException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void proposeServiceChangeShouldThrowWhenRequesterIsNotAssignedProfessional() {
+        UUID orderId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID otherProfessionalUserId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(UUID.randomUUID())
+                .professionalId(professionalId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(professionalRepository.findByUserIdAndDeletedAtIsNull(otherProfessionalUserId))
+                .thenReturn(Optional.empty());
+
+        ProposeServiceChangeRequest request = new ProposeServiceChangeRequest(UUID.randomUUID(), "Divergencia", null);
+
+        assertThatThrownBy(() -> orderService.proposeServiceChange(orderId, otherProfessionalUserId, request))
+                .isInstanceOf(OrderNotFoundException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void respondServiceChangeShouldUpdateServiceAndRecalculateAmountsAndNotifyProfessionalWhenAccepted() {
+        UUID orderId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID professionalUserId = UUID.randomUUID();
+        UUID currentServiceId = UUID.randomUUID();
+        UUID newServiceId = UUID.randomUUID();
+        UUID currentCategoryId = UUID.randomUUID();
+        UUID newCategoryId = UUID.randomUUID();
+        UUID newAreaId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(clientId)
+                .professionalId(professionalId)
+                .serviceId(currentServiceId)
+                .categoryId(currentCategoryId)
+                .areaId(UUID.randomUUID())
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .baseAmount(new BigDecimal("100.00"))
+                .platformFee(new BigDecimal("20.00"))
+                .totalAmount(new BigDecimal("100.00"))
+                .estimatedDurationMinutes(60)
+                .pendingServiceId(newServiceId)
+                .pendingServiceReason("Era manutencao, nao instalacao")
+                .pendingServiceProposedAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        ProfessionalOffering newOffering = ProfessionalOffering.builder()
+                .professionalId(professionalId).categoryId(newCategoryId).title("Manutencao eletrica")
+                .pricingType(PricingType.fixed).price(new BigDecimal("180.00"))
+                .estimatedDurationMinutes(90).active(true).build();
+        newOffering.setId(newServiceId);
+
+        ServiceCategory newCategory = ServiceCategory.builder()
+                .areaId(newAreaId).name("Manutencao").active(true).build();
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(offeringRepository.findById(newServiceId)).thenReturn(Optional.of(newOffering));
+        when(categoryRepository.findByIdAndDeletedAtIsNull(newCategoryId)).thenReturn(Optional.of(newCategory));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId))
+                .thenReturn(Optional.of(professional(professionalId, professionalUserId)));
+        when(orderMapper.toResponse(any(Order.class))).thenAnswer(invocation -> toResponse(invocation.getArgument(0)));
+
+        RespondServiceChangeRequest request = new RespondServiceChangeRequest(true);
+
+        OrderResponse response = orderService.respondServiceChange(orderId, clientId, request);
+
+        assertThat(response.status()).isEqualTo(OrderStatus.accepted);
+        assertThat(order.getServiceId()).isEqualTo(newServiceId);
+        assertThat(order.getAreaId()).isEqualTo(newAreaId);
+        assertThat(order.getCategoryId()).isEqualTo(newCategoryId);
+        assertThat(order.getEstimatedDurationMinutes()).isEqualTo(90);
+        assertThat(order.getBaseAmount()).isEqualByComparingTo("180.00");
+        assertThat(order.getPlatformFee()).isEqualByComparingTo("36.00");
+        assertThat(order.getTotalAmount()).isEqualByComparingTo("180.00");
+        assertThat(order.getPendingServiceId()).isNull();
+        assertThat(order.getPendingServiceReason()).isNull();
+        assertThat(order.getPendingServiceProposedAt()).isNull();
+        verify(notificationService).notifyUser(
+                eq(professionalUserId),
+                eq(NotificationType.request_status_update),
+                any(),
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void respondServiceChangeShouldCancelOrderWithoutCostWhenRejected() {
+        UUID orderId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+        UUID professionalId = UUID.randomUUID();
+        UUID professionalUserId = UUID.randomUUID();
+        UUID currentServiceId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(clientId)
+                .professionalId(professionalId)
+                .serviceId(currentServiceId)
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .pendingServiceId(UUID.randomUUID())
+                .pendingServiceReason("Era manutencao, nao instalacao")
+                .pendingServiceProposedAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(professionalRepository.findByIdAndDeletedAtIsNull(professionalId))
+                .thenReturn(Optional.of(professional(professionalId, professionalUserId)));
+        when(orderMapper.toResponse(any(Order.class))).thenAnswer(invocation -> toResponse(invocation.getArgument(0)));
+
+        RespondServiceChangeRequest request = new RespondServiceChangeRequest(false);
+
+        OrderResponse response = orderService.respondServiceChange(orderId, clientId, request);
+
+        assertThat(response.status()).isEqualTo(OrderStatus.cancelled);
+        assertThat(order.isScopeMismatch()).isTrue();
+        assertThat(order.getCancelledAt()).isNotNull();
+        assertThat(order.getServiceId()).isEqualTo(currentServiceId);
+        assertThat(order.getPendingServiceId()).isNull();
+        assertThat(order.getPendingServiceReason()).isNull();
+        assertThat(order.getPendingServiceProposedAt()).isNull();
+        verify(notificationService).notifyUser(
+                eq(professionalUserId),
+                eq(NotificationType.request_status_update),
+                any(),
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void respondServiceChangeShouldThrowWhenNoPendingProposal() {
+        UUID orderId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(clientId)
+                .professionalId(UUID.randomUUID())
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+
+        RespondServiceChangeRequest request = new RespondServiceChangeRequest(true);
+
+        assertThatThrownBy(() -> orderService.respondServiceChange(orderId, clientId, request))
+                .isInstanceOf(OrderStatusTransitionException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void respondServiceChangeShouldThrowWhenRequesterIsNotTheClient() {
+        UUID orderId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(UUID.randomUUID())
+                .professionalId(UUID.randomUUID())
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.accepted)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .pendingServiceId(UUID.randomUUID())
+                .pendingServiceReason("Era manutencao, nao instalacao")
+                .pendingServiceProposedAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+
+        RespondServiceChangeRequest request = new RespondServiceChangeRequest(true);
+
+        assertThatThrownBy(() -> orderService.respondServiceChange(orderId, UUID.randomUUID(), request))
+                .isInstanceOf(OrderNotFoundException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void respondServiceChangeShouldThrowWhenOrderWasAlreadyCancelledWithStalePendingProposal() {
+        UUID orderId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+
+        // Simula o mesmo cenário de bug já corrigido para respondNewPrice: proposta pendente
+        // sobrevivendo a um cancelamento feito por outra via.
+        Order order = Order.builder()
+                .clientId(clientId)
+                .professionalId(UUID.randomUUID())
+                .mode(OrderMode.on_demand)
+                .status(OrderStatus.cancelled)
+                .description("Instalacao eletrica")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .pendingServiceId(UUID.randomUUID())
+                .pendingServiceReason("Era manutencao, nao instalacao")
+                .pendingServiceProposedAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+
+        RespondServiceChangeRequest request = new RespondServiceChangeRequest(true);
+
+        assertThatThrownBy(() -> orderService.respondServiceChange(orderId, clientId, request))
+                .isInstanceOf(OrderStatusTransitionException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void respondServiceChangeShouldThrowWhenOrderModeIsExpressWithStalePendingProposal() {
+        UUID orderId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .clientId(clientId)
+                .professionalId(UUID.randomUUID())
+                .mode(OrderMode.express)
+                .status(OrderStatus.accepted)
+                .description("Trocar tomada")
+                .addressId(UUID.randomUUID())
+                .addressSnapshot(objectMapper.createObjectNode())
+                .expiresAt(Instant.now())
+                .pendingServiceId(UUID.randomUUID())
+                .pendingServiceReason("Era manutencao, nao instalacao")
+                .pendingServiceProposedAt(Instant.now())
+                .build();
+        order.setId(orderId);
+
+        when(orderRepository.findByIdAndDeletedAtIsNull(orderId)).thenReturn(Optional.of(order));
+
+        RespondServiceChangeRequest request = new RespondServiceChangeRequest(true);
+
+        assertThatThrownBy(() -> orderService.respondServiceChange(orderId, clientId, request))
+                .isInstanceOf(OrderStatusTransitionException.class);
+
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
     void createOnDemandOrderShouldThrowWhenHourlyWithNoDurationOnOfferingAndNoRequestDuration() {
         UUID clientId = UUID.randomUUID();
         UUID proId    = UUID.randomUUID();
@@ -1142,6 +1824,10 @@ class OrderServiceImplTest {
                 order.getPendingPriceAmount(),
                 order.getPendingPriceReason(),
                 order.getPendingPriceProposedAt(),
+                order.getPendingServiceId(),
+                order.getPendingServiceReason(),
+                order.getPendingServiceEstimatedDurationMinutes(),
+                order.getPendingServiceProposedAt(),
                 order.getVersion(),
                 order.getCreatedAt(),
                 order.getUpdatedAt(),

@@ -459,6 +459,53 @@ public class OrderController {
         return ResponseEntity.ok(orderService.respondNewPrice(id, clientId, request));
     }
 
+    @Operation(
+        summary = "Propor troca de serviço (On Demand)",
+        description = "Profissional designado propõe substituir o serviço de um pedido On Demand "
+                    + "accepted por outro serviço seu, já publicado e ativo, como alternativa a "
+                    + "cancelar direto por escopo divergente. Fica pendente até o cliente responder."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Proposta registrada",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Status/modo não permite a operação, serviço inválido ou já existe proposta pendente",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "404", description = "Pedido não encontrado ou não pertence ao profissional",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping("/{id}/on-demand/propose-service-change")
+    @PreAuthorize("hasAuthority('professional')")
+    public ResponseEntity<OrderResponse> proposeServiceChange(
+            @PathVariable UUID id,
+            @Valid @RequestBody ProposeServiceChangeRequest request,
+            @CurrentUser UUID professionalUserId
+    ) {
+        return ResponseEntity.ok(orderService.proposeServiceChange(id, professionalUserId, request));
+    }
+
+    @Operation(
+        summary = "Responder à proposta de troca de serviço (On Demand)",
+        description = "Cliente aceita (substitui o serviço e recalcula os valores do pedido) ou "
+                    + "recusa (cancela sem custo) uma proposta de troca de serviço pendente."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Resposta processada",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Não há proposta pendente",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "404", description = "Pedido não encontrado ou não pertence ao cliente",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping("/{id}/on-demand/respond-service-change")
+    @PreAuthorize("hasAuthority('client')")
+    public ResponseEntity<OrderResponse> respondServiceChange(
+            @PathVariable UUID id,
+            @Valid @RequestBody RespondServiceChangeRequest request,
+            @CurrentUser UUID clientId
+    ) {
+        return ResponseEntity.ok(orderService.respondServiceChange(id, clientId, request));
+    }
+
     // ─────────────────────────────────────────
     // Helper
     // ─────────────────────────────────────────
