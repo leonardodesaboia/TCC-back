@@ -1,5 +1,6 @@
 package com.allset.api.address.mapper;
 
+import com.allset.api.address.domain.CoordinateTrust;
 import com.allset.api.address.domain.SavedAddress;
 import com.allset.api.address.dto.SavedAddressResponse;
 import org.springframework.stereotype.Component;
@@ -27,6 +28,11 @@ public class SavedAddressMapper {
             address.getZipCode(),
             address.getLat(),
             address.getLng(),
+            address.getCoordinateSource(),
+            address.getCoordinateAccuracyMeters(),
+            address.getCoordinateConfidence(),
+            address.getCoordinateConfirmedAt(),
+            CoordinateTrust.isExpressReady(address),
             address.isDefault(),
             address.getCreatedAt(),
             address.getUpdatedAt()

@@ -1,5 +1,6 @@
 package com.allset.api;
 
+import com.allset.api.address.domain.CoordinateSource;
 import com.allset.api.address.dto.CreateSavedAddressRequest;
 import com.allset.api.address.dto.SavedAddressResponse;
 import com.allset.api.address.dto.UpdateSavedAddressRequest;
@@ -131,6 +132,9 @@ class AuthUserAddressIntegrationTest {
                 "60000-000",
                 new BigDecimal("-3.731862"),
                 new BigDecimal("-38.526669"),
+                CoordinateSource.user_pin,
+                null,
+                null,
                 true
         ));
 
@@ -145,6 +149,9 @@ class AuthUserAddressIntegrationTest {
                 "60150-160",
                 new BigDecimal("-3.735000"),
                 new BigDecimal("-38.510000"),
+                CoordinateSource.user_pin,
+                null,
+                null,
                 false
         ));
 
@@ -174,10 +181,17 @@ class AuthUserAddressIntegrationTest {
                                 null,
                                 null,
                                 null,
+                                null,
+                                null,
+                                null,
                                 null
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.city").value("Caucaia"));
+                .andExpect(jsonPath("$.city").value("Caucaia"))
+                // Mudou a cidade sem reenviar o pin: a coordenada antiga perde a
+                // procedência e o endereço sai do Express até ser reconfirmado.
+                .andExpect(jsonPath("$.coordinateSource").value("legacy"))
+                .andExpect(jsonPath("$.expressReady").value(false));
 
         MvcResult listResult = mockMvc.perform(get("/api/users/{userId}/addresses", user.id())
                         .header("Authorization", bearer))

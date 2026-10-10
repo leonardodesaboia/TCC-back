@@ -1,5 +1,6 @@
 package com.allset.api;
 
+import com.allset.api.address.domain.CoordinateSource;
 import com.allset.api.address.domain.SavedAddress;
 import com.allset.api.address.repository.SavedAddressRepository;
 import com.allset.api.catalog.domain.ServiceArea;
@@ -273,6 +274,7 @@ class ReviewModuleIntegrationTest {
                 .zipCode("60000-000")
                 .lat(new BigDecimal("-3.731862"))
                 .lng(new BigDecimal("-38.526669"))
+                .coordinateSource(CoordinateSource.user_pin)
                 .isDefault(true)
                 .build());
     }

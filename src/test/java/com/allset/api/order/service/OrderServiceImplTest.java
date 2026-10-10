@@ -1,5 +1,7 @@
 package com.allset.api.order.service;
 
+import com.allset.api.address.domain.CoordinateSource;
+import com.allset.api.address.exception.AddressCoordinateNotTrustedException;
 import com.allset.api.address.domain.SavedAddress;
 import com.allset.api.address.repository.SavedAddressRepository;
 import com.allset.api.catalog.domain.ServiceCategory;
@@ -61,6 +63,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -1758,6 +1761,83 @@ class OrderServiceImplTest {
         assertThat(response.estimatedDurationMinutes()).isEqualTo(120);
     }
 
+    /**
+     * O Express avisa só quem está a poucas centenas de metros. Coordenada de
+     * procedência fraca (gravada antes da correção, ou aproximação de CEP) centraria
+     * essa busca no lugar errado, então é recusada antes de qualquer notificação.
+     */
+    @Test
+    void createExpressOrderShouldRejectLegacyCoordinate() {
+        UUID clientId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+        SavedAddress address = address(clientId);
+        address.setCoordinateSource(CoordinateSource.legacy);
+
+        when(categoryRepository.findByIdAndDeletedAtIsNull(categoryId)).thenReturn(Optional.of(ServiceCategory.builder()
+                .areaId(UUID.randomUUID())
+                .name("Eletrica")
+                .active(true)
+                .build()));
+        when(addressRepository.findByIdAndUserId(address.getId(), clientId)).thenReturn(Optional.of(address));
+
+        CreateExpressOrderRequest request = new CreateExpressOrderRequest(
+                UUID.randomUUID(), categoryId, "Trocar tomada", address.getId(), new BigDecimal("15.00"));
+
+        assertThatThrownBy(() -> orderService.createExpressOrder(clientId, request))
+                .isInstanceOf(AddressCoordinateNotTrustedException.class)
+                .extracting(ex -> ((AddressCoordinateNotTrustedException) ex).getCode())
+                .isEqualTo(AddressCoordinateNotTrustedException.CODE_NOT_TRUSTED);
+
+        verifyNoInteractions(queueRepository);
+    }
+
+    @Test
+    void createExpressOrderShouldRejectApproximateGeocodedCoordinate() {
+        UUID clientId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+        SavedAddress address = address(clientId);
+        address.setCoordinateSource(CoordinateSource.geocoded);
+        address.setCoordinateConfidence(com.allset.api.geocoding.dto.GeocodeConfidence.CITY);
+
+        when(categoryRepository.findByIdAndDeletedAtIsNull(categoryId)).thenReturn(Optional.of(ServiceCategory.builder()
+                .areaId(UUID.randomUUID())
+                .name("Eletrica")
+                .active(true)
+                .build()));
+        when(addressRepository.findByIdAndUserId(address.getId(), clientId)).thenReturn(Optional.of(address));
+
+        CreateExpressOrderRequest request = new CreateExpressOrderRequest(
+                UUID.randomUUID(), categoryId, "Trocar tomada", address.getId(), new BigDecimal("15.00"));
+
+        assertThatThrownBy(() -> orderService.createExpressOrder(clientId, request))
+                .isInstanceOf(AddressCoordinateNotTrustedException.class);
+    }
+
+    @Test
+    void createExpressOrderShouldRejectAddressWithoutCoordinate() {
+        UUID clientId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+        SavedAddress address = address(clientId);
+        address.setLat(null);
+        address.setLng(null);
+        address.setCoordinateSource(null);
+
+        when(categoryRepository.findByIdAndDeletedAtIsNull(categoryId)).thenReturn(Optional.of(ServiceCategory.builder()
+                .areaId(UUID.randomUUID())
+                .name("Eletrica")
+                .active(true)
+                .build()));
+        when(addressRepository.findByIdAndUserId(address.getId(), clientId)).thenReturn(Optional.of(address));
+
+        CreateExpressOrderRequest request = new CreateExpressOrderRequest(
+                UUID.randomUUID(), categoryId, "Trocar tomada", address.getId(), new BigDecimal("15.00"));
+
+        assertThatThrownBy(() -> orderService.createExpressOrder(clientId, request))
+                .isInstanceOf(AddressCoordinateNotTrustedException.class)
+                .extracting(ex -> ((AddressCoordinateNotTrustedException) ex).getCode())
+                .isEqualTo(AddressCoordinateNotTrustedException.CODE_MISSING);
+    }
+
     private SavedAddress address(UUID userId) {
         SavedAddress address = SavedAddress.builder()
                 .userId(userId)
@@ -1770,6 +1850,7 @@ class OrderServiceImplTest {
                 .zipCode("60000-000")
                 .lat(new BigDecimal("-3.731862"))
                 .lng(new BigDecimal("-38.526669"))
+                .coordinateSource(CoordinateSource.user_pin)
                 .isDefault(true)
                 .build();
         address.setId(UUID.randomUUID());

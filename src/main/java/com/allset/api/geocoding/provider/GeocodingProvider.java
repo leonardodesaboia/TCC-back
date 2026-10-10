@@ -23,6 +23,20 @@ public interface GeocodingProvider {
      */
     Optional<GeocodeResult> geocode(GeocodeQuery query);
 
+    /**
+     * Caminho inverso: dado um ponto, devolve o endereço escrito.
+     *
+     * <p>Usado quando a pessoa arrasta o pin no mapa e o app precisa preencher rua
+     * e bairro correspondentes. Nem todo provider sabe fazer isso — o default
+     * devolve vazio, e a chain segue para o próximo.
+     *
+     * @return resultado com {@code normalizedAddress} preenchido;
+     *         {@link Optional#empty()} quando o provider não suporta ou não achou nada.
+     */
+    default Optional<GeocodeResult> reverse(BigDecimal lat, BigDecimal lng) {
+        return Optional.empty();
+    }
+
     record GeocodeQuery(
         String zipCode,
         String street,

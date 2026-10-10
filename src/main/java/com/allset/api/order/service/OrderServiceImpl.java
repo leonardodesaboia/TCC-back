@@ -1,6 +1,8 @@
 package com.allset.api.order.service;
 
+import com.allset.api.address.domain.CoordinateTrust;
 import com.allset.api.address.domain.SavedAddress;
+import com.allset.api.address.exception.AddressCoordinateNotTrustedException;
 import com.allset.api.address.repository.SavedAddressRepository;
 import com.allset.api.catalog.repository.ServiceCategoryRepository;
 import com.allset.api.chat.domain.Conversation;
@@ -89,9 +91,14 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Endereço não encontrado: " + request.addressId()));
 
+        // O Express notifica só quem está dentro de um raio curto: a coordenada precisa
+        // ser do local do atendimento, não uma aproximação. Ver CoordinateTrust.
         if (address.getLat() == null || address.getLng() == null) {
-            throw new IllegalArgumentException(
-                    "Endereço sem coordenadas geográficas — necessário para o modo Express");
+            throw AddressCoordinateNotTrustedException.missing(address.getId());
+        }
+        if (!CoordinateTrust.isExpressReady(address)) {
+            throw AddressCoordinateNotTrustedException.notTrusted(
+                    address.getId(), address.getCoordinateSource());
         }
 
         double lat    = address.getLat().doubleValue();
