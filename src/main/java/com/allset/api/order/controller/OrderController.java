@@ -388,6 +388,124 @@ public class OrderController {
         return ResponseEntity.ok(orderService.cancelOrder(id, requesterId, request));
     }
 
+    @Operation(
+        summary = "Sinalizar escopo divergente",
+        description = "Profissional designado sinaliza que o escopo descoberto no local diverge "
+                    + "do descrito na criação do pedido. Cancela o pedido sem custo. "
+                    + "Só permitido no status accepted."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Pedido cancelado por escopo divergente",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Status não permite a operação",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "404", description = "Pedido não encontrado ou não pertence ao profissional",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping("/{id}/report-scope-mismatch")
+    @PreAuthorize("hasAuthority('professional')")
+    public ResponseEntity<OrderResponse> reportScopeMismatch(
+            @PathVariable UUID id,
+            @Valid @RequestBody ReportScopeMismatchRequest request,
+            @CurrentUser UUID professionalUserId
+    ) {
+        return ResponseEntity.ok(orderService.reportScopeMismatch(id, professionalUserId, request));
+    }
+
+    @Operation(
+        summary = "Propor novo preço (Express)",
+        description = "Profissional designado propõe um novo valor para um pedido Express "
+                    + "accepted, como alternativa a cancelar direto por escopo divergente. "
+                    + "Fica pendente até o cliente responder."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Proposta registrada",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Status/modo não permite a operação ou já existe proposta pendente",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "404", description = "Pedido não encontrado ou não pertence ao profissional",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping("/{id}/express/propose-new-price")
+    @PreAuthorize("hasAuthority('professional')")
+    public ResponseEntity<OrderResponse> proposeNewPrice(
+            @PathVariable UUID id,
+            @Valid @RequestBody ProposeNewPriceRequest request,
+            @CurrentUser UUID professionalUserId
+    ) {
+        return ResponseEntity.ok(orderService.proposeNewPrice(id, professionalUserId, request));
+    }
+
+    @Operation(
+        summary = "Responder à proposta de novo preço (Express)",
+        description = "Cliente aceita (recalcula os valores do pedido) ou recusa (cancela "
+                    + "sem custo) uma proposta de novo preço pendente."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Resposta processada",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Não há proposta pendente",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "404", description = "Pedido não encontrado ou não pertence ao cliente",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping("/{id}/express/respond-new-price")
+    @PreAuthorize("hasAuthority('client')")
+    public ResponseEntity<OrderResponse> respondNewPrice(
+            @PathVariable UUID id,
+            @Valid @RequestBody RespondNewPriceRequest request,
+            @CurrentUser UUID clientId
+    ) {
+        return ResponseEntity.ok(orderService.respondNewPrice(id, clientId, request));
+    }
+
+    @Operation(
+        summary = "Propor troca de serviço (On Demand)",
+        description = "Profissional designado propõe substituir o serviço de um pedido On Demand "
+                    + "accepted por outro serviço seu, já publicado e ativo, como alternativa a "
+                    + "cancelar direto por escopo divergente. Fica pendente até o cliente responder."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Proposta registrada",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Status/modo não permite a operação, serviço inválido ou já existe proposta pendente",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "404", description = "Pedido não encontrado ou não pertence ao profissional",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping("/{id}/on-demand/propose-service-change")
+    @PreAuthorize("hasAuthority('professional')")
+    public ResponseEntity<OrderResponse> proposeServiceChange(
+            @PathVariable UUID id,
+            @Valid @RequestBody ProposeServiceChangeRequest request,
+            @CurrentUser UUID professionalUserId
+    ) {
+        return ResponseEntity.ok(orderService.proposeServiceChange(id, professionalUserId, request));
+    }
+
+    @Operation(
+        summary = "Responder à proposta de troca de serviço (On Demand)",
+        description = "Cliente aceita (substitui o serviço e recalcula os valores do pedido) ou "
+                    + "recusa (cancela sem custo) uma proposta de troca de serviço pendente."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Resposta processada",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Não há proposta pendente",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class))),
+        @ApiResponse(responseCode = "404", description = "Pedido não encontrado ou não pertence ao cliente",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiError.class)))
+    })
+    @PostMapping("/{id}/on-demand/respond-service-change")
+    @PreAuthorize("hasAuthority('client')")
+    public ResponseEntity<OrderResponse> respondServiceChange(
+            @PathVariable UUID id,
+            @Valid @RequestBody RespondServiceChangeRequest request,
+            @CurrentUser UUID clientId
+    ) {
+        return ResponseEntity.ok(orderService.respondServiceChange(id, clientId, request));
+    }
+
     // ─────────────────────────────────────────
     // Helper
     // ─────────────────────────────────────────
