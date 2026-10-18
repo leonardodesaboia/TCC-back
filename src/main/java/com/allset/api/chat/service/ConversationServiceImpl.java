@@ -13,6 +13,8 @@ import com.allset.api.order.domain.Order;
 import com.allset.api.order.domain.OrderStatus;
 import com.allset.api.order.repository.OrderRepository;
 import com.allset.api.professional.service.ProfessionalService;
+import com.allset.api.user.domain.User;
+import com.allset.api.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -35,6 +37,7 @@ public class ConversationServiceImpl implements ConversationService {
     private final MessageMapper messageMapper;
     private final ProfessionalService professionalService;
     private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
 
     @Override
     public Conversation createForOrder(Order order) {
@@ -82,7 +85,8 @@ public class ConversationServiceImpl implements ConversationService {
         String orderStatus = orderRepository.findByIdAndDeletedAtIsNull(conversation.getOrderId())
                 .map(order -> order.getStatus().name())
                 .orElse(null);
-        return conversationMapper.toResponse(conversation, orderStatus);
+        return conversationMapper.toResponse(conversation, orderStatus,
+                nameOf(otherParticipant(conversation, currentUserId)));
     }
 
     @Override
@@ -99,18 +103,28 @@ public class ConversationServiceImpl implements ConversationService {
                             .countByConversationIdAndSenderIdNotAndReadAtIsNull(
                                     conv.getId(), currentUserId);
 
-                    UUID otherParticipantId = conv.getClientId().equals(currentUserId)
-                            ? conv.getProfessionalUserId()
-                            : conv.getClientId();
+                    UUID otherParticipantId = otherParticipant(conv, currentUserId);
 
                     return new ConversationSummaryResponse(
                             conv.getId(),
                             conv.getOrderId(),
                             otherParticipantId,
+                            nameOf(otherParticipantId),
                             lastMessage,
                             unreadCount
                     );
                 });
+    }
+
+    private static UUID otherParticipant(Conversation conversation, UUID currentUserId) {
+        return conversation.getClientId().equals(currentUserId)
+                ? conversation.getProfessionalUserId()
+                : conversation.getClientId();
+    }
+
+    /** Nome exibido no título da conversa; nulo se o usuário não existir mais. */
+    private String nameOf(UUID userId) {
+        return userRepository.findByIdAndDeletedAtIsNull(userId).map(User::getName).orElse(null);
     }
 
     @Override

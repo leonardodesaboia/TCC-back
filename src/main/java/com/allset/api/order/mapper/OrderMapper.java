@@ -42,6 +42,11 @@ public class OrderMapper {
 
     public OrderResponse toResponse(Order order, List<OrderPhoto> photos, ExpressQueueEntry queueEntry,
                                     String professionalName, String serviceName) {
+        return toResponse(order, photos, queueEntry, professionalName, serviceName, null);
+    }
+
+    public OrderResponse toResponse(Order order, List<OrderPhoto> photos, ExpressQueueEntry queueEntry,
+                                    String professionalName, String serviceName, Integer notifiedProfessionals) {
         List<OrderPhotoResponse> photoResponses = photos == null ? List.of() : photos.stream()
                 .map(this::toPhotoResponse)
                 .toList();
@@ -74,12 +79,21 @@ public class OrderMapper {
                 order.getCompletedAt(),
                 order.getCancelledAt(),
                 order.getCancelReason(),
+                order.isScopeMismatch(),
+                order.getPendingPriceAmount(),
+                order.getPendingPriceReason(),
+                order.getPendingPriceProposedAt(),
+                order.getPendingServiceId(),
+                order.getPendingServiceReason(),
+                order.getPendingServiceEstimatedDurationMinutes(),
+                order.getPendingServiceProposedAt(),
                 order.getVersion(),
                 order.getCreatedAt(),
                 order.getUpdatedAt(),
                 photoResponses,
                 professionalName,
-                serviceName
+                serviceName,
+                notifiedProfessionals
         );
     }
 

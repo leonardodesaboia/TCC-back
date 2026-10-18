@@ -30,12 +30,19 @@ public class MinioBucketInitializer implements ApplicationRunner {
             String name = bucket.fullName(properties.bucketPrefix());
             try {
                 ensureBucket(name);
-                if (bucket.visibility() == StorageBucket.Visibility.PUBLIC) {
-                    applyPublicReadPolicy(name);
-                }
             } catch (Exception e) {
                 throw new IllegalStateException(
                         "Falha ao inicializar bucket " + name + ": " + e.getMessage(), e);
+            }
+            if (bucket.visibility() == StorageBucket.Visibility.PUBLIC) {
+                // Nem todo storage S3-compatível implementa política de bucket (o SeaweedFS usado
+                // no ambiente local não implementa). Sem a política o bucket continua utilizável
+                // por URL pré-assinada, então isso não deve derrubar a aplicação.
+                try {
+                    applyPublicReadPolicy(name);
+                } catch (Exception e) {
+                    log.warn("event=minio_bucket_policy_skipped bucket={} reason={}", name, e.getMessage());
+                }
             }
         }
     }

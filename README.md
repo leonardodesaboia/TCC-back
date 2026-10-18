@@ -72,8 +72,8 @@ Existe uma seed de startup para popular o backend com dados de demonstracao cobr
 Credenciais padrao:
 
 - Admin: `admin.seed@allset.local`
-- Cliente: `cliente.seed@allset.local`
-- Senha para todos os usuarios seed: `Senha@2025!`
+- Cliente: `cliente@email.com`
+- Senha para todos os usuarios seed: `Password123!` (definida em `StartupSeedService.DEFAULT_PASSWORD`)
 
 ---
 

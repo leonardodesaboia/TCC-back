@@ -24,6 +24,9 @@ public record ConversationResponse(
         Instant createdAt,
 
         @Schema(description = "Status atual do pedido associado", nullable = true)
-        String orderStatus
+        String orderStatus,
+
+        @Schema(description = "Nome do outro participante (não é o usuário autenticado)", nullable = true)
+        String otherParticipantName
 
 ) {}

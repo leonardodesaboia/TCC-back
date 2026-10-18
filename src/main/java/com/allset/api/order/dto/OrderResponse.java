@@ -38,10 +38,20 @@ public record OrderResponse(
         Instant completedAt,
         Instant cancelledAt,
         String cancelReason,
+        boolean scopeMismatch,
+        BigDecimal pendingPriceAmount,
+        String pendingPriceReason,
+        Instant pendingPriceProposedAt,
+        UUID pendingServiceId,
+        String pendingServiceReason,
+        Integer pendingServiceEstimatedDurationMinutes,
+        Instant pendingServiceProposedAt,
         int version,
         Instant createdAt,
         Instant updatedAt,
         List<OrderPhotoResponse> photos,
         String professionalName,
-        String serviceName
+        String serviceName,
+        /** Quantos profissionais foram avisados do pedido Express. Só preenchido para o cliente dono do pedido. */
+        Integer notifiedProfessionals
 ) {}

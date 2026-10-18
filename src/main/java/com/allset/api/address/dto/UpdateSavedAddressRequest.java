@@ -1,5 +1,7 @@
 package com.allset.api.address.dto;
 
+import com.allset.api.address.domain.CoordinateSource;
+import com.allset.api.geocoding.dto.GeocodeConfidence;
 import com.allset.api.shared.validation.NoHtml;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
@@ -67,7 +69,51 @@ public record UpdateSavedAddressRequest(
     @DecimalMax(value = "180.000000", message = "Longitude inválida")
     BigDecimal lng,
 
+    @Schema(description = "Origem da coordenada. Obrigatória sempre que lat/lng forem enviados.",
+            example = "user_pin", nullable = true)
+    CoordinateSource coordinateSource,
+
+    @Schema(description = "Acurácia da captura em metros. Apenas com origem `device_gps`.",
+            example = "12.5", nullable = true)
+    @DecimalMin(value = "0.0", message = "Acurácia inválida")
+    @DecimalMax(value = "99999.99", message = "Acurácia inválida")
+    BigDecimal coordinateAccuracyMeters,
+
+    @Schema(description = "Confiança devolvida pelo lookup. Apenas com origem `geocoded`.",
+            example = "ROOFTOP", nullable = true)
+    GeocodeConfidence coordinateConfidence,
+
     @Schema(description = "Define este como endereço padrão (null = não alterar)", example = "true", nullable = true)
     Boolean isDefault
 
-) {}
+) {
+
+    /**
+     * Na atualização parcial, coordenada e origem viajam juntas ou não viajam:
+     * mandar lat/lng sem origem deixaria o registro com procedência mentindo
+     * sobre um ponto novo.
+     */
+    @AssertTrue(message = "Envie lat, lng e coordinateSource juntos ao atualizar a coordenada")
+    @Schema(hidden = true)
+    public boolean isCoordinateSourceConsistent() {
+        return CoordinateProvenanceRules.sourceMatchesCoordinates(coordinateSource, lat, lng);
+    }
+
+    @AssertTrue(message = "Origem `legacy` é de uso interno e não pode ser enviada")
+    @Schema(hidden = true)
+    public boolean isCoordinateSourceAllowed() {
+        return CoordinateProvenanceRules.sourceIsClientAssignable(coordinateSource);
+    }
+
+    @AssertTrue(message = "Acurácia só se aplica a coordenada capturada por GPS (coordinateSource=device_gps)")
+    @Schema(hidden = true)
+    public boolean isAccuracyConsistent() {
+        return CoordinateProvenanceRules.accuracyMatchesSource(coordinateSource, coordinateAccuracyMeters);
+    }
+
+    @AssertTrue(message = "Confiança só se aplica a coordenada sugerida pelo lookup (coordinateSource=geocoded)")
+    @Schema(hidden = true)
+    public boolean isConfidenceConsistent() {
+        return CoordinateProvenanceRules.confidenceMatchesSource(coordinateSource, coordinateConfidence);
+    }
+}
