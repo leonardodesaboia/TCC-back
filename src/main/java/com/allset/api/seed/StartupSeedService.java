@@ -119,18 +119,18 @@ public class StartupSeedService {
 
         Instant now = Instant.now();
 
-        ServiceArea eletricaArea = saveServiceArea("Eletrica", "catalog/areas/eletrica.png");
+        ServiceArea eletricaArea = saveServiceArea("Elétrica", "catalog/areas/eletrica.png");
         ServiceArea limpezaArea = saveServiceArea("Limpeza", "catalog/areas/limpeza.png");
         ServiceArea pinturaArea = saveServiceArea("Pintura", "catalog/areas/pintura.png");
-        ServiceArea hidraulicaArea = saveServiceArea("Hidraulica", "catalog/areas/hidraulica.png");
+        ServiceArea hidraulicaArea = saveServiceArea("Hidráulica", "catalog/areas/hidraulica.png");
         ServiceArea jardinagemArea = saveServiceArea("Jardinagem", "catalog/areas/jardinagem.png");
         ServiceArea montagemArea = saveServiceArea("Montagem", "catalog/areas/montagem.png");
-        ServiceArea climatizacaoArea = saveServiceArea("Climatizacao", "catalog/areas/climatizacao.png");
+        ServiceArea climatizacaoArea = saveServiceArea("Climatização", "catalog/areas/climatizacao.png");
 
         ServiceCategory eletricistaCategory = saveServiceCategory(eletricaArea, "Eletricista", "catalog/categories/eletricista.png");
-        ServiceCategory luminariaCategory = saveServiceCategory(eletricaArea, "Instalacao de luminarias", "catalog/categories/luminarias.png");
+        ServiceCategory luminariaCategory = saveServiceCategory(eletricaArea, "Instalação de luminárias", "catalog/categories/luminarias.png");
         ServiceCategory diaristaCategory = saveServiceCategory(limpezaArea, "Diarista", "catalog/categories/diarista.png");
-        ServiceCategory limpezaPosObraCategory = saveServiceCategory(limpezaArea, "Limpeza pos-obra", "catalog/categories/limpeza-pos-obra.png");
+        ServiceCategory limpezaPosObraCategory = saveServiceCategory(limpezaArea, "Limpeza pós-obra", "catalog/categories/limpeza-pos-obra.png");
         ServiceCategory passadoriaCategory = saveServiceCategory(limpezaArea, "Passadoria", "catalog/categories/passadoria.png");
         ServiceCategory pintorCategory = saveServiceCategory(pinturaArea, "Pintor residencial", "catalog/categories/pintor.png");
         ServiceCategory texturaCategory = saveServiceCategory(pinturaArea, "Textura e acabamento", "catalog/categories/textura.png");
@@ -138,21 +138,21 @@ public class StartupSeedService {
         ServiceCategory desentupimentoCategory = saveServiceCategory(hidraulicaArea, "Desentupimento", "catalog/categories/desentupimento.png");
         ServiceCategory jardineiroCategory = saveServiceCategory(jardinagemArea, "Jardineiro", "catalog/categories/jardineiro.png");
         ServiceCategory podadorCategory = saveServiceCategory(jardinagemArea, "Podador", "catalog/categories/podador.png");
-        ServiceCategory montadorMoveisCategory = saveServiceCategory(montagemArea, "Montador de moveis", "catalog/categories/montador-moveis.png");
+        ServiceCategory montadorMoveisCategory = saveServiceCategory(montagemArea, "Montador de móveis", "catalog/categories/montador-moveis.png");
         ServiceCategory persianaCategory = saveServiceCategory(montagemArea, "Instalador de persianas", "catalog/categories/persianas.png");
-        ServiceCategory arCondicionadoCategory = saveServiceCategory(climatizacaoArea, "Tecnico em ar-condicionado", "catalog/categories/ar-condicionado.png");
-        ServiceCategory higienizacaoSplitCategory = saveServiceCategory(climatizacaoArea, "Higienizacao de split", "catalog/categories/higienizacao-split.png");
+        ServiceCategory arCondicionadoCategory = saveServiceCategory(climatizacaoArea, "Técnico em ar-condicionado", "catalog/categories/ar-condicionado.png");
+        ServiceCategory higienizacaoSplitCategory = saveServiceCategory(climatizacaoArea, "Higienização de split", "catalog/categories/higienizacao-split.png");
 
         SubscriptionPlan proPlan = saveSubscriptionPlan("Plano Pro", new BigDecimal("49.90"), true, true, "Pro", true);
         SubscriptionPlan destaquePlan = saveSubscriptionPlan("Plano Destaque", new BigDecimal("79.90"), true, true, "Destaque", true);
 
         User clientUser = saveUser("Cliente Seed", "52998224725", CLIENT_EMAIL, "+5585999990001", LocalDate.of(1995, 9, 15), UserRole.client, true, null, "avatars/client-seed.jpg");
-        User electricianUser = saveUser("Profissional Eletrica Seed", "11144477735", "eletrica@email.com", "+5585999990002", LocalDate.of(1990, 4, 20), UserRole.professional, true, null, "avatars/electrician-seed.jpg");
+        User electricianUser = saveUser("Profissional Elétrica Seed", "11144477735", "eletrica@email.com", "+5585999990002", LocalDate.of(1990, 4, 20), UserRole.professional, true, null, "avatars/electrician-seed.jpg");
         User backupElectricianUser = saveUser("Profissional Backup Seed", "12345678909", "profissional.backup.seed@allset.local", "+5585999990003", LocalDate.of(1993, 8, 11), UserRole.professional, true, null, "avatars/backup-electrician-seed.jpg");
         User cleanerUser = saveUser("Profissional Limpeza Seed", "98765432100", "profissional.limpeza.seed@allset.local", "+5585999990004", LocalDate.of(1992, 1, 8), UserRole.professional, true, null, "avatars/cleaner-seed.jpg");
         User adminUser = saveUser("Admin Seed", "22233344455", ADMIN_EMAIL, "+5585999990005", LocalDate.of(1988, 12, 3), UserRole.admin, true, null, "avatars/admin-seed.jpg");
         User bannedUser = saveUser("Usuario Banido Seed", "33344455566", "banido.seed@allset.local", "+5585999990006", LocalDate.of(1991, 6, 27), UserRole.client, false, "Conta suspensa para testes administrativos", null);
-        User plumberUser = saveUser("Profissional Hidraulica Seed", "44455566677", "profissional.hidraulica.seed@allset.local", "+5585999990007", LocalDate.of(1987, 5, 19), UserRole.professional, true, null, "avatars/plumber-seed.jpg");
+        User plumberUser = saveUser("Profissional Hidráulica Seed", "44455566677", "profissional.hidraulica.seed@allset.local", "+5585999990007", LocalDate.of(1987, 5, 19), UserRole.professional, true, null, "avatars/plumber-seed.jpg");
         User painterPendingUser = saveUser("Profissional Pintura Pendente Seed", "55566677788", "profissional.pintura.pending.seed@allset.local", "+5585999990008", LocalDate.of(1994, 2, 14), UserRole.professional, true, null, "avatars/painter-pending-seed.jpg");
         User rejectedProfessionalUser = saveUser("Profissional Rejeitado Seed", "66677788899", "profissional.rejeitado.seed@allset.local", "+5585999990009", LocalDate.of(1989, 10, 9), UserRole.professional, true, null, "avatars/rejected-professional-seed.jpg");
         User gardenerUser = saveUser("Profissional Jardinagem Seed", "77788899900", "profissional.jardinagem.seed@allset.local", "+5585999990010", LocalDate.of(1986, 7, 21), UserRole.professional, true, null, "avatars/gardener-seed.jpg");
@@ -202,7 +202,7 @@ public class StartupSeedService {
         );
         Professional backupElectricianProfessional = saveProfessional(
                 backupElectricianUser,
-                "Atendimento eletrico para manutencao e reparos emergenciais.",
+                "Atendimento elétrico para manutenção e reparos emergenciais.",
                 (short) 5,
                 new BigDecimal("130.00"),
                 VerificationStatus.approved,
@@ -215,7 +215,7 @@ public class StartupSeedService {
         );
         Professional cleanerProfessional = saveProfessional(
                 cleanerUser,
-                "Profissional de limpeza residencial com agenda flexivel.",
+                "Profissional de limpeza residencial com agenda flexível.",
                 (short) 6,
                 new BigDecimal("95.00"),
                 VerificationStatus.approved,
@@ -228,7 +228,7 @@ public class StartupSeedService {
         );
         Professional plumberProfessional = saveProfessional(
                 plumberUser,
-                "Encanador com foco em vazamentos, registros e manutencao emergencial.",
+                "Encanador com foco em vazamentos, registros e manutenção emergencial.",
                 (short) 9,
                 new BigDecimal("160.00"),
                 VerificationStatus.approved,
@@ -267,7 +267,7 @@ public class StartupSeedService {
         );
         Professional gardenerProfessional = saveProfessional(
                 gardenerUser,
-                "Jardineiro para manutencao de quintais, podas leves e organizacao de areas verdes.",
+                "Jardineiro para manutenção de quintais, podas leves e organização de áreas verdes.",
                 (short) 10,
                 new BigDecimal("115.00"),
                 VerificationStatus.approved,
@@ -280,7 +280,7 @@ public class StartupSeedService {
         );
         Professional assemblerProfessional = saveProfessional(
                 assemblerUser,
-                "Montagem de moveis, instalacao de persianas e pequenos ajustes residenciais.",
+                "Montagem de móveis, instalação de persianas e pequenos ajustes residenciais.",
                 (short) 8,
                 new BigDecimal("125.00"),
                 VerificationStatus.approved,
@@ -328,8 +328,8 @@ public class StartupSeedService {
         ProfessionalOffering electricianOffering = saveOffering(
                 electricianProfessional,
                 eletricistaCategory,
-                "Instalacao e troca de tomadas",
-                "Troca de tomadas, interruptores e pequenos ajustes de fiacao.",
+                "Instalação e troca de tomadas",
+                "Troca de tomadas, interruptores e pequenos ajustes de fiação.",
                 PricingType.fixed,
                 new BigDecimal("180.00"),
                 90,
@@ -338,8 +338,8 @@ public class StartupSeedService {
         ProfessionalOffering electricianInspectionOffering = saveOffering(
                 electricianProfessional,
                 eletricistaCategory,
-                "Diagnostico eletrico residencial",
-                "Visita tecnica para identificar curto, sobrecarga e falhas intermitentes.",
+                "Diagnóstico elétrico residencial",
+                "Visita técnica para identificar curto, sobrecarga e falhas intermitentes.",
                 PricingType.hourly,
                 null,
                 60,
@@ -348,8 +348,8 @@ public class StartupSeedService {
         ProfessionalOffering backupElectricianOffering = saveOffering(
                 backupElectricianProfessional,
                 eletricistaCategory,
-                "Reparo eletrico emergencial",
-                "Correcoes pontuais para quadros, disjuntores e tomadas queimadas.",
+                "Reparo elétrico emergencial",
+                "Correções pontuais para quadros, disjuntores e tomadas queimadas.",
                 PricingType.fixed,
                 new BigDecimal("165.00"),
                 80,
@@ -358,8 +358,8 @@ public class StartupSeedService {
         ProfessionalOffering cleanerOffering = saveOffering(
                 cleanerProfessional,
                 diaristaCategory,
-                "Limpeza pos-obra leve",
-                "Limpeza focada em apartamentos e pequenos escritorios apos manutencao.",
+                "Limpeza pós-obra leve",
+                "Limpeza focada em apartamentos e pequenos escritórios após manutenção.",
                 PricingType.fixed,
                 new BigDecimal("220.00"),
                 180,
@@ -378,8 +378,8 @@ public class StartupSeedService {
         ProfessionalOffering gardenerOffering = saveOffering(
                 gardenerProfessional,
                 jardineiroCategory,
-                "Manutencao de jardim residencial",
-                "Poda leve, limpeza de canteiros, adubacao basica e organizacao do jardim.",
+                "Manutenção de jardim residencial",
+                "Poda leve, limpeza de canteiros, adubação básica e organização do jardim.",
                 PricingType.fixed,
                 new BigDecimal("190.00"),
                 120,
@@ -388,8 +388,8 @@ public class StartupSeedService {
         ProfessionalOffering assemblerOffering = saveOffering(
                 assemblerProfessional,
                 montadorMoveisCategory,
-                "Montagem de moveis residenciais",
-                "Montagem de armarios, racks, paineis e moveis comprados desmontados.",
+                "Montagem de móveis residenciais",
+                "Montagem de armários, racks, painéis e móveis comprados desmontados.",
                 PricingType.fixed,
                 new BigDecimal("210.00"),
                 150,
@@ -426,7 +426,7 @@ public class StartupSeedService {
                 .categoryId(diaristaCategory.getId())
                 .mode(OrderMode.on_demand)
                 .status(OrderStatus.completed)
-                .description("Faxina completa apos reforma do escritorio")
+                .description("Faxina completa após reforma do escritório")
                 .addressId(clientOffice.getId())
                 .addressSnapshot(addressSnapshot(clientOffice))
                 .scheduledAt(now.minus(10, ChronoUnit.DAYS))
@@ -442,7 +442,7 @@ public class StartupSeedService {
 
         saveOrderHistory(completedOrder, null, OrderStatus.pending, "Pedido seed criado", clientUser.getId(), now.minus(11, ChronoUnit.DAYS));
         saveOrderHistory(completedOrder, OrderStatus.pending, OrderStatus.accepted, "Profissional aceitou o pedido", cleanerUser.getId(), now.minus(10, ChronoUnit.DAYS).plus(30, ChronoUnit.MINUTES));
-        saveOrderHistory(completedOrder, OrderStatus.accepted, OrderStatus.completed_by_pro, "Servico finalizado pelo profissional", cleanerUser.getId(), now.minus(9, ChronoUnit.DAYS));
+        saveOrderHistory(completedOrder, OrderStatus.accepted, OrderStatus.completed_by_pro, "Serviço finalizado pelo profissional", cleanerUser.getId(), now.minus(9, ChronoUnit.DAYS));
         saveOrderHistory(completedOrder, OrderStatus.completed_by_pro, OrderStatus.completed, "Cliente confirmou a conclusao", clientUser.getId(), now.minus(8, ChronoUnit.DAYS));
 
         orderPhotoRepository.save(OrderPhoto.builder()
@@ -563,23 +563,23 @@ public class StartupSeedService {
                 disputedOrder.getId(),
                 now.minus(3, ChronoUnit.DAYS).plus(1, ChronoUnit.HOURS),
                 now.minus(3, ChronoUnit.DAYS).plus(3, ChronoUnit.HOURS),
-                "Visita tecnica vinculada ao pedido"
+                "Visita técnica vinculada ao pedido"
         );
 
         Conversation disputedConversation = saveConversation(disputedOrder, electricianUser.getId());
         saveSystemMessage(disputedConversation, "Pedido aceito. Voces podem conversar por aqui.", now.minus(3, ChronoUnit.DAYS).plus(35, ChronoUnit.MINUTES));
         saveTextMessage(disputedConversation, clientUser.getId(), "A tomada voltou a falhar algumas horas depois.", now.minus(2, ChronoUnit.DAYS).plus(1, ChronoUnit.HOURS), now.minus(2, ChronoUnit.DAYS).plus(1, ChronoUnit.HOURS).plus(1, ChronoUnit.MINUTES), null);
         saveTextMessage(disputedConversation, electricianUser.getId(), "Posso retornar para revisar, mas vou registrar na disputa tambem.", now.minus(2, ChronoUnit.DAYS).plus(1, ChronoUnit.HOURS).plus(12, ChronoUnit.MINUTES), now.minus(2, ChronoUnit.DAYS).plus(1, ChronoUnit.HOURS).plus(13, ChronoUnit.MINUTES), null);
-        saveSystemMessage(disputedConversation, "Disputa aberta pelo cliente. Motivo: problema persistente apos o reparo.", now.minus(2, ChronoUnit.DAYS).plus(2, ChronoUnit.HOURS));
+        saveSystemMessage(disputedConversation, "Disputa aberta pelo cliente. Motivo: problema persistente após o reparo.", now.minus(2, ChronoUnit.DAYS).plus(2, ChronoUnit.HOURS));
         saveSystemMessage(disputedConversation, "Disputa resolvida pelo admin com reembolso parcial.", now.minus(1, ChronoUnit.DAYS));
 
         Dispute dispute = disputeRepository.save(Dispute.builder()
                 .orderId(disputedOrder.getId())
                 .openedBy(clientUser.getId())
-                .reason("O reparo nao resolveu o problema por completo.")
+                .reason("O reparo não resolveu o problema por completo.")
                 .status(DisputeStatus.resolved)
                 .resolution(DisputeResolution.refund_partial)
-                .adminNotes("Profissional comprovou comparecimento, mas houve falha parcial no servico.")
+                .adminNotes("Profissional comprovou comparecimento, mas houve falha parcial no serviço.")
                 .clientRefundAmount(new BigDecimal("80.00"))
                 .professionalAmount(new BigDecimal("120.00"))
                 .resolvedBy(adminUser.getId())
@@ -648,7 +648,7 @@ public class StartupSeedService {
                 .userId(electricianUser.getId())
                 .type(NotificationType.new_request)
                 .title("Nova solicitacao Express")
-                .body("Ha um novo pedido de eletrica aguardando proposta.")
+                .body("Há um novo pedido de elétrica aguardando proposta.")
                 .data(orderData(pendingExpressOrder.getId()))
                 .sentAt(now.minus(10, ChronoUnit.MINUTES))
                 .build());
@@ -697,7 +697,7 @@ public class StartupSeedService {
                 .userId(electricianUser.getId())
                 .type(NotificationType.dispute_opened)
                 .title("Disputa aberta")
-                .body("O cliente abriu uma disputa para o pedido de eletrica.")
+                .body("O cliente abriu uma disputa para o pedido de elétrica.")
                 .data(disputeData(dispute.getId(), disputedOrder.getId()))
                 .sentAt(now.minus(2, ChronoUnit.DAYS).plus(2, ChronoUnit.HOURS))
                 .build());

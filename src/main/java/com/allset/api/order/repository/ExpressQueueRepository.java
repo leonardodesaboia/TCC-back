@@ -37,6 +37,8 @@ public interface ExpressQueueRepository extends JpaRepository<ExpressQueueEntry,
 
     long countByOrderIdAndProResponse(UUID orderId, ProResponse proResponse);
 
+    long countByOrderId(UUID orderId);
+
     /**
      * Rejeita em lote todas as propostas aceitas de um pedido, exceto a escolhida pelo cliente.
      */

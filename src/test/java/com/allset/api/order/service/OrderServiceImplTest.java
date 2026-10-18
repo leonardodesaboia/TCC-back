@@ -1914,6 +1914,7 @@ class OrderServiceImplTest {
                 order.getUpdatedAt(),
                 List.of(),
                 null,
+                null,
                 null
         );
     }

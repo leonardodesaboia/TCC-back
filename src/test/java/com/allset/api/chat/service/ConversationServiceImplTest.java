@@ -48,6 +48,12 @@ class ConversationServiceImplTest {
     @Mock
     private com.allset.api.professional.service.ProfessionalService professionalService;
 
+    @Mock
+    private com.allset.api.order.repository.OrderRepository orderRepository;
+
+    @Mock
+    private com.allset.api.user.repository.UserRepository userRepository;
+
     @InjectMocks
     private ConversationServiceImpl conversationService;
 

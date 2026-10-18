@@ -202,7 +202,7 @@ troca de serviço aceita pelo cliente.
 
 ## Migration Plan
 
-`V25__add_scope_mismatch_to_orders.sql` (já aplicada):
+`V25_1__add_scope_mismatch_to_orders.sql` (já aplicada; renomeada de `V25__` porque colidia com `V25__add_coordinate_provenance_to_saved_addresses.sql` no merge):
 ```sql
 ALTER TABLE orders ADD COLUMN scope_mismatch BOOLEAN NOT NULL DEFAULT false;
 ```

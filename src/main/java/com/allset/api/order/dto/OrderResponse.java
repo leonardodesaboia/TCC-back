@@ -51,5 +51,7 @@ public record OrderResponse(
         Instant updatedAt,
         List<OrderPhotoResponse> photos,
         String professionalName,
-        String serviceName
+        String serviceName,
+        /** Quantos profissionais foram avisados do pedido Express. Só preenchido para o cliente dono do pedido. */
+        Integer notifiedProfessionals
 ) {}

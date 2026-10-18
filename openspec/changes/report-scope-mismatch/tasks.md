@@ -1,6 +1,6 @@
 ## 1. Banco de dados
 
-- [x] 1.1 Criar `src/main/resources/db/migration/V25__add_scope_mismatch_to_orders.sql` com
+- [x] 1.1 Criar `src/main/resources/db/migration/V25_1__add_scope_mismatch_to_orders.sql` com
       `ALTER TABLE orders ADD COLUMN scope_mismatch BOOLEAN NOT NULL DEFAULT false;` e
       verificar que a aplicação sobe sem erro de migration (`./mvnw spring-boot:run` ou
       `FlywaySchemaSmokeTest`)
