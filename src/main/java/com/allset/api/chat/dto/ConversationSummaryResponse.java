@@ -16,6 +16,9 @@ public record ConversationSummaryResponse(
         @Schema(description = "ID do outro participante (não é o usuário autenticado)")
         UUID otherParticipantId,
 
+        @Schema(description = "Nome do outro participante", nullable = true)
+        String otherParticipantName,
+
         @Schema(description = "Última mensagem da conversa. Nulo se sem mensagens", nullable = true)
         MessageResponse lastMessage,
 

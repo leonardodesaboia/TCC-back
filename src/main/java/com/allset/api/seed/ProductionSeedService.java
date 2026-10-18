@@ -59,19 +59,19 @@ public class ProductionSeedService {
     }
 
     private void seedAreas() {
-        ServiceArea eletrica = saveArea("Eletrica", "catalog/areas/eletrica.png");
+        ServiceArea eletrica = saveArea("Elétrica", "catalog/areas/eletrica.png");
         ServiceArea limpeza = saveArea("Limpeza", "catalog/areas/limpeza.png");
         ServiceArea pintura = saveArea("Pintura", "catalog/areas/pintura.png");
-        ServiceArea hidraulica = saveArea("Hidraulica", "catalog/areas/hidraulica.png");
+        ServiceArea hidraulica = saveArea("Hidráulica", "catalog/areas/hidraulica.png");
         ServiceArea jardinagem = saveArea("Jardinagem", "catalog/areas/jardinagem.png");
         ServiceArea montagem = saveArea("Montagem", "catalog/areas/montagem.png");
-        ServiceArea climatizacao = saveArea("Climatizacao", "catalog/areas/climatizacao.png");
+        ServiceArea climatizacao = saveArea("Climatização", "catalog/areas/climatizacao.png");
 
         saveCategory(eletrica, "Eletricista", "catalog/categories/eletricista.png");
-        saveCategory(eletrica, "Instalacao de luminarias", "catalog/categories/luminarias.png");
+        saveCategory(eletrica, "Instalação de luminárias", "catalog/categories/luminarias.png");
 
         saveCategory(limpeza, "Diarista", "catalog/categories/diarista.png");
-        saveCategory(limpeza, "Limpeza pos-obra", "catalog/categories/limpeza-pos-obra.png");
+        saveCategory(limpeza, "Limpeza pós-obra", "catalog/categories/limpeza-pos-obra.png");
         saveCategory(limpeza, "Passadoria", "catalog/categories/passadoria.png");
 
         saveCategory(pintura, "Pintor residencial", "catalog/categories/pintor.png");
@@ -83,11 +83,11 @@ public class ProductionSeedService {
         saveCategory(jardinagem, "Jardineiro", "catalog/categories/jardineiro.png");
         saveCategory(jardinagem, "Podador", "catalog/categories/podador.png");
 
-        saveCategory(montagem, "Montador de moveis", "catalog/categories/montador-moveis.png");
+        saveCategory(montagem, "Montador de móveis", "catalog/categories/montador-moveis.png");
         saveCategory(montagem, "Instalador de persianas", "catalog/categories/persianas.png");
 
-        saveCategory(climatizacao, "Tecnico em ar-condicionado", "catalog/categories/ar-condicionado.png");
-        saveCategory(climatizacao, "Higienizacao de split", "catalog/categories/higienizacao-split.png");
+        saveCategory(climatizacao, "Técnico em ar-condicionado", "catalog/categories/ar-condicionado.png");
+        saveCategory(climatizacao, "Higienização de split", "catalog/categories/higienizacao-split.png");
     }
 
     private void seedSubscriptionPlans() {

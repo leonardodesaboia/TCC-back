@@ -356,7 +356,11 @@ public class OrderServiceImpl implements OrderService {
                         .orElse(null);
             }
         }
-        return orderMapper.toResponse(order, photoRepository.findAllByOrderId(orderId), queueEntry, professionalName, serviceName);
+        Integer notifiedProfessionals = isClient && order.getMode() == OrderMode.express
+                ? (int) queueRepository.countByOrderId(orderId)
+                : null;
+        return orderMapper.toResponse(order, photoRepository.findAllByOrderId(orderId), queueEntry,
+                professionalName, serviceName, notifiedProfessionals);
     }
 
     @Override

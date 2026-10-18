@@ -278,7 +278,7 @@ class OrderControllerTest {
                 scopeMismatch, null, null, null,
                 null, null, null, null,
                 0, null, null,
-                List.of(), null, null
+                List.of(), null, null, null
         );
     }
 }

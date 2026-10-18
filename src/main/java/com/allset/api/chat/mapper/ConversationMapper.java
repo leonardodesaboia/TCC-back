@@ -10,17 +10,22 @@ import java.util.List;
 public class ConversationMapper {
 
     public ConversationResponse toResponse(Conversation conversation) {
-        return toResponse(conversation, null);
+        return toResponse(conversation, null, null);
     }
 
     public ConversationResponse toResponse(Conversation conversation, String orderStatus) {
+        return toResponse(conversation, orderStatus, null);
+    }
+
+    public ConversationResponse toResponse(Conversation conversation, String orderStatus, String otherParticipantName) {
         return new ConversationResponse(
                 conversation.getId(),
                 conversation.getOrderId(),
                 conversation.getClientId(),
                 conversation.getProfessionalUserId(),
                 conversation.getCreatedAt(),
-                orderStatus
+                orderStatus,
+                otherParticipantName
         );
     }
 
