@@ -11,6 +11,7 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 import com.allset.api.config.AppProperties;
+import java.util.Arrays;
 
 /**
  * Configuração do broker STOMP em memória (MVP de instância única).
@@ -38,7 +39,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // Em produção, FRONTEND_URL deve ser o domínio exato — nunca manter "*" em prod.
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns(appProperties.frontendUrl())
+                .setAllowedOriginPatterns(Arrays.stream(appProperties.frontendUrl().split(","))
+                        .map(String::trim).filter(origin -> !origin.isEmpty()).toArray(String[]::new))
                 .withSockJS();
     }
 

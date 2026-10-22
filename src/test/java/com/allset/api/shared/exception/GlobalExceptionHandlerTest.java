@@ -41,6 +41,19 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void shouldKeepBadRequestWhenOneFieldHasMultipleValidationErrors() throws Exception {
+        BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new Object(), "request");
+        bindingResult.addError(new FieldError("request", "password", "Senha é obrigatória"));
+        bindingResult.addError(new FieldError("request", "password", "Senha deve ter pelo menos 8 caracteres"));
+        MethodParameter parameter = new MethodParameter(DummyController.class.getDeclaredMethod("handle", String.class), 0);
+        ResponseEntity<ApiError> response = handler.handleValidation(
+                new MethodArgumentNotValidException(parameter, bindingResult), request("POST", "/api/users"));
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().fields().get("password"))
+                .contains("Senha é obrigatória", "pelo menos 8 caracteres");
+    }
+
+    @Test
     void shouldReturnNotFoundPayload() {
         UUID id = UUID.randomUUID();
 

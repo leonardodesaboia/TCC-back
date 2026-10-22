@@ -111,7 +111,8 @@ public record AppProperties(
 
         /**
          * URL do frontend permitida para conexões WebSocket e CORS.
-         * Em produção deve ser o domínio exato (ex: https://app.allset.com.br).
+         * Aceita origens exatas separadas por vírgula. Em produção deve conter
+         * somente os domínios usados pelo app (ex: https://app.allset.com.br).
          * Em desenvolvimento aceita qualquer origem por padrão.
          */
         @DefaultValue("*")

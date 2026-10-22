@@ -131,6 +131,9 @@ class OrderChatFlowIntegrationTest {
     private ProfessionalRepository professionalRepository;
 
     @Autowired
+    private com.allset.api.professional.repository.ProfessionalSpecialtyRepository professionalSpecialtyRepository;
+
+    @Autowired
     private SavedAddressRepository savedAddressRepository;
 
     @Autowired
@@ -158,6 +161,7 @@ class OrderChatFlowIntegrationTest {
         expressQueueRepository.deleteAll();
         orderRepository.deleteAll();
         professionalOfferingRepository.deleteAll();
+        professionalSpecialtyRepository.deleteAll();
         professionalRepository.deleteAll();
         savedAddressRepository.deleteAll();
         serviceCategoryRepository.deleteAll();
@@ -173,6 +177,9 @@ class OrderChatFlowIntegrationTest {
         Professional professional = createProfessional(professionalUser.getId());
         ServiceArea area = createArea();
         ServiceCategory category = createCategory(area.getId());
+        professionalSpecialtyRepository.save(com.allset.api.professional.domain.ProfessionalSpecialty.builder()
+                .professionalId(professional.getId()).categoryId(category.getId())
+                .hourlyRate(new BigDecimal("80.00")).build());
         createOffering(professional.getId(), category.getId());
         SavedAddress address = createAddress(client.getId());
 
@@ -293,6 +300,7 @@ class OrderChatFlowIntegrationTest {
         String cpfHash = ("%064d").formatted(current);
 
         User user = User.builder()
+                .birthDate(java.time.LocalDate.of(1995, 1, 1))
                 .name("Usuario " + current)
                 .cpf(cpf)
                 .cpfHash(cpfHash)
