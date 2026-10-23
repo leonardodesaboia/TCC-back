@@ -18,6 +18,8 @@ No Easypanel, o domínio da API deve selecionar o serviço Compose `app`, porta 
 
 No perfil `prod`, Swagger/OpenAPI permanecem desabilitados pela configuração existente. Requisições a esses recursos inexistentes retornam `404`, em vez de serem convertidas em erro interno `500` pelo tratamento genérico.
 
+Os 22 ícones iniciais ficam em `src/main/resources/catalog/`, com licença Ionicons incluída. O seed do banco registra suas chaves, mas não envia os arquivos. Para preencher objetos ausentes, instale `boto3`, configure as variáveis `MINIO_PUBLIC_ENDPOINT`, `MINIO_ACCESS_KEY` e `MINIO_SECRET_KEY` no ambiente e execute `python scripts/seed_catalog_icons.py`. O script preserva todos os objetos já existentes. Para reproduzir os PNGs, instale Pillow e execute `python scripts/generate_catalog_icons.py CAMINHO_DO_FRONTEND`; ele usa a fonte de `@expo/vector-icons` presente em `node_modules` do frontend.
+
 ---
 
 ## Stack
