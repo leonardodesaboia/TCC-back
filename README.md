@@ -14,6 +14,10 @@ O frontend pode ser iniciado por `npm run web:cloud`, usando o proxy existente d
 
 Foram corrigidos o agrupamento de múltiplos erros de validação de um mesmo campo e a versão do springdoc para a linha Spring Boot 3.5. Testes de regressão exercitam CORS, autorização, cadastro vazio e `/v3/api-docs`. Referências: [CORS no Spring Security](https://docs.spring.io/spring-security/reference/servlet/integrations/cors.html) e [springdoc 2.8.14](https://github.com/springdoc/springdoc-openapi/releases/tag/v2.8.14).
 
+No Easypanel, o domínio da API deve selecionar o serviço Compose `app`, porta `8080`. Configure também um domínio HTTPS para `minio`, porta `9000`, e use essa origem em `MINIO_PUBLIC_ENDPOINT`; assim as imagens e URLs assinadas não dependem de HTTP. O Compose permite leitura anônima somente em `${MINIO_BUCKET_PREFIX:-allset}-catalog-icons`, conforme a visibilidade pública desse catálogo. Não concede listagem, escrita ou leitura dos buckets privados. A configuração nativa de identidades do SeaweedFS é necessária porque a versão 3.80 não aplica a política S3 enviada pelo inicializador.
+
+No perfil `prod`, Swagger/OpenAPI permanecem desabilitados pela configuração existente. Requisições a esses recursos inexistentes retornam `404`, em vez de serem convertidas em erro interno `500` pelo tratamento genérico.
+
 ---
 
 ## Stack
