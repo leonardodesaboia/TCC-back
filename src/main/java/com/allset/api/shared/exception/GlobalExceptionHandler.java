@@ -91,7 +91,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex,
                                                      HttpServletRequest request) {
         Map<String, String> fields = ex.getBindingResult().getFieldErrors().stream()
-            .collect(Collectors.toMap(FieldError::getField, FieldError::getDefaultMessage));
+            .collect(Collectors.toMap(FieldError::getField,
+                    error -> error.getDefaultMessage() == null ? "Valor inválido" : error.getDefaultMessage(),
+                    (first, next) -> first.equals(next) ? first : first + "; " + next));
 
         log.warn("status=400 method={} path={} fields={}",
             request.getMethod(), request.getRequestURI(), fields);

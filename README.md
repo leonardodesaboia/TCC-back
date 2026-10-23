@@ -3,6 +3,17 @@
 Backend da plataforma **All Set** — marketplace de serviços autônomos.
 API REST construída com Spring Boot 3.5, Java 21 e PostgreSQL.
 
+## Integração web com a API hospedada
+
+API verificada pela equipe: `https://allset-tcc-allset-compose.vn6tpb.easypanel.host`.
+A URL pública não fornece acesso administrativo ao Easypanel nem identifica o commit implantado.
+
+O CORS REST agora usa `FRONTEND_URL` na cadeia do Spring Security. Configure uma origem exata ou várias separadas por vírgula, por exemplo `http://localhost:8090,https://app.exemplo.com`. O valor `*` mantém a configuração de desenvolvimento já prevista; em produção, use as origens necessárias. Preflight não exige JWT, mas as requisições às rotas protegidas continuam exigindo Bearer. Cookies entre origens não são habilitados.
+
+O frontend pode ser iniciado por `npm run web:cloud`, usando o proxy existente do Metro. Isso permite trabalhar com a versão hospedada mesmo antes de publicar esta correção de CORS. Alterar o código local não altera o servidor remoto; publicar e retestar no Easypanel continua sendo uma etapa separada.
+
+Foram corrigidos o agrupamento de múltiplos erros de validação de um mesmo campo e a versão do springdoc para a linha Spring Boot 3.5. Testes de regressão exercitam CORS, autorização, cadastro vazio e `/v3/api-docs`. Referências: [CORS no Spring Security](https://docs.spring.io/spring-security/reference/servlet/integrations/cors.html) e [springdoc 2.8.14](https://github.com/springdoc/springdoc-openapi/releases/tag/v2.8.14).
+
 ---
 
 ## Stack
@@ -552,7 +563,7 @@ Dependências fora do Spring Initializr incluídas no `pom.xml`:
 | Dependência | Versão | Finalidade |
 |---|---|---|
 | `spring-dotenv` | 4.0.0 | Carrega automaticamente o arquivo `.env` como propriedades Spring |
-| `springdoc-openapi-starter-webmvc-ui` | 2.8.3 | Swagger UI e geração do contrato OpenAPI |
+| `springdoc-openapi-starter-webmvc-ui` | 2.8.14 | Swagger UI e geração do contrato OpenAPI |
 
 ---
 

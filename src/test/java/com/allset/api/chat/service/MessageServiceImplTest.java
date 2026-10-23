@@ -57,6 +57,9 @@ class MessageServiceImplTest {
     @InjectMocks
     private MessageServiceImpl messageService;
 
+    @Mock
+    private com.allset.api.order.repository.OrderRepository orderRepository;
+
     @Test
     void sendTextShouldNotifyTheOtherParticipant() {
         UUID conversationId = UUID.randomUUID();
@@ -95,6 +98,9 @@ class MessageServiceImplTest {
         );
 
         when(conversationService.requireParticipant(conversationId, senderId)).thenReturn(conversation);
+        when(orderRepository.findByIdAndDeletedAtIsNull(conversation.getOrderId()))
+                .thenReturn(java.util.Optional.of(com.allset.api.order.domain.Order.builder()
+                        .status(com.allset.api.order.domain.OrderStatus.accepted).build()));
         when(messageRepository.save(any(Message.class))).thenReturn(saved);
         when(messageMapper.toResponse(saved)).thenReturn(response);
         when(objectMapper.createObjectNode()).thenReturn(new ObjectMapper().createObjectNode());

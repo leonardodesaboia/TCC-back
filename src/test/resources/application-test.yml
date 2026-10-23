@@ -1,0 +1,2 @@
+# Apenas o perfil de testes: valor identificável, sem depender do .env de desenvolvimento.
+geocoding-user-agent: AllSet-Test/1.0 (test@example.com)

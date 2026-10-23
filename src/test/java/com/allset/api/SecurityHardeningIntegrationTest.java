@@ -33,6 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
@@ -76,6 +77,22 @@ class SecurityHardeningIntegrationTest {
     private ProfessionalRepository professionalRepository;
 
     private final AtomicInteger sequence = new AtomicInteger(1);
+
+    @Test
+    void shouldReturnFieldErrorsForEmptyRegistrationInsteadOfAuthenticationError() throws Exception {
+        mockMvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.fields").isNotEmpty());
+    }
+
+    @Test
+    void shouldGenerateOpenApiWithControllerAdviceEnabled() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.openapi").isNotEmpty())
+                .andExpect(jsonPath("$.paths").isNotEmpty());
+    }
 
     @Test
     void shouldBlockCrossUserProfileAndAddressAccess() throws Exception {
@@ -146,6 +163,7 @@ class SecurityHardeningIntegrationTest {
         int current = sequence.getAndIncrement();
         String unique = UUID.randomUUID().toString().replace("-", "");
         return userRepository.save(User.builder()
+                .birthDate(java.time.LocalDate.of(1995, 1, 1))
                 .name("Usuario " + current)
                 .cpf(unique.substring(0, 11))
                 .cpfHash((unique + unique).substring(0, 64))
