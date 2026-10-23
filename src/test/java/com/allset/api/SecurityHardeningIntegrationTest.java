@@ -79,6 +79,13 @@ class SecurityHardeningIntegrationTest {
     private final AtomicInteger sequence = new AtomicInteger(1);
 
     @Test
+    void shouldReturnNotFoundForMissingDocumentationResource() throws Exception {
+        mockMvc.perform(get("/v3/api-docs/nonexistent-resource"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
     void shouldReturnFieldErrorsForEmptyRegistrationInsteadOfAuthenticationError() throws Exception {
         mockMvc.perform(post("/api/users").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())

@@ -36,11 +36,13 @@ services:
     command:
       - |
         mkdir -p /etc/seaweedfs
-        printf '{"identities":[{"name":"allset","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}' "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" > /etc/seaweedfs/s3.json
+        printf '{"identities":[{"name":"allset","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]},{"name":"anonymous","actions":["Read:%s-catalog-icons"]}]}' "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" "$$S3_BUCKET_PREFIX" > /etc/seaweedfs/s3.json
         exec weed server -dir=/data -ip.bind=0.0.0.0 -volume.max=100 -master.volumeSizeLimitMB=64 -s3 -s3.port=9000 -s3.config=/etc/seaweedfs/s3.json
     environment:
       S3_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       S3_SECRET_KEY: ${MINIO_SECRET_KEY}
+      # Somente os ícones do catálogo são públicos; demais buckets exigem assinatura.
+      S3_BUCKET_PREFIX: ${MINIO_BUCKET_PREFIX:-allset}
     ports:
       - "${MINIO_API_PORT:-9000}:9000"
     volumes:
